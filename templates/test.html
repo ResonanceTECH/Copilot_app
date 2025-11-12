@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Помощник для Малого Бизнеса</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        #chat-box {
+            border: 1px solid #ddd;
+            height: 300px;
+            overflow-y: auto;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+            background-color: #fafafa;
+        }
+        .user-message, .assistant-message {
+            margin-bottom: 15px;
+            padding: 15px;
+            border-radius: 8px;
+            line-height: 1.5;
+        }
+        .user-message {
+            background-color: #e3f2fd;
+            text-align: left;
+            border-left: 4px solid #2196f3;
+        }
+        .assistant-message {
+            background-color: #f0f4c3;
+            text-align: left;
+            border-left: 4px solid #cddc39;
+        }
+        .error-message {
+            background-color: #ffebee;
+            color: #c62828;
+            border-left: 4px solid #f44336;
+        }
+        .timestamp {
+            font-size: 0.8em;
+            color: #666;
+            margin-top: 8px;
+            text-align: right;
+        }
+        #question-input {
+            width: calc(100% - 100px);
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        button {
+            padding: 12px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .loading {
+            color: #666;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 Помощник для Вашего Бизнеса</h1>
+        <p>Задайте вопрос по юриспруденции, маркетингу, финансам или другим аспектам бизнеса.</p>
+
+        <div id="chat-box">
+            <div class="assistant-message">
+                Здравствуйте! Я ваш бизнес-помощник. Задайте любой вопрос по юридическим, маркетинговым или финансовым аспектам вашего бизнеса.
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 10px;">
+            <input type="text" id="question-input" placeholder="Введите ваш вопрос здесь..." autocomplete="off">
+            <button id="ask-button" onclick="askQuestion()">Спросить</button>
+        </div>
+    </div>
+
+    <script>
+        const chatBox = document.getElementById('chat-box');
+        const questionInput = document.getElementById('question-input');
+        const askButton = document.getElementById('ask-button');
+
+        // Функция для добавления сообщения в чат
+        function addMessage(content, isUser = false, isError = false) {
+            const messageDiv = document.createElement('div');
+
+            if (isError) {
+                messageDiv.className = 'error-message';
+            } else {
+                messageDiv.className = isUser ? 'user-message' : 'assistant-message';
+            }
+
+            const timestamp = new Date().toLocaleTimeString('ru-RU', {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+
+            // Обрабатываем разные форматы ответа
+            let displayContent = content;
+
+            if (typeof content === 'object') {
+                // Если пришел объект, пытаемся извлечь текст
+                if (content.response && content.response.formatted_html) {
+                    displayContent = content.response.formatted_html;
+                } else if (content.response && content.response.raw_text) {
+                    displayContent = content.response.raw_text;
+                } else if (content.error) {
+                    displayContent = `Ошибка: ${content.error}`;
+                } else {
+                    displayContent = JSON.stringify(content);
+                }
+            }
+
+            // Форматируем текст для читаемости
+            if (typeof displayContent === 'string' && displayContent.includes('</p>') || displayContent.includes('<br>')) {
+                // Если уже есть HTML-разметка
+                messageDiv.innerHTML = displayContent + `<div class="timestamp">${timestamp}</div>`;
+            } else {
+                // Форматируем простой текст
+                const formattedContent = String(displayContent)
+                    .replace(/\n\n/g, '</p><p>')
+                    .replace(/\n/g, '<br>');
+                messageDiv.innerHTML = `<p>${formattedContent}</p><div class="timestamp">${timestamp}</div>`;
+            }
+
+            chatBox.appendChild(messageDiv);
+            // Прокручиваем чат вниз к новому сообщению
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        // Функция для показа индикатора загрузки
+        function showLoading() {
+            const loadingDiv = document.createElement('div');
+            loadingDiv.id = 'loading-message';
+            loadingDiv.className = 'assistant-message loading';
+            loadingDiv.innerHTML = 'Ищу ответ...';
+            chatBox.appendChild(loadingDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        // Функция для скрытия индикатора загрузки
+        function hideLoading() {
+            const loadingDiv = document.getElementById('loading-message');
+            if (loadingDiv) {
+                loadingDiv.remove();
+            }
+        }
+
+        // Функция для отправки вопроса на сервер
+        async function askQuestion() {
+            const question = questionInput.value.trim();
+            if (!question) return;
+
+            // Блокируем кнопку и поле ввода на время запроса
+            askButton.disabled = true;
+            questionInput.disabled = true;
+
+            // Показываем вопрос пользователя в чате
+            addMessage(question, true);
+            questionInput.value = ''; // Очищаем поле ввода
+
+            // Показываем индикатор загрузки
+            showLoading();
+
+            try {
+                // Отправляем POST-запрос на наш эндпоинт /ask
+                const response = await fetch('/ask', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ question: question })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    // Успешный ответ - используем форматированный HTML
+                    addMessage(data.response.formatted_html || data.response.raw_text);
+                } else {
+                    // Ошибка от сервера
+                    addMessage(data.error || 'Неизвестная ошибка сервера', false, true);
+                }
+            } catch (error) {
+                // Обрабатываем ошибки сети и т.д.
+                console.error('Ошибка:', error);
+                addMessage('Произошла ошибка при связи с сервером. Проверьте подключение к интернету.', false, true);
+            } finally {
+                // Разблокируем кнопку и поле ввода
+                askButton.disabled = false;
+                questionInput.disabled = false;
+                questionInput.focus();
+                // Скрываем индикатор загрузки
+                hideLoading();
+            }
+        }
+
+        // Позволяем отправлять вопрос нажатием Enter
+        questionInput.addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                askQuestion();
+            }
+        });
+
+        // Фокусируемся на поле ввода при загрузке страницы
+        questionInput.focus();
+    </script>
+</body>
+</html>

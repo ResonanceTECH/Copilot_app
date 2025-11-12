@@ -2,20 +2,15 @@ import os
 from flask import Flask, request, jsonify, render_template
 from openai import OpenAI
 from dotenv import load_dotenv
-
-# Загружаем переменные окружения из .env файла
+from datetime import datetime
 load_dotenv()
-
-# Создаем Flask приложение
 app = Flask(__name__)
 
-# Инициализируем клиент OpenAI для работы с OpenRouter
 client = OpenAI(
     base_url="https://openrouter.ai/api/v1",
-    api_key=os.getenv('OPENROUTER_API_KEY')  # Теперь ключ берется из .env
+    api_key='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'  # Явно передаем ключ
 )
 
-# Системный промпт, который задает "личность" нашему ассистенту
 SYSTEM_PROMPT = """
 Ты — полезный AI-ассистент для владельцев малого бизнеса.
 Твоя задача — давать четкие, практичные и полезные советы по ключевым аспектам бизнеса:
@@ -28,14 +23,32 @@ SYSTEM_PROMPT = """
 Отвечай на русском языке. Будь краток, но информативен. Если вопрос выходит за рамки твоей компетенции, вежливо откажись отвечать.
 """
 
+
+def format_response(text):
+    """Преобразует простой текст в базовый HTML с форматированием"""
+    if not text:
+        return text
+
+    formatted = text.replace('\n\n', '</p><p>')
+    formatted = formatted.replace('\n', '<br>')
+
+    if not formatted.startswith('<p>'):
+        formatted = f'<p>{formatted}</p>'
+
+    return formatted
+
+
 @app.route('/')
 def index():
-    """Отдает главную страницу с интерфейсом."""
-    return render_template('index.html')
+    return render_template('test.html')
 
 
 @app.route('/ask', methods=['POST'])
 def ask_question():
+    """
+    Эндпоинт для обработки вопросов от пользователя.
+    Получает JSON с вопросом, отправляет его в LLM через OpenRouter и возвращает ответ.
+    """
     try:
         data = request.get_json()
         user_question = data.get('question', '')
@@ -48,19 +61,16 @@ def ask_question():
                 "HTTP-Referer": "http://localhost:5000",
                 "X-Title": "Business Assistant",
             },
-            extra_body={},
             model="tngtech/deepseek-r1t2-chimera:free",
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": user_question}
             ],
-            max_tokens=800,
             temperature=0.7
         )
 
         ai_response = completion.choices[0].message.content
 
-        # Преобразуем текст в HTML с базовым форматированием
         formatted_response = format_response(ai_response)
 
         return jsonify({
@@ -73,31 +83,12 @@ def ask_question():
         })
 
     except Exception as e:
-        print(f"Произошла ошибка: {e}")
+        print(f"Произошла ошибка при обращении к OpenRouter: {e}")
         return jsonify({
             'success': False,
-            'error': 'Произошла ошибка при получении ответа от AI.'
+            'error': f'Произошла ошибка при получении ответа от AI: {str(e)}'
         }), 500
 
-
-def format_response(text):
-    """Преобразует простой текст в базовый HTML с форматированием"""
-    if not text:
-        return text
-
-    # Заменяем переносы строк на HTML теги
-    formatted = text.replace('\n\n', '</p><p>')
-    formatted = formatted.replace('\n', '<br>')
-
-    # Оборачиваем в параграфы если нужно
-    if not formatted.startswith('<p>'):
-        formatted = f'<p>{formatted}</p>'
-
-    # Простое форматирование списков (можно улучшить)
-    formatted = formatted.replace('• ', '<li>').replace('•', '<li>')
-    formatted = formatted.replace(' - ', '<li>')
-
-    return formatted
 
 if __name__ == '__main__':
     app.run(debug=True)
