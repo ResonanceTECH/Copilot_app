@@ -150,24 +150,17 @@
             transform: translateY(-50%);
         }
 
-        .nested-list {
-            margin: 8px 0 0 0;
-            padding-left: 20px;
-            list-style: none;
+        .list-section {
+            margin: 25px 0;
         }
 
-        .nested-list-item {
-            background: transparent;
-            margin: 6px 0;
-            padding: 8px 12px;
-            border-left: 2px solid #b0bec5;
-            font-size: 14px;
-        }
-
-        .nested-list-item::before {
-            content: "—";
-            color: #78909c;
-            left: 8px;
+        .list-section-title {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 12px;
+            font-size: 1.1em;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #e1e8ed;
         }
 
         .input-container {
@@ -259,7 +252,6 @@
             60%, 100% { content: '...'; }
         }
 
-        /* Стили для скроллбара */
         #chat-box::-webkit-scrollbar {
             width: 6px;
         }
@@ -278,7 +270,6 @@
             background: linear-gradient(135deg, #5a6fd8, #6a4190);
         }
 
-        /* Адаптивность */
         @media (max-width: 768px) {
             body {
                 padding: 10px;
@@ -334,113 +325,199 @@
 
         // Функция для форматирования текстовых ответов
         function formatTextResponse(text) {
-            if (!text || typeof text !== 'string') {
-                return '<p class="response-text">Нет ответа</p>';
-            }
+    if (!text || typeof text !== 'string') {
+        return '<p class="response-text">Нет ответа</p>';
+    }
 
-            // Очищаем от маркеров форматирования
-            let cleanedText = text
-                .replace(/\*\*/g, '')
-                .replace(/\*/g, '')
-                .replace(/__/g, '')
-                .trim();
+    // Минимальная очистка текста
+    let cleanedText = text
+        .replace(/\*\*/g, '')
+        .replace(/__/g, '')
+        .trim();
 
-            // Разделяем на абзацы
-            const paragraphs = cleanedText.split('\n\n').filter(p => p.trim());
+    // Если текст короткий или не содержит сложной структуры
+    if (cleanedText.length < 200 || !cleanedText.includes('\n')) {
+        const formattedParagraph = cleanedText.replace(/\n/g, '<br>');
+        return `<p class="response-text">${formattedParagraph}</p>`;
+    }
 
-            if (paragraphs.length === 0) {
-                return '<p class="response-text">Пустой ответ</p>';
-            }
+    // Разделяем на абзацы
+    const paragraphs = cleanedText.split('\n\n').filter(p => p.trim());
 
-            let formattedContent = '';
+    let formattedContent = '';
+    let i = 0;
 
-            paragraphs.forEach(paragraph => {
-                paragraph = paragraph.trim();
-                if (!paragraph) return;
+    while (i < paragraphs.length) {
+        const paragraph = paragraphs[i].trim();
+        const lines = paragraph.split('\n').filter(line => line.trim());
 
-                const lines = paragraph.split('\n').filter(line => line.trim());
-
-                // Проверяем на вложенный список (с отступами)
-                if (lines.some(line => line.startsWith('  ') || line.startsWith('    ') || line.startsWith('   '))) {
-                    formattedContent += formatNestedList(paragraph);
-                    return;
-                }
-
-                // Проверяем на обычный список
-                if (lines.length > 1) {
-                    const listItems = lines.filter(line =>
-                        /^[•\-*\d\.\s]/.test(line.trim()) || line.trim().startsWith('-')
-                    );
-
-                    if (listItems.length >= lines.length * 0.5) {
-                        formattedContent += '<ul class="response-list">';
-                        listItems.forEach(line => {
-                            let cleanLine = line.replace(/^[•\-*\d\.\s]+/, '').trim();
-                            if (cleanLine) {
-                                formattedContent += `<li class="response-list-item">${cleanLine}</li>`;
-                            }
-                        });
-                        formattedContent += '</ul>';
-                        return;
-                    }
-                }
-
-                // Проверяем на заголовок
-                if (paragraph.length < 100 && (paragraph.endsWith(':') || /^[#А-ЯA-Z]/.test(paragraph))) {
-                    // Убираем # из начала если есть
-                    const cleanHeading = paragraph.replace(/^#+\s*/, '');
-                    formattedContent += `<h4 class="response-heading">${cleanHeading}</h4>`;
-                }
-                // Обычный текст
-                else {
-                    const formattedParagraph = paragraph.replace(/\n/g, '<br>');
-                    formattedContent += `<p class="response-text">${formattedParagraph}</p>`;
-                }
-            });
-
-            return formattedContent || `<p class="response-text">${cleanedText}</p>`;
+        // Простой текст без структуры
+        if (lines.length === 1 && !isStructuredLine(lines[0])) {
+            formattedContent += `<p class="response-text">${lines[0]}</p>`;
+            i++;
+            continue;
         }
 
-        // Функция для форматирования вложенных списков
-        function formatNestedList(text) {
-            const lines = text.split('\n').filter(line => line.trim());
-            let html = '<ul class="response-list">';
-            let currentList = html;
-            let indentLevel = 0;
+        // Заголовок
+        if (isHeading(paragraph)) {
+            const cleanHeading = paragraph.replace(/^#+\s*/, '');
+            formattedContent += `<h4 class="response-heading">${cleanHeading}</h4>`;
+            i++;
+            continue;
+        }
+
+        // Сложная структура - передаем весь оставшийся текст
+        formattedContent += formatComplexStructure(paragraphs.slice(i));
+        break; // Обрабатываем всё оставшееся за один раз
+    }
+
+    return formattedContent || `<p class="response-text">${cleanedText}</p>`;
+}
+
+function isStructuredLine(line) {
+    return line.includes(':') ||
+           /^[•\-*—]/.test(line.trim()) ||
+           /^\d+[\.\)]/.test(line.trim());
+}
+
+function formatComplexStructure(paragraphs) {
+    let html = '';
+
+    for (let para of paragraphs) {
+        const lines = para.split('\n').filter(line => line.trim());
+
+        for (let line of lines) {
+            if (line.trim().endsWith(':') && line.length < 100) {
+                // Заголовок раздела
+                const title = line.trim().slice(0, -1);
+                html += `
+                    <div class="list-section">
+                        <div class="list-section-title">${title}:</div>
+                        <ul class="response-list">
+                `;
+            } else if (line.trim() && !line.trim().endsWith(':')) {
+                // Элемент списка
+                const cleanItem = line.trim().replace(/^[•\-*—\s]+/, '');
+                html += `<li class="response-list-item">${cleanItem}</li>`;
+            }
+        }
+    }
+
+    // Закрываем последний список если он открыт
+    if (html.includes('<ul class="response-list">') && !html.includes('</ul></div>')) {
+        html += '</ul></div>';
+    }
+
+    return html;
+}
+
+        // Проверяет, есть ли структурированные разделы с двоеточиями
+        function hasStructuredSections(lines) {
+            const sectionLines = lines.filter(line => {
+                const trimmed = line.trim();
+                return trimmed.endsWith(':') &&
+                       !trimmed.startsWith('-') &&
+                       !trimmed.startsWith('•') &&
+                       !trimmed.startsWith('*') &&
+                       !/^\d+\./.test(trimmed);
+            });
+            return sectionLines.length > 0;
+        }
+
+        // Форматирует структурированный список с разделами
+        function formatStructuredList(lines) {
+            let html = '';
+            let currentSection = null;
 
             lines.forEach(line => {
-                const trimmedLine = line.trim();
-                if (!trimmedLine) return;
+                const trimmed = line.trim();
+                if (!trimmed) return;
 
-                // Определяем уровень вложенности
-                const spaces = line.length - trimmedLine.length;
-                const level = Math.floor(spaces / 2);
-
-                // Очищаем от маркеров
-                let cleanLine = trimmedLine.replace(/^[•\-*\d\.\s]+/, '').trim();
-
-                if (level > indentLevel) {
-                    // Добавляем вложенный список
-                    currentList += '<ul class="nested-list">';
-                    currentList += `<li class="nested-list-item">${cleanLine}</li>`;
-                } else if (level < indentLevel) {
-                    // Закрываем вложенные списки
-                    currentList += '</ul></li>';
-                    currentList += `<li class="response-list-item">${cleanLine}</li>`;
-                } else {
-                    // Тот же уровень
-                    currentList += `<li class="response-list-item">${cleanLine}</li>`;
+                // Если строка заканчивается на : - это заголовок раздела
+                if (trimmed.endsWith(':') && !isListItem(trimmed)) {
+                    if (currentSection) {
+                        html += '</ul></div>';
+                    }
+                    currentSection = {
+                        title: trimmed.slice(0, -1), // убираем двоеточие
+                        items: []
+                    };
+                    html += `<div class="list-section">
+                                <div class="list-section-title">${currentSection.title}:</div>
+                                <ul class="response-list">`;
                 }
-
-                indentLevel = level;
+                // Если это элемент списка и есть активный раздел
+                else if (currentSection && isListItem(trimmed)) {
+                    const cleanItem = trimmed.replace(/^[•\-*\s]+/, '').trim();
+                    html += `<li class="response-list-item">${cleanItem}</li>`;
+                }
+                // Если это обычный текст и есть активный раздел
+                else if (currentSection && trimmed) {
+                    html += `<li class="response-list-item">${trimmed}</li>`;
+                }
+                // Если нет активного раздела, но есть текст
+                else if (!currentSection && trimmed) {
+                    html += `<p class="response-text">${trimmed}</p>`;
+                }
             });
 
-            // Закрываем все открытые списки
-            while (indentLevel-- >= 0) {
-                currentList += '</ul>';
+            // Закрываем последний раздел
+            if (currentSection) {
+                html += '</ul></div>';
             }
 
             return html;
+        }
+
+        // Проверяет, является ли строка элементом списка
+        function isListItem(line) {
+            const trimmed = line.trim();
+            return trimmed.startsWith('-') ||
+                   trimmed.startsWith('•') ||
+                   trimmed.startsWith('*') ||
+                   /^\d+\./.test(trimmed);
+        }
+
+        // Проверяет, является ли текст списком
+        function isList(lines) {
+            if (lines.length <= 1) return false;
+
+            const listItems = lines.filter(line => isListItem(line.trim()));
+            return listItems.length >= lines.length * 0.3;
+        }
+
+        // Форматирует простой список
+        function formatSimpleList(lines) {
+            let html = '<ul class="response-list">';
+
+            lines.forEach(line => {
+                const trimmed = line.trim();
+                if (trimmed && isListItem(trimmed)) {
+                    const cleanItem = trimmed.replace(/^[•\-*\d\.\s]+/, '').trim();
+                    html += `<li class="response-list-item">${cleanItem}</li>`;
+                }
+            });
+
+            html += '</ul>';
+            return html;
+        }
+
+        // Проверяет, является ли текст заголовком
+        function isHeading(text) {
+            const lines = text.split('\n');
+            if (lines.length > 1) return false;
+
+            return (text.length < 100 &&
+                   (text.endsWith(':') ||
+                    /^[#А-ЯA-Z]/.test(text) ||
+                    text.toLowerCase().includes('функционал') ||
+                    text.toLowerCase().includes('особенности') ||
+                    text.toLowerCase().includes('преимущества') ||
+                    text.toLowerCase().includes('рекомендации') ||
+                    text.toLowerCase().includes('риски') ||
+                    text.toLowerCase().includes('маркетинг') ||
+                    text.toLowerCase().includes('финансы') ||
+                    text.toLowerCase().includes('юридические')));
         }
 
         // Функция для добавления сообщения в чат
@@ -500,6 +577,12 @@
                     </div>
                 `;
 
+                // Сохраняем raw text для копирования
+                if (rawText) {
+                    const messageContent = messageDiv.querySelector('.message-content');
+                    messageContent.setAttribute('data-raw-text', rawText);
+                }
+
                 // Добавляем обработчик кнопки копирования
                 const copyBtn = messageDiv.querySelector('.copy-btn');
                 copyBtn.addEventListener('click', function() {
@@ -524,25 +607,22 @@
                     throw new Error('Элемент сообщения не найден');
                 }
 
-                // Получаем текст из элемента, исключая временную метку
-                const contentElement = messageElement.cloneNode(true);
-                const timestamp = contentElement.querySelector('.timestamp');
-                if (timestamp) {
-                    timestamp.remove();
-                }
-
+                // Пытаемся получить raw text из data-атрибута
+                const rawText = messageElement.getAttribute('data-raw-text');
                 let textToCopy = '';
 
-                // Если есть raw_text в данных, используем его
-                const messageDiv = button.closest('.assistant-message');
-                const rawTextData = messageDiv.querySelector('[data-raw-text]');
-                if (rawTextData) {
-                    textToCopy = rawTextData.getAttribute('data-raw-text');
+                if (rawText) {
+                    textToCopy = rawText;
                 } else {
-                    // Иначе извлекаем текст из HTML
+                    // Fallback: извлекаем текст из HTML
+                    const contentElement = messageElement.cloneNode(true);
+                    const timestamp = contentElement.querySelector('.timestamp');
+                    if (timestamp) {
+                        timestamp.remove();
+                    }
                     textToCopy = contentElement.innerText || contentElement.textContent || '';
 
-                    // Очищаем текст от лишних пробелов
+                    // Очищаем текст
                     textToCopy = textToCopy
                         .replace(/\n\s*\n/g, '\n\n')
                         .replace(/^\s+|\s+$/g, '')
