@@ -6,101 +6,324 @@
     <title>Помощник для Малого Бизнеса</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 50px auto;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
             padding: 20px;
-            background-color: #f5f5f5;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
         }
+
         .container {
-            background-color: white;
+            background: white;
             padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
         }
-        h1 {
-            color: #333;
+
+        .header {
             text-align: center;
+            margin-bottom: 30px;
         }
+
+        .header h1 {
+            color: #2c3e50;
+            font-size: 2.2em;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header p {
+            color: #7f8c8d;
+            font-size: 1.1em;
+            margin-top: 0;
+        }
+
         #chat-box {
-            border: 1px solid #ddd;
-            height: 300px;
+            border: 2px solid #eef2f7;
+            height: 500px;
             overflow-y: auto;
-            padding: 15px;
-            margin-bottom: 20px;
-            border-radius: 4px;
-            background-color: #fafafa;
+            padding: 20px;
+            margin-bottom: 25px;
+            border-radius: 12px;
+            background: #fafbfc;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
         }
-        .user-message, .assistant-message {
-            margin-bottom: 15px;
-            padding: 15px;
-            border-radius: 8px;
+
+        .user-message {
+            align-self: flex-end;
+            background: #667eea;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 18px 18px 4px 18px;
+            max-width: 70%;
             line-height: 1.5;
         }
-        .user-message {
-            background-color: #e3f2fd;
-            text-align: left;
-            border-left: 4px solid #2196f3;
-        }
+
         .assistant-message {
-            background-color: #f0f4c3;
-            text-align: left;
-            border-left: 4px solid #cddc39;
+            align-self: flex-start;
+            background: white;
+            padding: 0;
+            border-radius: 12px;
+            max-width: 85%;
+            border: 1px solid #e1e8ed;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
         }
+
+        .message-header {
+            background: #f8f9fa;
+            padding: 12px 20px;
+            border-bottom: 1px solid #e1e8ed;
+            border-radius: 12px 12px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .copy-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background 0.2s;
+        }
+
+        .copy-btn:hover {
+            background: #5a6fd8;
+        }
+
+        .copy-btn.copied {
+            background: #28a745;
+        }
+
+        .message-content {
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .response-heading {
+            color: #2c3e50;
+            font-size: 1.3em;
+            font-weight: 600;
+            margin: 0 0 20px 0;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .response-text {
+            color: #37474f;
+            margin: 16px 0;
+            font-size: 15px;
+        }
+
+        .response-list {
+            margin: 20px 0;
+            padding-left: 0;
+            list-style: none;
+        }
+
+        .response-list-item {
+            background: #f8f9fa;
+            margin: 12px 0;
+            padding: 14px 18px 14px 45px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+            line-height: 1.5;
+            position: relative;
+        }
+
+        .response-list-item::before {
+            content: "•";
+            color: #667eea;
+            font-weight: bold;
+            font-size: 1.5em;
+            position: absolute;
+            left: 18px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        .nested-list {
+            margin: 8px 0 0 0;
+            padding-left: 20px;
+            list-style: none;
+        }
+
+        .nested-list-item {
+            background: transparent;
+            margin: 6px 0;
+            padding: 8px 12px;
+            border-left: 2px solid #b0bec5;
+            font-size: 14px;
+        }
+
+        .nested-list-item::before {
+            content: "—";
+            color: #78909c;
+            left: 8px;
+        }
+
+        .input-container {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        #question-input {
+            flex: 1;
+            padding: 15px 20px;
+            border: 2px solid #eef2f7;
+            border-radius: 25px;
+            font-size: 16px;
+            outline: none;
+            transition: all 0.3s ease;
+            background: #fafbfc;
+        }
+
+        #question-input:focus {
+            border-color: #667eea;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        #ask-button {
+            padding: 15px 30px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        #ask-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        #ask-button:disabled {
+            background: #bdc3c7;
+            transform: none;
+            box-shadow: none;
+            cursor: not-allowed;
+        }
+
         .error-message {
-            background-color: #ffebee;
+            background: #ffebee;
             color: #c62828;
+            padding: 15px 20px;
+            border-radius: 8px;
             border-left: 4px solid #f44336;
+            margin: 10px 0;
         }
+
+        .loading {
+            color: #7f8c8d;
+            font-style: italic;
+            text-align: center;
+            padding: 20px;
+        }
+
         .timestamp {
-            font-size: 0.8em;
-            color: #666;
+            font-size: 0.75em;
+            color: #95a5a6;
             margin-top: 8px;
             text-align: right;
         }
-        #question-input {
-            width: calc(100% - 100px);
-            padding: 12px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 16px;
+
+        .welcome-message {
+            text-align: center;
+            color: #7f8c8d;
+            font-size: 0.9em;
+            margin-top: 10px;
         }
-        button {
-            padding: 12px 20px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 16px;
+
+        .loading-dots::after {
+            content: '';
+            animation: dots 1.5s steps(4, end) infinite;
         }
-        button:hover {
-            background-color: #45a049;
+
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
         }
-        button:disabled {
-            background-color: #cccccc;
-            cursor: not-allowed;
+
+        /* Стили для скроллбара */
+        #chat-box::-webkit-scrollbar {
+            width: 6px;
         }
-        .loading {
-            color: #666;
-            font-style: italic;
+
+        #chat-box::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+
+        #chat-box::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 3px;
+        }
+
+        #chat-box::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(135deg, #5a6fd8, #6a4190);
+        }
+
+        /* Адаптивность */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+
+            .container {
+                padding: 20px;
+            }
+
+            #chat-box {
+                height: 400px;
+                padding: 15px;
+            }
+
+            .user-message,
+            .assistant-message {
+                max-width: 90%;
+            }
+
+            .header h1 {
+                font-size: 1.8em;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🤖 Помощник для Вашего Бизнеса</h1>
-        <p>Задайте вопрос по юриспруденции, маркетингу, финансам или другим аспектам бизнеса.</p>
+        <div class="header">
+            <h1>🤖 Бизнес-Помощник</h1>
+            <p>Экспертные консультации по маркетингу, финансам, юриспруденции и управлению бизнесом</p>
+        </div>
 
         <div id="chat-box">
             <div class="assistant-message">
-                Здравствуйте! Я ваш бизнес-помощник. Задайте любой вопрос по юридическим, маркетинговым или финансовым аспектам вашего бизнеса.
+                <div class="message-content">
+                    <div class="welcome-message">
+                        Здравствуйте! Я ваш AI-помощник для бизнеса. Задавайте вопросы по любым аспектам вашего бизнеса, и я постараюсь помочь!
+                    </div>
+                </div>
             </div>
         </div>
 
-        <div style="display: flex; gap: 10px;">
-            <input type="text" id="question-input" placeholder="Введите ваш вопрос здесь..." autocomplete="off">
-            <button id="ask-button" onclick="askQuestion()">Спросить</button>
+        <div class="input-container">
+            <input type="text" id="question-input" placeholder="Задайте ваш бизнес-вопрос..." autocomplete="off">
+            <button id="ask-button" onclick="askQuestion()">Отправить</button>
         </div>
     </div>
 
@@ -109,52 +332,286 @@
         const questionInput = document.getElementById('question-input');
         const askButton = document.getElementById('ask-button');
 
-        // Функция для добавления сообщения в чат
-        function addMessage(content, isUser = false, isError = false) {
-            const messageDiv = document.createElement('div');
-
-            if (isError) {
-                messageDiv.className = 'error-message';
-            } else {
-                messageDiv.className = isUser ? 'user-message' : 'assistant-message';
+        // Функция для форматирования текстовых ответов
+        function formatTextResponse(text) {
+            if (!text || typeof text !== 'string') {
+                return '<p class="response-text">Нет ответа</p>';
             }
 
-            const timestamp = new Date().toLocaleTimeString('ru-RU', {
-                hour: '2-digit',
-                minute: '2-digit'
+            // Очищаем от маркеров форматирования
+            let cleanedText = text
+                .replace(/\*\*/g, '')
+                .replace(/\*/g, '')
+                .replace(/__/g, '')
+                .trim();
+
+            // Разделяем на абзацы
+            const paragraphs = cleanedText.split('\n\n').filter(p => p.trim());
+
+            if (paragraphs.length === 0) {
+                return '<p class="response-text">Пустой ответ</p>';
+            }
+
+            let formattedContent = '';
+
+            paragraphs.forEach(paragraph => {
+                paragraph = paragraph.trim();
+                if (!paragraph) return;
+
+                const lines = paragraph.split('\n').filter(line => line.trim());
+
+                // Проверяем на вложенный список (с отступами)
+                if (lines.some(line => line.startsWith('  ') || line.startsWith('    ') || line.startsWith('   '))) {
+                    formattedContent += formatNestedList(paragraph);
+                    return;
+                }
+
+                // Проверяем на обычный список
+                if (lines.length > 1) {
+                    const listItems = lines.filter(line =>
+                        /^[•\-*\d\.\s]/.test(line.trim()) || line.trim().startsWith('-')
+                    );
+
+                    if (listItems.length >= lines.length * 0.5) {
+                        formattedContent += '<ul class="response-list">';
+                        listItems.forEach(line => {
+                            let cleanLine = line.replace(/^[•\-*\d\.\s]+/, '').trim();
+                            if (cleanLine) {
+                                formattedContent += `<li class="response-list-item">${cleanLine}</li>`;
+                            }
+                        });
+                        formattedContent += '</ul>';
+                        return;
+                    }
+                }
+
+                // Проверяем на заголовок
+                if (paragraph.length < 100 && (paragraph.endsWith(':') || /^[#А-ЯA-Z]/.test(paragraph))) {
+                    // Убираем # из начала если есть
+                    const cleanHeading = paragraph.replace(/^#+\s*/, '');
+                    formattedContent += `<h4 class="response-heading">${cleanHeading}</h4>`;
+                }
+                // Обычный текст
+                else {
+                    const formattedParagraph = paragraph.replace(/\n/g, '<br>');
+                    formattedContent += `<p class="response-text">${formattedParagraph}</p>`;
+                }
             });
 
-            // Обрабатываем разные форматы ответа
-            let displayContent = content;
+            return formattedContent || `<p class="response-text">${cleanedText}</p>`;
+        }
 
-            if (typeof content === 'object') {
-                // Если пришел объект, пытаемся извлечь текст
-                if (content.response && content.response.formatted_html) {
-                    displayContent = content.response.formatted_html;
-                } else if (content.response && content.response.raw_text) {
-                    displayContent = content.response.raw_text;
-                } else if (content.error) {
-                    displayContent = `Ошибка: ${content.error}`;
+        // Функция для форматирования вложенных списков
+        function formatNestedList(text) {
+            const lines = text.split('\n').filter(line => line.trim());
+            let html = '<ul class="response-list">';
+            let currentList = html;
+            let indentLevel = 0;
+
+            lines.forEach(line => {
+                const trimmedLine = line.trim();
+                if (!trimmedLine) return;
+
+                // Определяем уровень вложенности
+                const spaces = line.length - trimmedLine.length;
+                const level = Math.floor(spaces / 2);
+
+                // Очищаем от маркеров
+                let cleanLine = trimmedLine.replace(/^[•\-*\d\.\s]+/, '').trim();
+
+                if (level > indentLevel) {
+                    // Добавляем вложенный список
+                    currentList += '<ul class="nested-list">';
+                    currentList += `<li class="nested-list-item">${cleanLine}</li>`;
+                } else if (level < indentLevel) {
+                    // Закрываем вложенные списки
+                    currentList += '</ul></li>';
+                    currentList += `<li class="response-list-item">${cleanLine}</li>`;
                 } else {
-                    displayContent = JSON.stringify(content);
+                    // Тот же уровень
+                    currentList += `<li class="response-list-item">${cleanLine}</li>`;
                 }
+
+                indentLevel = level;
+            });
+
+            // Закрываем все открытые списки
+            while (indentLevel-- >= 0) {
+                currentList += '</ul>';
             }
 
-            // Форматируем текст для читаемости
-            if (typeof displayContent === 'string' && displayContent.includes('</p>') || displayContent.includes('<br>')) {
-                // Если уже есть HTML-разметка
-                messageDiv.innerHTML = displayContent + `<div class="timestamp">${timestamp}</div>`;
+            return html;
+        }
+
+        // Функция для добавления сообщения в чат
+        function addMessage(content, isUser = false, isError = false) {
+            if (isUser) {
+                // Сообщение пользователя (простое)
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'user-message';
+                const timestamp = new Date().toLocaleTimeString('ru-RU', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                messageDiv.innerHTML = `
+                    ${content}
+                    <div class="timestamp">${timestamp}</div>
+                `;
+                chatBox.appendChild(messageDiv);
             } else {
-                // Форматируем простой текст
-                const formattedContent = String(displayContent)
-                    .replace(/\n\n/g, '</p><p>')
-                    .replace(/\n/g, '<br>');
-                messageDiv.innerHTML = `<p>${formattedContent}</p><div class="timestamp">${timestamp}</div>`;
+                // Сообщение ассистента (с кнопкой копирования)
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'assistant-message';
+
+                let displayContent = '';
+                let rawText = '';
+
+                if (typeof content === 'object') {
+                    if (content.formatted_html) {
+                        displayContent = content.formatted_html;
+                        rawText = content.raw_text || '';
+                    } else if (content.raw_text) {
+                        displayContent = formatTextResponse(content.raw_text);
+                        rawText = content.raw_text;
+                    } else {
+                        displayContent = 'Ошибка: неверный формат данных';
+                        isError = true;
+                    }
+                } else if (typeof content === 'string') {
+                    displayContent = formatTextResponse(content);
+                    rawText = content;
+                }
+
+                const timestamp = new Date().toLocaleTimeString('ru-RU', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+
+                // Создаем уникальный ID для сообщения
+                const messageId = 'msg-' + Date.now();
+                messageDiv.innerHTML = `
+                    <div class="message-header">
+                        <span>🤖 Помощник</span>
+                        <button class="copy-btn" data-message-id="${messageId}">Копировать</button>
+                    </div>
+                    <div class="message-content" id="${messageId}">
+                        ${displayContent}
+                        <div class="timestamp">${timestamp}</div>
+                    </div>
+                `;
+
+                // Добавляем обработчик кнопки копирования
+                const copyBtn = messageDiv.querySelector('.copy-btn');
+                copyBtn.addEventListener('click', function() {
+                    copyMessage(this, messageId);
+                });
+
+                if (isError) {
+                    messageDiv.style.borderLeft = '4px solid #f44336';
+                }
+
+                chatBox.appendChild(messageDiv);
             }
 
-            chatBox.appendChild(messageDiv);
-            // Прокручиваем чат вниз к новому сообщению
             chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        // Функция для копирования сообщения
+        function copyMessage(button, messageId) {
+            try {
+                const messageElement = document.getElementById(messageId);
+                if (!messageElement) {
+                    throw new Error('Элемент сообщения не найден');
+                }
+
+                // Получаем текст из элемента, исключая временную метку
+                const contentElement = messageElement.cloneNode(true);
+                const timestamp = contentElement.querySelector('.timestamp');
+                if (timestamp) {
+                    timestamp.remove();
+                }
+
+                let textToCopy = '';
+
+                // Если есть raw_text в данных, используем его
+                const messageDiv = button.closest('.assistant-message');
+                const rawTextData = messageDiv.querySelector('[data-raw-text]');
+                if (rawTextData) {
+                    textToCopy = rawTextData.getAttribute('data-raw-text');
+                } else {
+                    // Иначе извлекаем текст из HTML
+                    textToCopy = contentElement.innerText || contentElement.textContent || '';
+
+                    // Очищаем текст от лишних пробелов
+                    textToCopy = textToCopy
+                        .replace(/\n\s*\n/g, '\n\n')
+                        .replace(/^\s+|\s+$/g, '')
+                        .replace(/\s+/g, ' ');
+                }
+
+                if (!textToCopy.trim()) {
+                    throw new Error('Текст для копирования пуст');
+                }
+
+                // Используем современный API clipboard
+                navigator.clipboard.writeText(textToCopy).then(() => {
+                    const originalText = button.textContent;
+                    button.textContent = 'Скопировано!';
+                    button.classList.add('copied');
+
+                    setTimeout(() => {
+                        button.textContent = originalText;
+                        button.classList.remove('copied');
+                    }, 2000);
+                }).catch(err => {
+                    console.error('Ошибка clipboard API:', err);
+                    // Fallback для старых браузеров
+                    fallbackCopyText(textToCopy, button);
+                });
+
+            } catch (error) {
+                console.error('Ошибка копирования:', error);
+                button.textContent = 'Ошибка!';
+                setTimeout(() => {
+                    button.textContent = 'Копировать';
+                }, 2000);
+            }
+        }
+
+        // Fallback метод для копирования
+        function fallbackCopyText(text, button) {
+            try {
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-999999px';
+                textArea.style.top = '-999999px';
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+
+                const successful = document.execCommand('copy');
+                document.body.removeChild(textArea);
+
+                if (successful) {
+                    const originalText = button.textContent;
+                    button.textContent = 'Скопировано!';
+                    button.classList.add('copied');
+
+                    setTimeout(() => {
+                        button.textContent = originalText;
+                        button.classList.remove('copied');
+                    }, 2000);
+                } else {
+                    throw new Error('execCommand не сработал');
+                }
+            } catch (err) {
+                console.error('Fallback копирование не удалось:', err);
+                button.textContent = 'Ошибка!';
+                setTimeout(() => {
+                    button.textContent = 'Копировать';
+                }, 2000);
+            }
         }
 
         // Функция для показа индикатора загрузки
@@ -162,7 +619,11 @@
             const loadingDiv = document.createElement('div');
             loadingDiv.id = 'loading-message';
             loadingDiv.className = 'assistant-message loading';
-            loadingDiv.innerHTML = 'Ищу ответ...';
+            loadingDiv.innerHTML = `
+                <div class="message-content">
+                    Ищу лучший ответ для вас<span class="loading-dots"></span>
+                </div>
+            `;
             chatBox.appendChild(loadingDiv);
             chatBox.scrollTop = chatBox.scrollHeight;
         }
@@ -178,21 +639,20 @@
         // Функция для отправки вопроса на сервер
         async function askQuestion() {
             const question = questionInput.value.trim();
-            if (!question) return;
+            if (!question) {
+                questionInput.focus();
+                return;
+            }
 
-            // Блокируем кнопку и поле ввода на время запроса
             askButton.disabled = true;
             questionInput.disabled = true;
 
-            // Показываем вопрос пользователя в чате
             addMessage(question, true);
-            questionInput.value = ''; // Очищаем поле ввода
+            questionInput.value = '';
 
-            // Показываем индикатор загрузки
             showLoading();
 
             try {
-                // Отправляем POST-запрос на наш эндпоинт /ask
                 const response = await fetch('/ask', {
                     method: 'POST',
                     headers: {
@@ -203,36 +663,46 @@
 
                 const data = await response.json();
 
-                if (response.ok && data.success) {
-                    // Успешный ответ - используем форматированный HTML
-                    addMessage(data.response.formatted_html || data.response.raw_text);
+                if (response.ok) {
+                    if (data.success && data.response) {
+                        addMessage(data.response, false, false);
+                    } else {
+                        addMessage(data.error || 'Ошибка сервера', false, true);
+                    }
                 } else {
-                    // Ошибка от сервера
-                    addMessage(data.error || 'Неизвестная ошибка сервера', false, true);
+                    addMessage(data.error || `Ошибка ${response.status}`, false, true);
                 }
             } catch (error) {
-                // Обрабатываем ошибки сети и т.д.
-                console.error('Ошибка:', error);
-                addMessage('Произошла ошибка при связи с сервером. Проверьте подключение к интернету.', false, true);
+                console.error('Ошибка сети:', error);
+                addMessage('Ошибка соединения', false, true);
             } finally {
-                // Разблокируем кнопку и поле ввода
                 askButton.disabled = false;
                 questionInput.disabled = false;
                 questionInput.focus();
-                // Скрываем индикатор загрузки
                 hideLoading();
             }
         }
 
-        // Позволяем отправлять вопрос нажатием Enter
+        // Отправка по Enter
         questionInput.addEventListener('keypress', function(event) {
-            if (event.key === 'Enter') {
+            if (event.key === 'Enter' && !askButton.disabled) {
                 askQuestion();
             }
         });
 
-        // Фокусируемся на поле ввода при загрузке страницы
+        // Автофокус на поле ввода
         questionInput.focus();
+
+        // Плавная прокрутка к новым сообщениям
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.addedNodes.length) {
+                    chatBox.scrollTop = chatBox.scrollHeight;
+                }
+            });
+        });
+
+        observer.observe(chatBox, { childList: true });
     </script>
 </body>
 </html>
