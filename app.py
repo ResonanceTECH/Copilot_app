@@ -23,8 +23,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Подключаем статические файлы из templates
-app.mount("/static", StaticFiles(directory="templates"), name="static")
+# Подключаем статические файлы из static
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Импортируем и подключаем роуты с префиксом /api
 try:
@@ -37,7 +37,7 @@ except Exception as e:
 @app.get("/")
 async def serve_frontend():
     """Главная страница - веб-интерфейс"""
-    return FileResponse('templates/index.html')
+    return FileResponse('static/index.html')
 
 @app.get("/health")
 async def health_check():
