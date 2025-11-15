@@ -2,7 +2,6 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
-import os
 from dotenv import load_dotenv
 
 # Загружаем переменные окружения
@@ -24,20 +23,29 @@ app.add_middleware(
 )
 
 # Подключаем статические файлы из static
-app.mount("/static", StaticFiles(directory="static"), name="static")
+import os
+static_dir = os.path.join(os.path.dirname(__file__), "static")
+if os.path.exists(static_dir):
+    app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 # Импортируем и подключаем роуты с префиксом /api
 try:
-    from routes.chat_routes import router
+    from backend.app.routes.chat_routes import router
     app.include_router(router, prefix="/api")
     print("✅ Роуты успешно подключены с префиксом /api")
 except Exception as e:
     print(f"❌ Ошибка подключения роутов: {e}")
+    import traceback
+    traceback.print_exc()
 
 @app.get("/")
 async def serve_frontend():
     """Главная страница - веб-интерфейс"""
-    return FileResponse('static/index.html')
+    import os
+    static_html = os.path.join(os.path.dirname(__file__), "static", "index.html")
+    if os.path.exists(static_html):
+        return FileResponse(static_html)
+    return {"message": "Frontend not found"}
 
 @app.get("/health")
 async def health_check():

@@ -1,10 +1,17 @@
-import joblib
 import os
-from models.business_classifier import EnhancedBusinessClassifier
+from backend.ml.models.business_classifier import EnhancedBusinessClassifier
 
 
 class BusinessClassifierService:
-    def __init__(self, model_path: str = 'models/business_classifier.pkl'):
+    def __init__(self, model_path: str = None):
+        # Определяем путь к модели относительно структуры проекта
+        if model_path is None:
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            # Текущий файл: backend/ml/services/classifier_service.py
+            # Модель должна быть в: backend/ml/models/business_classifier.pkl
+            ml_dir = os.path.dirname(current_dir)
+            model_path = os.path.join(ml_dir, "models", "business_classifier.pkl")
+        
         self.model_path = model_path
         self.classifier = None
         self.load_model()

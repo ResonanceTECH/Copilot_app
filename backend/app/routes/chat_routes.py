@@ -1,10 +1,10 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from datetime import datetime
-from services.classifier_service import BusinessClassifierService
-from services.llm_service import LLMService
-from services.cache_service import CacheService
-from services.formatting_service import FormattingService
+from backend.ml.services.classifier_service import BusinessClassifierService
+from backend.app.services.llm_service import LLMService
+from backend.app.services.cache_service import CacheService
+from backend.app.services.formatting_service import FormattingService
 
 router = APIRouter()
 

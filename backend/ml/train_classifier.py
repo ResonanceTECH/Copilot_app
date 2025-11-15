@@ -4,7 +4,7 @@ import os
 # Добавляем пути для импортов
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from models.business_classifier import EnhancedBusinessClassifier
+from ml.models.business_classifier import EnhancedBusinessClassifier
 from datasets.dataset_generation import business_dataset
 
 
