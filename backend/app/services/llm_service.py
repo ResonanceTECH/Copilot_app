@@ -1,6 +1,8 @@
 from openai import OpenAI
 import os
 from dotenv import load_dotenv
+from typing import List, Dict, Optional
+import tiktoken
 
 load_dotenv()
 
@@ -16,43 +18,106 @@ class LLMService:
             'спасибо': 'Пожалуйста! Обращайтесь, если понадобится ещё помощь.',
             'помощь': 'Я консультирую по вопросам бизнеса: маркетинг, финансы, юридические аспекты, управление. Задайте конкретный вопрос!',
         }
+        # Инициализация токенизатора для подсчета токенов
+        try:
+            self.encoding = tiktoken.get_encoding("cl100k_base")
+        except:
+            self.encoding = None
 
-    def get_quick_response(self, question: str):
+    def get_quick_response(self, question: str) -> Optional[str]:
         """Проверка быстрых ответов"""
         return self.quick_responses.get(question.lower().strip())
 
-    def generate_response(self, system_prompt: str, user_question: str):
-        """Генерация ответа через LLM"""
+    def count_tokens(self, text: str) -> int:
+        """Подсчет токенов в тексте"""
+        if not self.encoding:
+            return len(text.split())  # fallback
+        return len(self.encoding.encode(text))
+
+    def prepare_conversation_messages(
+            self,
+            system_prompt: str,
+            user_question: str,
+            conversation_history: List[Dict] = None,
+            max_tokens: int = 3000
+    ) -> List[Dict]:
+        """
+        Подготовка сообщений для LLM с учетом истории и ограничения по токенам
+        """
+        messages = [{"role": "system", "content": system_prompt}]
+        current_tokens = self.count_tokens(system_prompt)
+
+        # Добавляем историю сообщений (если есть)
+        if conversation_history:
+            # Идем от самых старых к новым, но ограничиваем по токенам
+            history_messages = []
+            history_tokens = 0
+
+            for msg in reversed(conversation_history):  # начинаем с самых новых
+                if hasattr(msg, 'role') and hasattr(msg, 'content'):
+                    # Если это SQLAlchemy объект
+                    role = msg.role
+                    content = msg.content
+                elif isinstance(msg, dict) and 'role' in msg and 'content' in msg:
+                    # Если это словарь
+                    role = msg['role']
+                    content = msg['content']
+                else:
+                    continue
+
+                message_tokens = self.count_tokens(content)
+
+                # Проверяем, не превысим ли лимит
+                if current_tokens + history_tokens + message_tokens > max_tokens:
+                    break
+
+                history_messages.insert(0, {"role": role, "content": content})
+                history_tokens += message_tokens
+
+            # Добавляем подготовленную историю
+            messages.extend(history_messages)
+            current_tokens += history_tokens
+
+        # Добавляем текущий вопрос пользователя
+        user_tokens = self.count_tokens(user_question)
+        messages.append({"role": "user", "content": user_question})
+        current_tokens += user_tokens
+
+        print(
+            f"📊 Токены: система={self.count_tokens(system_prompt)}, история={current_tokens - self.count_tokens(system_prompt) - user_tokens}, вопрос={user_tokens}, всего={current_tokens}")
+
+        return messages
+
+    def generate_response(
+            self,
+            system_prompt: str,
+            user_question: str,
+            conversation_history: List[Dict] = None,
+            max_history_tokens: int = 3000
+    ) -> str:
+        """
+        Генерация ответа через LLM с учетом истории сообщений
+
+        Args:
+            system_prompt: Системный промпт
+            user_question: Вопрос пользователя
+            conversation_history: История сообщений (из БД)
+            max_history_tokens: Максимальное количество токенов для истории
+
+        Returns:
+            Ответ от LLM
+        """
         try:
-            completion = self.client.chat.completions.create(
-                extra_headers={
-                    "HTTP-Referer": "http://localhost:5000",
-                    "X-Title": "Business Assistant",
-                },
-                model="tngtech/deepseek-r1t2-chimera:free",
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_question}
-                ],
-                temperature=0.5,
+            # Подготавливаем сообщения с учетом ограничений по токенам
+            messages = self.prepare_conversation_messages(
+                system_prompt,
+                user_question,
+                conversation_history,
+                max_history_tokens
             )
 
-            return completion.choices[0].message.content
-        except Exception as e:
-            print(f"❌ Ошибка LLM: {e}")
-            return "Извините, произошла ошибка при генерации ответа."
+            print(f"📨 Отправка в LLM с {len(messages)} сообщениями в контексте")
 
-    def generate_response_with_context(self, system_prompt: str, context_messages: list, user_question: str):
-        """Генерация ответа через LLM с учетом контекста истории сообщений"""
-        try:
-            messages = [{"role": "system", "content": system_prompt}]
-            
-            # Добавляем историю сообщений
-            messages.extend(context_messages)
-            
-            # Добавляем текущий вопрос
-            messages.append({"role": "user", "content": user_question})
-            
             completion = self.client.chat.completions.create(
                 extra_headers={
                     "HTTP-Referer": "http://localhost:5000",
@@ -61,9 +126,122 @@ class LLMService:
                 model="tngtech/deepseek-r1t2-chimera:free",
                 messages=messages,
                 temperature=0.5,
+                max_tokens=1000  # Ограничение на ответ
+            )
+
+            response = completion.choices[0].message.content
+            print(f"✅ Получен ответ от LLM: {len(response)} символов")
+
+            return response
+
+        except Exception as e:
+            print(f"❌ Ошибка LLM: {e}")
+            import traceback
+            traceback.print_exc()
+            return "Извините, произошла ошибка при генерации ответа."
+
+    def generate_response_with_context(
+            self,
+            system_prompt: str,
+            context_messages: List[Dict],
+            user_question: str
+    ) -> str:
+        """
+        Устаревший метод для обратной совместимости
+        """
+        return self.generate_response(system_prompt, user_question, context_messages)
+
+    def summarize_conversation(self, conversation_history: List[Dict]) -> str:
+        """
+        Суммаризация длинной беседы для сохранения контекста
+
+        Args:
+            conversation_history: Полная история беседы
+
+        Returns:
+            Краткое содержание беседы
+        """
+        if not conversation_history or len(conversation_history) < 5:
+            return ""
+
+        try:
+            summary_prompt = """
+            Суммаризуй следующую беседу в 2-3 предложениях, выделив основные темы и решения.
+            Сохрани контекст для будущих вопросов.
+
+            Беседа:
+            """
+
+            # Берем только часть истории для суммаризации
+            recent_history = conversation_history[-10:]  # последние 10 сообщений
+
+            conversation_text = ""
+            for msg in recent_history:
+                if hasattr(msg, 'role') and hasattr(msg, 'content'):
+                    role = "Пользователь" if msg.role == "user" else "Ассистент"
+                    conversation_text += f"{role}: {msg.content}\n"
+                elif isinstance(msg, dict):
+                    role = "Пользователь" if msg.get('role') == "user" else "Ассистент"
+                    conversation_text += f"{role}: {msg.get('content', '')}\n"
+
+            summary_prompt += conversation_text
+
+            completion = self.client.chat.completions.create(
+                extra_headers={
+                    "HTTP-Referer": "http://localhost:5000",
+                    "X-Title": "Business Assistant",
+                },
+                model="tngtech/deepseek-r1t2-chimera:free",
+                messages=[
+                    {"role": "system", "content": "Ты помогаешь суммаризировать беседы."},
+                    {"role": "user", "content": summary_prompt}
+                ],
+                temperature=0.3,
+                max_tokens=300
             )
 
             return completion.choices[0].message.content
+
         except Exception as e:
-            print(f"❌ Ошибка LLM: {e}")
-            return "Извините, произошла ошибка при генерации ответа."
+            print(f"❌ Ошибка суммаризации: {e}")
+            return ""
+
+    def get_conversation_stats(self, conversation_history: List[Dict]) -> Dict:
+        """
+        Получение статистики по беседе
+
+        Args:
+            conversation_history: История сообщений
+
+        Returns:
+            Словарь со статистикой
+        """
+        total_messages = len(conversation_history)
+        user_messages = 0
+        assistant_messages = 0
+        total_tokens = 0
+
+        for msg in conversation_history:
+            if hasattr(msg, 'role') and hasattr(msg, 'content'):
+                role = msg.role
+                content = msg.content
+            elif isinstance(msg, dict):
+                role = msg.get('role', '')
+                content = msg.get('content', '')
+            else:
+                continue
+
+            if role == 'user':
+                user_messages += 1
+            elif role == 'assistant':
+                assistant_messages += 1
+
+            total_tokens += self.count_tokens(content)
+
+        return {
+            'total_messages': total_messages,
+            'user_messages': user_messages,
+            'assistant_messages': assistant_messages,
+            'estimated_tokens': total_tokens,
+            'conversation_ratio': user_messages / total_messages if total_messages > 0 else 0
+        }
