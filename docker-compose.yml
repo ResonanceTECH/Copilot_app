@@ -1,6 +1,24 @@
 version: '3.8'
 
 services:
+  db:
+    image: postgres:15-alpine
+    container_name: copilot_db
+    environment:
+      POSTGRES_USER: copilot_user
+      POSTGRES_PASSWORD: copilot_pass
+      POSTGRES_DB: copilot_db
+    ports:
+      - "5431:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U copilot_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   app:
     build:
       context: ./backend
@@ -10,11 +28,15 @@ services:
       - "8000:8000"
     environment:
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - DATABASE_URL=postgresql://copilot_user:copilot_pass@db:5432/copilot_db
     env_file:
       - .env
     volumes:
       # Монтируем код для разработки (можно закомментировать для продакшена)
       - ./backend:/app/backend
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
@@ -22,4 +44,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+
+volumes:
+  postgres_data:
 

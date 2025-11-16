@@ -1,0 +1,62 @@
+import os
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, Session
+from typing import Generator
+from dotenv import load_dotenv
+
+from backend.app.database.base import Base
+
+# Загружаем .env файл (но переменные из окружения имеют приоритет)
+load_dotenv()
+
+# Получаем DATABASE_URL из переменных окружения (приоритет у переменных окружения, не из .env)
+# В Docker переменная DATABASE_URL задается в docker-compose.yml
+DATABASE_URL = os.environ.get("DATABASE_URL")
+
+# Если DATABASE_URL не задан в окружении, используем фиксированные значения для локальной разработки
+if not DATABASE_URL:
+    # Фиксированные значения для локальной разработки (без Docker)
+    DATABASE_URL = "postgresql://copilot_user:copilot_pass@localhost:5431/copilot_db"
+
+# Отладочный вывод (можно раскомментировать для отладки)
+# if DATABASE_URL:
+#     masked_url = DATABASE_URL.replace('copilot_pass', '***')
+#     print(f"🔍 DATABASE_URL: {masked_url}")
+
+# Создаем движок SQLAlchemy
+engine = create_engine(
+    DATABASE_URL,
+    pool_pre_ping=True,  # Проверка соединения перед использованием
+    pool_size=10,
+    max_overflow=20,
+    echo=os.getenv("SQL_ECHO", "False").lower() == "true"  # Логирование SQL запросов
+)
+
+# Создаем фабрику сессий
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+
+def get_db() -> Generator[Session, None, None]:
+    """
+    Dependency для получения сессии БД в FastAPI эндпоинтах.
+    Использование:
+        @router.get("/items")
+        def get_items(db: Session = Depends(get_db)):
+            ...
+    """
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+def init_db():
+    """Создание всех таблиц в БД (для начальной инициализации)"""
+    Base.metadata.create_all(bind=engine)
+
+
+def drop_db():
+    """Удаление всех таблиц из БД (осторожно!)"""
+    Base.metadata.drop_all(bind=engine)
+
