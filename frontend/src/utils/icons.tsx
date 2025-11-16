@@ -17,7 +17,7 @@ import {
   Edit01Icon,
   Notification01Icon as Bell01Icon,
   ArrowLeft01Icon as ArrowLeft01Icon,
-  User01Icon as User01Icon,
+  UserAccountIcon as User01Icon,
 } from '@hugeicons/core-free-icons';
 
 export type IconSvgObject = typeof Search01Icon;

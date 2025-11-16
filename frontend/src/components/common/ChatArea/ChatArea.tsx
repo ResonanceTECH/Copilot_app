@@ -138,7 +138,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               onClick={() => setIsModelSelectorVisible(!isModelSelectorVisible)}
               title={activeTool === 'assistant' ? getTranslation('assistant', language) : getTranslation('deepseekChimera', language)}
             >
-              <Icon src={ICONS.sparkle} size="md" />
+              <Icon src={ICONS.brain} size="md" />
             </button>
             {isModelSelectorVisible && (
               <div className="chat-actions">
