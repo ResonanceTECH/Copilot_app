@@ -29,31 +29,40 @@ async def get_current_user(
     )
     
     token = credentials.credentials
+    print(f"🔐 Проверка токена: {token[:20]}..." if token else "❌ Токен отсутствует")
+    
     payload = verify_token(token, token_type="access")
     
     if payload is None:
+        print("❌ Payload пустой после verify_token")
         raise credentials_exception
     
     user_id = payload.get("sub")
     if user_id is None:
+        print("❌ user_id отсутствует в payload")
         raise credentials_exception
     
     # Преобразуем user_id в int, если это строка
     try:
         user_id = int(user_id)
-    except (ValueError, TypeError):
+        print(f"🔍 Поиск пользователя с ID: {user_id}")
+    except (ValueError, TypeError) as e:
+        print(f"❌ Ошибка преобразования user_id: {e}")
         raise credentials_exception
     
     user = db.query(User).filter(User.id == user_id).first()
     if user is None:
+        print(f"❌ Пользователь с ID {user_id} не найден в БД")
         raise credentials_exception
     
     if not user.is_active:
+        print(f"❌ Пользователь {user_id} неактивен")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Пользователь неактивен"
         )
     
+    print(f"✅ Пользователь авторизован: {user.email} (ID: {user.id})")
     return user
 
 

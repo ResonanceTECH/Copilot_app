@@ -16,6 +16,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
+  // Обработка события разлогинивания (при истечении refresh токена)
+  useEffect(() => {
+    const handleLogout = () => {
+      clearTokens();
+      setIsAuthenticated(false);
+    };
+
+    window.addEventListener('auth:logout', handleLogout);
+    return () => {
+      window.removeEventListener('auth:logout', handleLogout);
+    };
+  }, []);
+
   // Проверка токена при загрузке
   useEffect(() => {
     const checkAuth = async () => {
@@ -66,7 +79,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const tokens = await authAPI.login({ email, password });
       setTokens(tokens);
       setIsAuthenticated(true);
+      console.log('[Auth] Успешный вход, токены сохранены');
     } catch (error: any) {
+      console.error('[Auth] Ошибка входа:', error);
       throw new Error(error.message || 'Ошибка входа');
     }
   }, []);
@@ -82,7 +97,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const tokens = await authAPI.register({ email, password, name, company_name: companyName });
       setTokens(tokens);
       setIsAuthenticated(true);
+      console.log('[Auth] Успешная регистрация, токены сохранены');
     } catch (error: any) {
+      console.error('[Auth] Ошибка регистрации:', error);
       throw new Error(error.message || 'Ошибка регистрации');
     }
   }, []);
