@@ -37,7 +37,7 @@ try:
     from backend.app.routes.auth_routes import router as auth_router
     from backend.app.routes.user_routes import router as user_router
     
-    app.include_router(chat_router, prefix="/api")
+    app.include_router(chat_router, prefix="/api", tags=["chat"])
     app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
     app.include_router(user_router, prefix="/api/user", tags=["user"])
     
