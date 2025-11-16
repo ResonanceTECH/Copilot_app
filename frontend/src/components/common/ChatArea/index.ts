@@ -1,0 +1,2 @@
+export { ChatArea } from './ChatArea';
+
