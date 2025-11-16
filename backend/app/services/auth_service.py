@@ -1,14 +1,11 @@
 import os
+import hashlib
 from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 from dotenv import load_dotenv
 
 load_dotenv()
-
-# Конфигурация для хеширования паролей
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # JWT настройки
 SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
@@ -17,14 +14,14 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30")
 REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "7"))
 
 
+def get_password_hash(password: str) -> str:
+    """Простое хеширование пароля через SHA256"""
+    return hashlib.sha256(password.encode('utf-8')).hexdigest()
+
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Проверка пароля"""
-    return pwd_context.verify(plain_password, hashed_password)
-
-
-def get_password_hash(password: str) -> str:
-    """Хеширование пароля"""
-    return pwd_context.hash(password)
+    return get_password_hash(plain_password) == hashed_password
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
