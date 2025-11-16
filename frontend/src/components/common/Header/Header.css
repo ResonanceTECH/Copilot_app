@@ -11,6 +11,38 @@
 .header-left {
   display: flex;
   align-items: center;
+  gap: 12px;
+}
+
+.header-logo-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-logo {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
+
+.header-back-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  transition: all 0.2s ease;
+}
+
+.header-back-btn:hover {
+  background: var(--color-hover);
+  color: var(--color-text);
 }
 
 .header-title-btn {
@@ -93,4 +125,43 @@
 
 .header-language-dropdown button:hover {
   background: var(--color-hover);
+}
+
+.header-notification-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  transition: all 0.2s ease;
+}
+
+.header-notification-btn:hover {
+  background: var(--color-hover);
+  color: var(--color-text);
+}
+
+.header-avatar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: var(--color-input-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  transition: all 0.2s ease;
+}
+
+.header-avatar-btn:hover {
+  background: var(--color-hover);
+  border-color: var(--color-border-hover);
+  color: var(--color-text);
 }
