@@ -120,3 +120,16 @@ export interface NoteUpdateRequest {
   space_id?: number;
 }
 
+export interface SpaceTag {
+  id: number;
+  name: string;
+  color?: string;
+  space_id: number;
+  created_at: string;
+}
+
+export interface SpaceTagCreateRequest {
+  name: string;
+  color?: string;
+}
+

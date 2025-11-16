@@ -3,17 +3,27 @@ import { useAuth } from './contexts/AuthContext';
 import { AssistantPage } from './pages/AssistantPage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
-import { SpacesPage } from './pages/SpacesPage';
+import { SpacesListPage } from './pages/SpacesListPage';
+import { SpaceDetailPage } from './pages/SpaceDetailPage';
 
 export const App: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
-  const [currentPage, setCurrentPage] = React.useState<'login' | 'register' | 'assistant' | 'spaces'>('login');
+  const [currentPage, setCurrentPage] = React.useState<'login' | 'register' | 'assistant' | 'spaces' | 'space-detail'>('login');
+  const [spaceId, setSpaceId] = React.useState<number | null>(null);
 
   // Определяем текущую страницу из URL
   React.useEffect(() => {
     const path = window.location.pathname;
     if (path === '/register') {
       setCurrentPage('register');
+    } else if (path.startsWith('/spaces/')) {
+      const match = path.match(/^\/spaces\/(\d+)$/);
+      if (match) {
+        setSpaceId(parseInt(match[1]));
+        setCurrentPage('space-detail');
+      } else {
+        setCurrentPage('spaces');
+      }
     } else if (path === '/spaces') {
       setCurrentPage('spaces');
     } else if (path === '/assistant' || path === '/') {
@@ -52,7 +62,11 @@ export const App: React.FC = () => {
 
   // Роутинг для авторизованных пользователей
   if (currentPage === 'spaces') {
-    return <SpacesPage />;
+    return <SpacesListPage />;
+  }
+
+  if (currentPage === 'space-detail' && spaceId) {
+    return <SpaceDetailPage spaceId={spaceId} />;
   }
 
   return <AssistantPage />;
