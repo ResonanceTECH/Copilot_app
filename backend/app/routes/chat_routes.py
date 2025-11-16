@@ -4,6 +4,7 @@ from typing import Optional, List
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
+from typing import List, Dict
 
 from backend.app.database.connection import get_db
 from backend.app.dependencies import get_current_user
@@ -132,6 +133,16 @@ def get_enhanced_system_prompt(user_question: str):
     return enhanced_prompt, category, probabilities
 
 
+def get_conversation_history(chat_id: int, db: Session, max_messages: int = 10) -> List[Dict[str, str]]:
+    """Получить историю сообщений для контекста LLM"""
+    messages = db.query(Message).filter(
+        Message.chat_id == chat_id
+    ).order_by(Message.created_at.desc()).limit(max_messages).all()
+
+    # Возвращаем в хронологическом порядке (от старых к новым)
+    return list(reversed(messages))
+
+
 @router.get("/")
 async def root():
     return {"message": "Chat API"}
@@ -155,7 +166,7 @@ async def create_chat(
             raise HTTPException(status_code=404, detail="Пространство не найдено")
     else:
         space = get_or_create_default_space(current_user, db)
-    
+
     # Создаем новый чат
     title = chat_data.title.strip() if chat_data.title and chat_data.title.strip() else "Новый чат"
     chat = Chat(
@@ -166,7 +177,7 @@ async def create_chat(
     db.add(chat)
     db.commit()
     db.refresh(chat)
-    
+
     return ChatHistoryItem(
         id=chat.id,
         title=chat.title,
@@ -181,11 +192,11 @@ async def create_chat(
 
 @router.post("/chat/send", response_model=ChatSendResponse)
 async def send_message(
-    request: ChatSendRequest,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+        request: ChatSendRequest,
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db)
 ):
-    """Отправка сообщения в чат и получение ответа от LLM"""
+    """Отправка сообщения в чат и получение ответа от LLM с учетом всей истории"""
     try:
         user_message = request.message.strip()
 
@@ -218,7 +229,7 @@ async def send_message(
             chat = Chat(
                 space_id=space.id,
                 user_id=current_user.id,
-                title=user_message[:50] if len(user_message) > 50 else user_message
+                title=user_message[:50] + "..." if len(user_message) > 50 else user_message
             )
             db.add(chat)
             db.commit()
@@ -232,6 +243,7 @@ async def send_message(
         )
         db.add(user_msg)
         db.commit()
+        db.refresh(user_msg)
 
         # Проверяем быстрые ответы
         quick_response = llm_service.get_quick_response(user_message)
@@ -281,31 +293,20 @@ async def send_message(
 
         print(f"📨 Отправляем запрос в LLM: {user_message}")
 
-        # Получаем историю сообщений для контекста
-        previous_messages = db.query(Message).filter(
-            Message.chat_id == chat.id
-        ).order_by(Message.created_at).all()
+        # Получаем ВСЮ историю сообщений для контекста
+        conversation_history = get_conversation_history(chat.id, db, max_messages=15)
 
-        # Формируем контекст из истории
-        context_messages = []
-        for msg in previous_messages[:-1]:  # Все кроме последнего (текущего)
-            context_messages.append({
-                "role": msg.role,
-                "content": msg.content
-            })
+        print(f"📚 Используем историю из {len(conversation_history)} сообщений для контекста")
 
         # Получаем усиленный промпт
         enhanced_prompt, category, probabilities = get_enhanced_system_prompt(user_message)
 
-        # Генерируем ответ с учетом контекста
-        if context_messages:
-            # Если есть история, используем её для контекста
-            ai_response = llm_service.generate_response_with_context(
-                enhanced_prompt, context_messages, user_message
-            )
-        else:
-            # Если истории нет, используем обычный метод
-            ai_response = llm_service.generate_response(enhanced_prompt, user_message)
+        # Генерируем ответ с учетом всей истории чата
+        ai_response = llm_service.generate_response(
+            system_prompt=enhanced_prompt,
+            user_question=user_message,
+            conversation_history=conversation_history
+        )
 
         # Форматируем ответ
         formatted_response = formatting_service.format_response(ai_response)
@@ -328,11 +329,14 @@ async def send_message(
             'formatted_html': formatted_response,
             'timestamp': datetime.now().isoformat(),
             'category': category,
-            'probabilities': probabilities
+            'probabilities': probabilities,
+            'history_count': len(conversation_history) + 1  # +1 для текущего сообщения
         }
 
         # Сохраняем в кэш
         cache_service.set(user_message, response_data)
+
+        print(f"✅ Успешно обработан запрос. История: {len(conversation_history) + 1} сообщений")
 
         return ChatSendResponse(
             success=True,
@@ -357,11 +361,11 @@ async def send_message(
 
 @router.get("/chat/history", response_model=ChatHistoryResponse)
 async def get_chat_history(
-    space_id: Optional[int] = Query(None, description="Фильтр по пространству"),
-    limit: int = Query(50, ge=1, le=100),
-    offset: int = Query(0, ge=0),
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+        space_id: Optional[int] = Query(None, description="Фильтр по пространству"),
+        limit: int = Query(50, ge=1, le=100),
+        offset: int = Query(0, ge=0),
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db)
 ):
     """Получить историю чатов пользователя"""
     query = db.query(Chat).filter(Chat.user_id == current_user.id)
@@ -385,22 +389,23 @@ async def get_chat_history(
             title=chat.title,
             space_id=chat.space_id,
             space_name=chat.space.name if chat.space else "",
-            last_message=last_message.content[:100] if last_message else None,
+            last_message=last_message.content[:100] + "..." if last_message and len(
+                last_message.content) > 100 else last_message.content if last_message else None,
             last_message_at=last_message.created_at.isoformat() if last_message else None,
             created_at=chat.created_at.isoformat(),
             updated_at=chat.updated_at.isoformat()
         ))
-    
+
     return ChatHistoryResponse(chats=chat_items, total=total)
 
 
 @router.get("/chat/{chat_id}/messages", response_model=ChatMessagesResponse)
 async def get_chat_messages(
-    chat_id: int,
-    limit: int = Query(100, ge=1, le=500),
-    offset: int = Query(0, ge=0),
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+        chat_id: int,
+        limit: int = Query(100, ge=1, le=500),
+        offset: int = Query(0, ge=0),
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db)
 ):
     """Получить все сообщения чата"""
     # Проверяем, что чат принадлежит пользователю
@@ -436,6 +441,42 @@ async def get_chat_messages(
         chat_title=chat.title
     )
 
+@router.get("/chat/{chat_id}/context")
+async def get_chat_context(
+        chat_id: int,
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db)
+):
+    """Получить информацию о контексте чата (для отладки)"""
+    # Проверяем, что чат принадлежит пользователю
+    chat = db.query(Chat).filter(
+        Chat.id == chat_id,
+        Chat.user_id == current_user.id
+    ).first()
+
+    if not chat:
+        raise HTTPException(status_code=404, detail="Чат не найден")
+
+    # Получаем историю для контекста
+    conversation_history = get_conversation_history(chat_id, db, max_messages=15)
+
+    return {
+        "chat_id": chat_id,
+        "chat_title": chat.title,
+        "total_messages": len(conversation_history),
+        "context_messages": [
+            {
+                "id": msg.id,
+                "role": msg.role,
+                "content_preview": msg.content[:100] + "..." if len(msg.content) > 100 else msg.content,
+                "created_at": msg.created_at.isoformat()
+            }
+            for msg in conversation_history
+        ]
+    }
+
+
+
 
 @router.put("/chat/{chat_id}", response_model=ChatHistoryItem)
 async def update_chat(
@@ -449,13 +490,13 @@ async def update_chat(
         Chat.id == chat_id,
         Chat.user_id == current_user.id
     ).first()
-    
+
     if not chat:
         raise HTTPException(
             status_code=404,
             detail="Чат не найден"
         )
-    
+
     if chat_data.title is not None:
         if not chat_data.title.strip():
             raise HTTPException(
@@ -466,12 +507,12 @@ async def update_chat(
         chat.updated_at = datetime.now(timezone.utc)
         db.commit()
         db.refresh(chat)
-    
+
     # Получаем последнее сообщение для ответа
     last_message = db.query(Message).filter(
         Message.chat_id == chat.id
     ).order_by(desc(Message.created_at)).first()
-    
+
     return ChatHistoryItem(
         id=chat.id,
         title=chat.title,
@@ -495,29 +536,31 @@ async def delete_chat(
         Chat.id == chat_id,
         Chat.user_id == current_user.id
     ).first()
-    
+
     if not chat:
         raise HTTPException(
             status_code=404,
             detail="Чат не найден"
         )
-    
+
     # Удаляем все сообщения чата
     db.query(Message).filter(Message.chat_id == chat.id).delete()
-    
+
     # Удаляем чат
     db.delete(chat)
     db.commit()
-    
+
     return None
 
 
 # Оставляем старый эндпоинт для обратной совместимости
+
+
 @router.post("/ask", response_model=dict)
 async def ask_question_legacy(
-    request: dict,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+        request: dict,
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db)
 ):
     """Старый эндпоинт для обратной совместимости - перенаправляет на /chat/send"""
     question = request.get("question", "")
