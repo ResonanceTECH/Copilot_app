@@ -36,10 +36,12 @@ try:
     from backend.app.routes.chat_routes import router as chat_router
     from backend.app.routes.auth_routes import router as auth_router
     from backend.app.routes.user_routes import router as user_router
+    from backend.app.routes.notes_routes import router as notes_router
     
     app.include_router(chat_router, prefix="/api", tags=["chat"])
     app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
     app.include_router(user_router, prefix="/api/user", tags=["user"])
+    app.include_router(notes_router, prefix="/api/notes", tags=["notes"])
     
     print("✅ Роуты успешно подключены с префиксом /api")
 except Exception as e:
