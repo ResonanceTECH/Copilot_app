@@ -1,14 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Icon } from '../../ui/Icon';
-import { Button } from '../../ui/Button';
 import { ICONS } from '../../../utils/icons';
 import { ChatThread } from '../../../types';
 import logoIcon from '../../../assets/icons/logo.svg';
 import { ThreadContextMenu } from './ThreadContextMenu';
+import { useLanguage } from '../../../contexts/LanguageContext';
+import { getTranslation } from '../../../utils/i18n';
 import './Sidebar.css';
 
 interface SidebarProps {
   threads?: ChatThread[];
+  activeThreadId?: string | null;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
   onNewThread?: () => void;
   onThreadSelect?: (threadId: string) => void;
   onThreadDelete?: (threadId: string) => void;
@@ -17,6 +21,9 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({
   threads = [],
+  activeThreadId,
+  isCollapsed = false,
+  onToggleCollapse,
   onNewThread,
   onThreadSelect,
   onThreadDelete,
@@ -28,6 +35,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   } | null>(null);
   const [editingThreadId, setEditingThreadId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
+  const contextMenuRef = useRef<HTMLDivElement>(null);
+  const { language } = useLanguage();
 
   const handleMenuClick = (e: React.MouseEvent, threadId: string) => {
     e.stopPropagation();
@@ -42,11 +51,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const handleRename = (threadId: string) => {
-    const thread = threads.find((t) => t.id === threadId);
-    if (thread) {
-      setEditingThreadId(threadId);
-      setEditingTitle(thread.title);
-    }
+    setEditingThreadId(threadId);
+    setEditingTitle('');
   };
 
   const handleRenameSubmit = (e: React.FormEvent, threadId: string) => {
@@ -72,38 +78,108 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
   };
 
+  // Закрытие контекстного меню при клике вне его
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (contextMenuRef.current && !contextMenuRef.current.contains(event.target as Node)) {
+        setContextMenu(null);
+      }
+    };
+
+    if (contextMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [contextMenu]);
+
+  // Горячие клавиши
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+        e.preventDefault();
+        onNewThread?.();
+      }
+      if (e.key === 'Escape') {
+        if (contextMenu) {
+          setContextMenu(null);
+        }
+        if (editingThreadId) {
+          setEditingThreadId(null);
+          setEditingTitle('');
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => {
+      window.removeEventListener('keydown', handleKeyPress);
+    };
+  }, [onNewThread, contextMenu, editingThreadId]);
+
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar ${isCollapsed ? 'sidebar--collapsed' : ''}`}>
       <div className="sidebar-header">
         <div className="sidebar-logo">
-          <img src={logoIcon} alt="AI-ассистент" className="sidebar-logo-icon" />
-          <span className="sidebar-logo-text">AI-ассистент</span>
+          <img src={logoIcon} alt={getTranslation('aiAssistant', language)} className="sidebar-logo-icon" />
+          {!isCollapsed && <span className="sidebar-logo-text">{getTranslation('aiAssistant', language)}</span>}
         </div>
-        <div className="sidebar-new-container">
+        {!isCollapsed ? (
+          <div className="sidebar-new-container">
+            <button
+              onClick={onNewThread}
+              className="sidebar-new-btn"
+            >
+              {getTranslation('createNew', language)}
+            </button>
+          </div>
+        ) : (
           <button
             onClick={onNewThread}
-            className="sidebar-new-btn"
+            className="sidebar-new-btn-collapsed"
+            title={getTranslation('createNewChat', language)}
           >
-+ Создать новый
+            <Icon src={ICONS.plus} size="md" />
           </button>
-        </div>
+        )}
+        <button
+          className="sidebar-collapse-btn"
+          onClick={onToggleCollapse}
+          title={isCollapsed ? getTranslation('settings', language) : getTranslation('settings', language)}
+        >
+          <Icon src={ICONS.menu} size="sm" />
+        </button>
       </div>
 
       <div className="sidebar-content">
         <div className="sidebar-section">
           <div className="sidebar-section-header">
-            <span className="sidebar-section-title">Чаты</span>
+            <span className="sidebar-section-title">{getTranslation('chats', language)}</span>
             <button className="sidebar-search-btn">
               <Icon src={ICONS.search} size="sm" />
             </button>
           </div>
           <div className="sidebar-threads">
-            {threads.map((thread) => (
-              <div
-                key={thread.id}
-                className="sidebar-thread-item"
-                onClick={() => !editingThreadId && onThreadSelect?.(thread.id)}
-              >
+            {threads.length === 0 && !isCollapsed ? (
+              <>
+                <div className="sidebar-thread-placeholder"></div>
+                <div className="sidebar-thread-placeholder"></div>
+                <div className="sidebar-thread-placeholder"></div>
+                <div className="sidebar-signup-section">
+                  <p className="sidebar-signup-text">{getTranslation('signUpForFree', language)}</p>
+                  <button className="sidebar-signup-btn">
+                    {getTranslation('signUp', language)}
+                  </button>
+                </div>
+              </>
+            ) : (
+              threads.map((thread) => (
+                <div
+                  key={thread.id}
+                  className={`sidebar-thread-item ${activeThreadId === thread.id ? 'sidebar-thread-item--active' : ''}`}
+                  onClick={() => !editingThreadId && onThreadSelect?.(thread.id)}
+                >
                 {editingThreadId === thread.id ? (
                   <input
                     type="text"
@@ -117,59 +193,60 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   />
                 ) : (
                   <>
-                    <span className="sidebar-thread-title">{thread.title}</span>
-                    <button
-                      className="sidebar-thread-menu"
-                      onClick={(e) => handleMenuClick(e, thread.id)}
-                    >
-                      <Icon src={ICONS.more} size="sm" />
-                    </button>
+                    {isCollapsed ? (
+                      <Icon src={ICONS.rocket} size="md" />
+                    ) : (
+                      <>
+                        <span className="sidebar-thread-title">{thread.title}</span>
+                        <button
+                          className="sidebar-thread-menu"
+                          onClick={(e) => handleMenuClick(e, thread.id)}
+                        >
+                          <Icon src={ICONS.more} size="sm" />
+                        </button>
+                      </>
+                    )}
                   </>
                 )}
-              </div>
-            ))}
+                </div>
+              ))
+            )}
           </div>
           {contextMenu && (
-            <ThreadContextMenu
-              threadId={contextMenu.threadId}
-              position={contextMenu.position}
-              onClose={() => setContextMenu(null)}
-              onDelete={(threadId) => {
-                onThreadDelete?.(threadId);
-                setContextMenu(null);
-              }}
-              onRename={handleRename}
-            />
+            <div ref={contextMenuRef}>
+              <ThreadContextMenu
+                threadId={contextMenu.threadId}
+                position={contextMenu.position}
+                onClose={() => setContextMenu(null)}
+                onDelete={(threadId) => {
+                  onThreadDelete?.(threadId);
+                  setContextMenu(null);
+                }}
+                onRename={handleRename}
+              />
+            </div>
           )}
         </div>
+      </div>
 
-        <div className="sidebar-navigation">
-          <button className="sidebar-nav-item">
-            <Icon src={ICONS.flame} size="md" />
-            <span>Исследовать</span>
-          </button>
-          <button className="sidebar-nav-item">
-            <Icon src={ICONS.settings} size="md" />
-            <span>Настройки</span>
-          </button>
-          <button className="sidebar-nav-item">
-            <Icon src={ICONS.more} size="md" />
-            <span>Еще</span>
-          </button>
+      {!isCollapsed && (
+        <div className="sidebar-footer">
+          <div className="sidebar-navigation">
+            <button className="sidebar-nav-item">
+              <Icon src={ICONS.flame} size="md" />
+              <span>{getTranslation('explore', language)}</span>
+            </button>
+            <button className="sidebar-nav-item">
+              <Icon src={ICONS.settings} size="md" />
+              <span>{getTranslation('settings', language)}</span>
+            </button>
+            <button className="sidebar-nav-item">
+              <Icon src={ICONS.more} size="md" />
+              <span>{getTranslation('more', language)}</span>
+            </button>
+          </div>
         </div>
-      </div>
-
-      <div className="sidebar-footer">
-        <Button
-          variant="primary"
-          size="lg"
-          onClick={() => {}}
-          className="sidebar-upgrade-btn"
-        >
-          Обновить до Pro
-        </Button>
-        <div className="sidebar-trial-text">Бесплатная пробная версия на 7 дней</div>
-      </div>
+      )}
     </aside>
   );
 };

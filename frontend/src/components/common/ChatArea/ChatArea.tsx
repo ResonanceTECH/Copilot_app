@@ -1,69 +1,97 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Icon } from '../../ui/Icon';
-import { Button } from '../../ui/Button';
 import { ICONS } from '../../../utils/icons';
-import { ChatMessage, TrendingCard } from '../../../types';
+import { ChatMessage } from '../../../types';
 import logoIcon from '../../../assets/icons/logo.svg';
+import { useLanguage } from '../../../contexts/LanguageContext';
+import { getTranslation } from '../../../utils/i18n';
 import './ChatArea.css';
 
 interface ChatAreaProps {
   userName?: string;
   messages?: ChatMessage[];
-  trendingCards?: TrendingCard[];
+  activeTool?: string;
+  onToolSelect?: (tool: string) => void;
   onSendMessage?: (message: string) => void;
+  showActions?: boolean;
 }
 
 export const ChatArea: React.FC<ChatAreaProps> = ({
   userName = '',
   messages = [],
-  trendingCards = [],
+  activeTool: externalActiveTool,
+  onToolSelect,
   onSendMessage,
+  showActions = true,
 }) => {
   const [inputValue, setInputValue] = useState('');
-  const [activeTool, setActiveTool] = useState<string>('assistant');
+  const [internalActiveTool, setInternalActiveTool] = useState<string>('assistant');
+  const [isModelSelectorVisible, setIsModelSelectorVisible] = useState(false);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const modelSelectorRef = useRef<HTMLDivElement>(null);
+  const { language } = useLanguage();
+  
+  const activeTool = externalActiveTool !== undefined ? externalActiveTool : internalActiveTool;
+  const handleToolSelect = (tool: string) => {
+    if (onToolSelect) {
+      onToolSelect(tool);
+    } else {
+      setInternalActiveTool(tool);
+    }
+  };
 
   const handleSend = () => {
     if (inputValue.trim() && onSendMessage) {
       onSendMessage(inputValue.trim());
       setInputValue('');
+      // Фокус на поле ввода после отправки
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 0);
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
   };
 
-  const defaultTrendingCards: TrendingCard[] = [
-    {
-      id: '1',
-      category: 'Новости',
-      title: 'Празднование Дня освобождения',
-      imageUrl: 'https://images.unsplash.com/photo-1524419986249-348e8fa6ad4a?w=400&h=300&fit=crop',
-    },
-    {
-      id: '2',
-      category: 'Развлечения',
-      title: 'Музыка для путешествий - Ваш плейлист',
-      imageUrl: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop',
-    },
-    {
-      id: '3',
-      category: 'Новости',
-      title: 'Пожар в Южном Форке в Руидозо',
-      imageUrl: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop',
-    },
-    {
-      id: '4',
-      category: 'Образ жизни',
-      title: 'Идеальный план питания: сжигай жир, сохраняй мышцы',
-      imageUrl: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=300&fit=crop',
-    },
-  ];
+  // Автоматическое изменение размера textarea
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.style.height = 'auto';
+      inputRef.current.style.height = `${Math.min(inputRef.current.scrollHeight, 200)}px`;
+    }
+  }, [inputValue]);
 
-  const cards = trendingCards.length > 0 ? trendingCards : defaultTrendingCards;
+  // Автофокус на поле ввода при загрузке
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  // Автопрокрутка сообщений вниз
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  // Закрытие меню выбора модели при клике вне его
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (modelSelectorRef.current && !modelSelectorRef.current.contains(event.target as Node)) {
+        setIsModelSelectorVisible(false);
+      }
+    };
+
+    if (isModelSelectorVisible) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [isModelSelectorVisible]);
 
   return (
     <div className="chat-area">
@@ -73,31 +101,21 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             <div className="chat-welcome-icon">
               <img src={logoIcon} alt="AI-ассистент" className="chat-welcome-logo" />
             </div>
-            <h2 className="chat-welcome-title">
-              {userName ? `Привет ${userName}, чем могу помочь?` : 'Привет, чем могу помочь?'}
-            </h2>
+            {userName ? (
+              <>
+                <h2 className="chat-welcome-title">
+                  {getTranslation('greetingWithName', language, { name: userName }).split(',')[0]}
+                </h2>
+                <p className="chat-welcome-subtitle">
+                  {getTranslation('greeting', language)}
+                </p>
+              </>
+            ) : (
+              <h2 className="chat-welcome-title">
+                {getTranslation('greeting', language)}
+              </h2>
+            )}
           </div>
-
-          {cards.length > 0 && (
-            <div className="chat-trending">
-              <h3 className="chat-trending-title">В тренде</h3>
-              <div className="chat-trending-grid">
-                {cards.map((card) => (
-                  <div key={card.id} className="chat-trending-card">
-                    {card.imageUrl && (
-                      <div className="chat-trending-card-image">
-                        <img src={card.imageUrl} alt={card.title} />
-                      </div>
-                    )}
-                    <div className="chat-trending-card-content">
-                      <span className="chat-trending-card-category">{card.category}</span>
-                      <h4 className="chat-trending-card-title">{card.title}</h4>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       ) : (
         <div className="chat-messages">
@@ -109,65 +127,52 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               <div className="chat-message-content">{message.content}</div>
             </div>
           ))}
+          <div ref={messagesEndRef} />
         </div>
       )}
 
-      <div className="chat-actions">
-        <Button
-          variant={activeTool === 'assistant' ? 'primary' : 'ghost'}
-          size="sm"
-          onClick={() => setActiveTool('assistant')}
-          className="chat-action-btn"
-        >
-          Ассистент
-        </Button>
-        <Button
-          variant={activeTool === 'web-search' ? 'primary' : 'ghost'}
-          size="sm"
-          icon={ICONS.search}
-          onClick={() => setActiveTool('web-search')}
-          className="chat-action-btn"
-        >
-          Веб-поиск
-        </Button>
-        <Button
-          variant={activeTool === 'gpt-4o' ? 'primary' : 'ghost'}
-          size="sm"
-          icon={ICONS.brain}
-          onClick={() => setActiveTool('gpt-4o')}
-          className="chat-action-btn"
-        >
-          GPT-4o
-        </Button>
-        <Button
-          variant={activeTool === 'claude-3' ? 'primary' : 'ghost'}
-          size="sm"
-          icon={ICONS.cloud}
-          onClick={() => setActiveTool('claude-3')}
-          className="chat-action-btn"
-        >
-          Claude 3 Sonnet
-        </Button>
-        <Button
-          variant={activeTool === 'gemini-pro' ? 'primary' : 'ghost'}
-          size="sm"
-          icon={ICONS.sparkle}
-          onClick={() => setActiveTool('gemini-pro')}
-          className="chat-action-btn"
-        >
-          Gemini 1.5 Pro
-        </Button>
-      </div>
-
-      <div className="chat-input-wrapper">
+      <div className="chat-input-section">
+        <div className="chat-model-selector" ref={modelSelectorRef}>
+            <button
+              className="chat-model-toggle-btn"
+              onClick={() => setIsModelSelectorVisible(!isModelSelectorVisible)}
+              title={activeTool === 'assistant' ? getTranslation('assistant', language) : getTranslation('deepseekChimera', language)}
+            >
+              <Icon src={ICONS.sparkle} size="md" />
+            </button>
+            {isModelSelectorVisible && (
+              <div className="chat-actions">
+                <button
+                  className={`chat-action-btn ${activeTool === 'assistant' ? 'chat-action-btn--active' : ''}`}
+                  onClick={() => {
+                    handleToolSelect('assistant');
+                    setIsModelSelectorVisible(false);
+                  }}
+                >
+                  {getTranslation('assistant', language)}
+                </button>
+                <button
+                  className={`chat-action-btn ${activeTool === 'deepseek-chimera' ? 'chat-action-btn--active' : ''}`}
+                  onClick={() => {
+                    handleToolSelect('deepseek-chimera');
+                    setIsModelSelectorVisible(false);
+                  }}
+                >
+                  {getTranslation('deepseekChimera', language)}
+                </button>
+              </div>
+            )}
+        </div>
+        <div className="chat-input-wrapper">
         <div className="chat-input-container">
-          <input
-            type="text"
+          <textarea
+            ref={inputRef}
             className="chat-input"
-            placeholder="Начните новый тред..."
+            placeholder={getTranslation('startNewThread', language)}
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
+            rows={1}
           />
           <div className="chat-input-actions">
             <button className="chat-input-icon-btn" type="button">
@@ -185,6 +190,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             </button>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );
