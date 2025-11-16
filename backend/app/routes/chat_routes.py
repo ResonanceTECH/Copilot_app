@@ -84,6 +84,15 @@ class ChatMessagesResponse(BaseModel):
     chat_title: Optional[str]
 
 
+class ChatUpdateRequest(BaseModel):
+    title: Optional[str] = None
+
+
+class ChatCreateRequest(BaseModel):
+    title: Optional[str] = None
+    space_id: Optional[int] = None
+
+
 def get_or_create_default_space(user: User, db: Session) -> Space:
     """Получить или создать дефолтное пространство для пользователя"""
     # Ищем дефолтное пространство
@@ -126,6 +135,48 @@ def get_enhanced_system_prompt(user_question: str):
 @router.get("/")
 async def root():
     return {"message": "Chat API"}
+
+
+@router.post("/chat", response_model=ChatHistoryItem, status_code=201)
+async def create_chat(
+    chat_data: ChatCreateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Создать новый пустой чат"""
+    # Определяем пространство
+    if chat_data.space_id:
+        space = db.query(Space).filter(
+            Space.id == chat_data.space_id,
+            Space.user_id == current_user.id,
+            Space.is_archived == False
+        ).first()
+        if not space:
+            raise HTTPException(status_code=404, detail="Пространство не найдено")
+    else:
+        space = get_or_create_default_space(current_user, db)
+    
+    # Создаем новый чат
+    title = chat_data.title.strip() if chat_data.title and chat_data.title.strip() else "Новый чат"
+    chat = Chat(
+        space_id=space.id,
+        user_id=current_user.id,
+        title=title
+    )
+    db.add(chat)
+    db.commit()
+    db.refresh(chat)
+    
+    return ChatHistoryItem(
+        id=chat.id,
+        title=chat.title,
+        space_id=chat.space_id,
+        space_name=chat.space.name if chat.space else "",
+        last_message=None,
+        last_message_at=None,
+        created_at=chat.created_at.isoformat(),
+        updated_at=chat.updated_at.isoformat()
+    )
 
 
 @router.post("/chat/send", response_model=ChatSendResponse)
@@ -384,6 +435,81 @@ async def get_chat_messages(
         chat_id=chat.id,
         chat_title=chat.title
     )
+
+
+@router.put("/chat/{chat_id}", response_model=ChatHistoryItem)
+async def update_chat(
+    chat_id: int,
+    chat_data: ChatUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Обновить чат (переименовать)"""
+    chat = db.query(Chat).filter(
+        Chat.id == chat_id,
+        Chat.user_id == current_user.id
+    ).first()
+    
+    if not chat:
+        raise HTTPException(
+            status_code=404,
+            detail="Чат не найден"
+        )
+    
+    if chat_data.title is not None:
+        if not chat_data.title.strip():
+            raise HTTPException(
+                status_code=400,
+                detail="Название чата не может быть пустым"
+            )
+        chat.title = chat_data.title.strip()
+        chat.updated_at = datetime.now(timezone.utc)
+        db.commit()
+        db.refresh(chat)
+    
+    # Получаем последнее сообщение для ответа
+    last_message = db.query(Message).filter(
+        Message.chat_id == chat.id
+    ).order_by(desc(Message.created_at)).first()
+    
+    return ChatHistoryItem(
+        id=chat.id,
+        title=chat.title,
+        space_id=chat.space_id,
+        space_name=chat.space.name if chat.space else "",
+        last_message=last_message.content[:100] if last_message else None,
+        last_message_at=last_message.created_at.isoformat() if last_message else None,
+        created_at=chat.created_at.isoformat(),
+        updated_at=chat.updated_at.isoformat()
+    )
+
+
+@router.delete("/chat/{chat_id}", status_code=204)
+async def delete_chat(
+    chat_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Удалить чат"""
+    chat = db.query(Chat).filter(
+        Chat.id == chat_id,
+        Chat.user_id == current_user.id
+    ).first()
+    
+    if not chat:
+        raise HTTPException(
+            status_code=404,
+            detail="Чат не найден"
+        )
+    
+    # Удаляем все сообщения чата
+    db.query(Message).filter(Message.chat_id == chat.id).delete()
+    
+    # Удаляем чат
+    db.delete(chat)
+    db.commit()
+    
+    return None
 
 
 # Оставляем старый эндпоинт для обратной совместимости

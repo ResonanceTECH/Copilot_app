@@ -93,27 +93,56 @@ export const AssistantPage: React.FC = () => {
   }, [threads]);
 
   // Создать новый чат
-  const handleNewThread = useCallback(() => {
-    const newThreadId = `thread-${Date.now()}`;
-    const newThread: ChatThread = {
-      id: newThreadId,
-      title: getTranslation('newChat', language),
-      timestamp: new Date(),
-    };
+  const handleNewThread = useCallback(async () => {
+    try {
+      // Создаем чат на сервере
+      const chatData = await chatAPI.createChat(getTranslation('newChat', language));
+      
+      const newThreadId = `chat-${chatData.id}`;
+      const newThread: ChatThread = {
+        id: newThreadId,
+        title: chatData.title || getTranslation('newChat', language),
+        timestamp: new Date(chatData.created_at),
+      };
 
-    const newThreadData: ThreadData = {
-      thread: newThread,
-      messages: [],
-    };
+      const newThreadData: ThreadData = {
+        thread: newThread,
+        messages: [],
+        chatId: chatData.id,
+      };
 
-    setThreads((prev) => {
-      const updated = new Map(prev);
-      updated.set(newThreadId, newThreadData);
-      return updated;
-    });
+      setThreads((prev) => {
+        const updated = new Map(prev);
+        updated.set(newThreadId, newThreadData);
+        return updated;
+      });
 
-    setActiveThreadId(newThreadId);
-    setMessages([]);
+      setActiveThreadId(newThreadId);
+      setMessages([]);
+    } catch (error) {
+      console.error('Ошибка создания чата:', error);
+      // В случае ошибки создаем локально
+      const newThreadId = `thread-${Date.now()}`;
+      const newThread: ChatThread = {
+        id: newThreadId,
+        title: getTranslation('newChat', language),
+        timestamp: new Date(),
+      };
+
+      const newThreadData: ThreadData = {
+        thread: newThread,
+        messages: [],
+      };
+
+      setThreads((prev) => {
+        const updated = new Map(prev);
+        updated.set(newThreadId, newThreadData);
+        return updated;
+      });
+
+      setActiveThreadId(newThreadId);
+      setMessages([]);
+    }
   }, [language]);
 
   // Выбрать чат
@@ -159,7 +188,12 @@ export const AssistantPage: React.FC = () => {
   }, [threads]);
 
   // Удалить чат
-  const handleThreadDelete = useCallback((threadId: string) => {
+  const handleThreadDelete = useCallback(async (threadId: string) => {
+    const threadData = threads.get(threadId);
+    const chatId = threadData?.chatId;
+
+    if (!chatId) {
+      // Если чат еще не создан на сервере, просто удаляем локально
     setThreads((prev) => {
       const updated = new Map(prev);
       updated.delete(threadId);
@@ -170,25 +204,86 @@ export const AssistantPage: React.FC = () => {
       setActiveThreadId(null);
       setMessages([]);
     }
-  }, [activeThreadId]);
+      return;
+    }
+
+    try {
+      // Удаляем чат на сервере
+      await chatAPI.deleteChat(chatId);
+      
+      // Удаляем локально
+      setThreads((prev) => {
+        const updated = new Map(prev);
+        updated.delete(threadId);
+        return updated;
+      });
+
+      if (activeThreadId === threadId) {
+        setActiveThreadId(null);
+        setMessages([]);
+      }
+    } catch (error) {
+      console.error('Ошибка удаления чата:', error);
+      // Можно показать уведомление об ошибке
+    }
+  }, [activeThreadId, threads]);
 
   // Переименовать чат
-  const handleThreadRename = useCallback((threadId: string, newTitle: string) => {
+  const handleThreadRename = useCallback(async (threadId: string, newTitle: string) => {
+    const finalTitle = newTitle.trim() || getTranslation('newChat', language);
+    
+    // Получаем текущие данные чата
+    const currentThreadData = threads.get(threadId);
+    if (!currentThreadData) {
+      return;
+    }
+    
+    const oldTitle = currentThreadData.thread.title;
+    const chatId = currentThreadData.chatId;
+
+    // Обновляем локально сразу для лучшего UX
     setThreads((prev) => {
       const updated = new Map(prev);
-      const threadData = updated.get(threadId);
-      if (threadData) {
+      const data = updated.get(threadId);
+      if (data) {
         updated.set(threadId, {
-          ...threadData,
+          ...data,
           thread: {
-            ...threadData.thread,
-            title: newTitle.trim() || getTranslation('newChat', language),
+            ...data.thread,
+            title: finalTitle,
           },
         });
       }
       return updated;
     });
-  }, [language]);
+
+    if (!chatId) {
+      // Если чат еще не создан на сервере, просто обновляем локально
+      return;
+    }
+
+    try {
+      // Обновляем на сервере
+      await chatAPI.updateChat(chatId, finalTitle);
+    } catch (error) {
+      console.error('Ошибка переименования чата:', error);
+      // Откатываем изменение при ошибке
+      setThreads((prev) => {
+        const updated = new Map(prev);
+        const data = updated.get(threadId);
+        if (data) {
+          updated.set(threadId, {
+            ...data,
+            thread: {
+              ...data.thread,
+              title: oldTitle, // Возвращаем старое название
+            },
+          });
+        }
+        return updated;
+      });
+    }
+  }, [language, threads]);
 
   // Отправить сообщение в конкретный чат
   const handleSendMessageToThread = useCallback(async (
@@ -213,17 +308,17 @@ export const AssistantPage: React.FC = () => {
       
       if (data) {
         const updatedMessages = [...data.messages, userMessage];
-        updated.set(threadId, {
+          updated.set(threadId, {
           ...data,
-          thread: {
+            thread: {
             ...data.thread,
-            lastMessage: content,
-          },
-          messages: updatedMessages,
-        });
-      }
-      
-      return updated;
+              lastMessage: content,
+            },
+            messages: updatedMessages,
+          });
+        }
+        
+        return updated;
     });
 
     setMessages((prev) => [...prev, userMessage]);
@@ -236,8 +331,8 @@ export const AssistantPage: React.FC = () => {
       });
 
       if (response.success && response.response) {
-        // Обновляем ID чата если это был новый чат
-        if (isNewThread && response.chat_id) {
+        // Обновляем ID чата если это был новый чат (fallback для старых чатов без chatId)
+        if (isNewThread && !chatId && response.chat_id) {
           setThreads((prev) => {
             const updated = new Map(prev);
             const data = updated.get(threadId);
@@ -279,8 +374,8 @@ export const AssistantPage: React.FC = () => {
               messages: [...messagesWithoutTemp, assistantMessage],
             });
           }
-          return updated;
-        });
+      return updated;
+    });
 
         setMessages((prev) => {
           const withoutTemp = prev.filter(msg => !msg.id.startsWith('temp-'));
@@ -320,36 +415,66 @@ export const AssistantPage: React.FC = () => {
   }, [threads, activeThreadId]);
 
   // Отправить сообщение
-  const handleSendMessage = useCallback((content: string) => {
+  const handleSendMessage = useCallback(async (content: string) => {
     if (!activeThreadId) {
-      // Если нет активного чата, создаем новый
-      const newThreadId = `thread-${Date.now()}`;
-      const newThread: ChatThread = {
-        id: newThreadId,
-        title: getTranslation('newChat', language),
-        timestamp: new Date(),
-      };
+      // Если нет активного чата, создаем новый на сервере
+      try {
+        const chatData = await chatAPI.createChat(getTranslation('newChat', language));
+        const newThreadId = `chat-${chatData.id}`;
+        const newThread: ChatThread = {
+          id: newThreadId,
+          title: chatData.title || getTranslation('newChat', language),
+          timestamp: new Date(chatData.created_at),
+        };
 
-      const newThreadData: ThreadData = {
-        thread: newThread,
-        messages: [],
-      };
+        const newThreadData: ThreadData = {
+          thread: newThread,
+          messages: [],
+          chatId: chatData.id,
+        };
 
-      setThreads((prev) => {
-        const updated = new Map(prev);
-        updated.set(newThreadId, newThreadData);
-        return updated;
-      });
+        setThreads((prev) => {
+          const updated = new Map(prev);
+          updated.set(newThreadId, newThreadData);
+          return updated;
+        });
 
-      setActiveThreadId(newThreadId);
-      setMessages([]);
-      
-      // Отправляем сообщение в новый чат
-      handleSendMessageToThread(newThreadId, content, true);
-      return;
+        setActiveThreadId(newThreadId);
+        setMessages([]);
+        
+        // Отправляем сообщение в новый чат
+        await handleSendMessageToThread(newThreadId, content, true);
+        return;
+      } catch (error) {
+        console.error('Ошибка создания чата при отправке сообщения:', error);
+        // Fallback: создаем локально
+        const newThreadId = `thread-${Date.now()}`;
+        const newThread: ChatThread = {
+          id: newThreadId,
+          title: getTranslation('newChat', language),
+          timestamp: new Date(),
+        };
+
+        const newThreadData: ThreadData = {
+          thread: newThread,
+          messages: [],
+        };
+
+        setThreads((prev) => {
+          const updated = new Map(prev);
+          updated.set(newThreadId, newThreadData);
+          return updated;
+        });
+
+        setActiveThreadId(newThreadId);
+        setMessages([]);
+        
+        await handleSendMessageToThread(newThreadId, content, true);
+        return;
+      }
     }
 
-    handleSendMessageToThread(activeThreadId, content, false);
+    await handleSendMessageToThread(activeThreadId, content, false);
   }, [activeThreadId, handleSendMessageToThread, language]);
 
   return (

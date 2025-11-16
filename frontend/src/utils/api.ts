@@ -130,7 +130,7 @@ const apiRequest = async <T>(
     ...options,
     headers,
   });
-  
+
   // Обработка 401 ошибки с автоматическим refresh
   if (response.status === 401 && !isAuthEndpoint && retryOn401) {
     const refreshed = await refreshTokenIfNeeded();
@@ -284,6 +284,14 @@ export interface ChatMessagesResponse {
 
 // API методы для чата
 export const chatAPI = {
+  // Создание нового чата
+  createChat: async (title?: string, spaceId?: number): Promise<ChatHistoryItem> => {
+    return apiRequest<ChatHistoryItem>('/chat', {
+      method: 'POST',
+      body: JSON.stringify({ title, space_id: spaceId }),
+    });
+  },
+
   // Отправка сообщения
   sendMessage: async (data: ChatSendRequest): Promise<ChatSendResponse> => {
     return apiRequest<ChatSendResponse>('/chat/send', {
@@ -304,6 +312,21 @@ export const chatAPI = {
   getMessages: async (chatId: number): Promise<ChatMessagesResponse> => {
     return apiRequest<ChatMessagesResponse>(`/chat/${chatId}/messages`, {
       method: 'GET',
+    });
+  },
+
+  // Обновление чата (переименование)
+  updateChat: async (chatId: number, title: string): Promise<ChatHistoryItem> => {
+    return apiRequest<ChatHistoryItem>(`/chat/${chatId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ title }),
+    });
+  },
+
+  // Удаление чата
+  deleteChat: async (chatId: number): Promise<void> => {
+    return apiRequest<void>(`/chat/${chatId}`, {
+      method: 'DELETE',
     });
   },
 };
