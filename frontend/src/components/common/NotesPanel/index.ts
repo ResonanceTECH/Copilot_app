@@ -1,0 +1,2 @@
+export { NotesPanel } from './NotesPanel';
+

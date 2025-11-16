@@ -86,3 +86,37 @@ export interface SpaceChat {
   is_important?: boolean;
 }
 
+export interface Note {
+  id: number;
+  space_id: number;
+  space_name: string;
+  user_id: number;
+  title: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+  tags: string[];
+}
+
+export interface NotePreview {
+  id: number;
+  space_id: number;
+  space_name: string;
+  title: string;
+  content_preview: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NoteCreateRequest {
+  title: string;
+  content?: string;
+  space_id?: number;
+}
+
+export interface NoteUpdateRequest {
+  title?: string;
+  content?: string;
+  space_id?: number;
+}
+

@@ -18,6 +18,7 @@ import {
   Notification01Icon as Bell01Icon,
   ArrowLeft01Icon as ArrowLeft01Icon,
   UserAccountIcon as User01Icon,
+  Edit01Icon as Note01Icon,
 } from '@hugeicons/core-free-icons';
 
 export type IconSvgObject = typeof Search01Icon;
@@ -42,6 +43,7 @@ export const ICON_COMPONENTS: Record<string, IconSvgObject> = {
   bell: Bell01Icon,
   arrowLeft: ArrowLeft01Icon,
   user: User01Icon,
+  note: Note01Icon,
 };
 
 // Старые URL для обратной совместимости (если нужно)
@@ -65,6 +67,7 @@ export const ICONS = {
   bell: 'bell',
   arrowLeft: 'arrowLeft',
   user: 'user',
+  note: 'note',
 } as const;
 
 export type IconName = keyof typeof ICONS;

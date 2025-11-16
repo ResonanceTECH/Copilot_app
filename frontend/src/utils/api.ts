@@ -107,7 +107,7 @@ export const authAPI = {
 };
 
 // API методы для пространств (mock версия)
-import type { Space, SpaceCreateRequest, SpaceUpdateRequest } from '../types';
+import type { Space, SpaceCreateRequest, SpaceUpdateRequest, Note, NotePreview, NoteCreateRequest, NoteUpdateRequest } from '../types';
 
 export const spacesAPI = {
   // Получить список пространств
@@ -244,6 +244,152 @@ export const spacesAPI = {
 
     localStorage.setItem('spaces', JSON.stringify(spaces));
     return spaces[spaceIndex];
+  },
+};
+
+// API методы для заметок (mock версия)
+export const notesAPI = {
+  // Создание новой заметки
+  createNote: async (data: NoteCreateRequest): Promise<Note> => {
+    await delay(500);
+
+    if (!data.title.trim()) {
+      throw new Error('Название заметки не может быть пустым');
+    }
+
+    const savedNotes = localStorage.getItem('notes');
+    const notes: Note[] = savedNotes ? JSON.parse(savedNotes) : [];
+
+    // Получаем пространство (или используем дефолтное)
+    const savedSpaces = localStorage.getItem('spaces');
+    const spaces: Space[] = savedSpaces ? JSON.parse(savedSpaces) : [];
+    let spaceId = data.space_id;
+    let spaceName = 'Без пространства';
+
+    if (spaceId) {
+      const space = spaces.find(s => s.id === spaceId);
+      if (!space) {
+        throw new Error('Пространство не найдено');
+      }
+      spaceName = space.name;
+    } else if (spaces.length > 0) {
+      // Используем первое доступное пространство как дефолтное
+      spaceId = spaces[0].id;
+      spaceName = spaces[0].name;
+    }
+
+    const newNote: Note = {
+      id: Date.now(),
+      space_id: spaceId || 0,
+      space_name: spaceName,
+      user_id: 1, // Mock user ID
+      title: data.title,
+      content: data.content || '',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      tags: [],
+    };
+
+    notes.push(newNote);
+    localStorage.setItem('notes', JSON.stringify(notes));
+
+    return newNote;
+  },
+
+  // Получение списка заметок
+  getNotes: async (spaceId?: number, limit = 50, offset = 0): Promise<{ notes: NotePreview[]; total: number }> => {
+    await delay(300);
+
+    const savedNotes = localStorage.getItem('notes');
+    let notes: Note[] = savedNotes ? JSON.parse(savedNotes) : [];
+
+    if (spaceId) {
+      notes = notes.filter(n => n.space_id === spaceId);
+    }
+
+    const total = notes.length;
+    const paginatedNotes = notes.slice(offset, offset + limit);
+
+    const previews: NotePreview[] = paginatedNotes.map(note => ({
+      id: note.id,
+      space_id: note.space_id,
+      space_name: note.space_name,
+      title: note.title,
+      content_preview: note.content.length > 100 ? note.content.substring(0, 100) + '...' : note.content,
+      created_at: note.created_at,
+      updated_at: note.updated_at,
+    }));
+
+    return { notes: previews, total };
+  },
+
+  // Получение конкретной заметки
+  getNote: async (noteId: number): Promise<Note> => {
+    await delay(300);
+
+    const savedNotes = localStorage.getItem('notes');
+    const notes: Note[] = savedNotes ? JSON.parse(savedNotes) : [];
+    const note = notes.find(n => n.id === noteId);
+
+    if (!note) {
+      throw new Error('Заметка не найдена');
+    }
+
+    return note;
+  },
+
+  // Обновление заметки
+  updateNote: async (noteId: number, data: NoteUpdateRequest): Promise<Note> => {
+    await delay(400);
+
+    const savedNotes = localStorage.getItem('notes');
+    const notes: Note[] = savedNotes ? JSON.parse(savedNotes) : [];
+    const noteIndex = notes.findIndex(n => n.id === noteId);
+
+    if (noteIndex === -1) {
+      throw new Error('Заметка не найдена');
+    }
+
+    if (data.title !== undefined && !data.title.trim()) {
+      throw new Error('Название заметки не может быть пустым');
+    }
+
+    // Проверка пространства, если указано
+    if (data.space_id !== undefined) {
+      const savedSpaces = localStorage.getItem('spaces');
+      const spaces: Space[] = savedSpaces ? JSON.parse(savedSpaces) : [];
+      const space = spaces.find(s => s.id === data.space_id);
+      if (!space) {
+        throw new Error('Пространство не найдено');
+      }
+      notes[noteIndex].space_id = data.space_id;
+      notes[noteIndex].space_name = space.name;
+    }
+
+    notes[noteIndex] = {
+      ...notes[noteIndex],
+      ...(data.title !== undefined && { title: data.title }),
+      ...(data.content !== undefined && { content: data.content }),
+      updated_at: new Date().toISOString(),
+    };
+
+    localStorage.setItem('notes', JSON.stringify(notes));
+    return notes[noteIndex];
+  },
+
+  // Удаление заметки
+  deleteNote: async (noteId: number): Promise<void> => {
+    await delay(300);
+
+    const savedNotes = localStorage.getItem('notes');
+    const notes: Note[] = savedNotes ? JSON.parse(savedNotes) : [];
+    const filtered = notes.filter(n => n.id !== noteId);
+
+    if (filtered.length === notes.length) {
+      throw new Error('Заметка не найдена');
+    }
+
+    localStorage.setItem('notes', JSON.stringify(filtered));
   },
 };
 
