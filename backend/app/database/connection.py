@@ -67,7 +67,8 @@ def init_db():
     # Импортируем все модели, чтобы они были зарегистрированы в Base.metadata
     # Это нужно для fallback создания таблиц через SQLAlchemy
     from backend.app.models import (
-        User, Space, Chat, Message, Note, Tag, NotificationSettings, note_tags
+        User, Space, Chat, Message, Note, Tag, NotificationSettings, note_tags,
+        Feedback, SupportArticle
     )
     
     # Путь к SQL-скрипту
