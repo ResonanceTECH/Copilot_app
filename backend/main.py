@@ -38,12 +38,14 @@ try:
     from backend.app.routes.user_routes import router as user_router
     from backend.app.routes.notes_routes import router as notes_router
     from backend.app.routes.support_routes import router as support_router
+    from backend.app.routes.spaces_routes import router as spaces_router
     
     app.include_router(chat_router, prefix="/api", tags=["chat"])
     app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
     app.include_router(user_router, prefix="/api/user", tags=["user"])
     app.include_router(notes_router, prefix="/api/notes", tags=["notes"])
     app.include_router(support_router, prefix="/api/support", tags=["support"])
+    app.include_router(spaces_router, prefix="/api/spaces", tags=["spaces"])
     
     print("✅ Роуты успешно подключены с префиксом /api")
 except Exception as e:
