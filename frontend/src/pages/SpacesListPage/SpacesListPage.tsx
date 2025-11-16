@@ -192,6 +192,7 @@ export const SpacesListPage: React.FC = () => {
                       e.stopPropagation();
                       window.location.href = `/spaces/${space.id}`;
                     }}>
+                      <Icon src={ICONS.open} size="sm" />
                       Открыть
                     </button>
                         <button onClick={(e) => {
@@ -206,6 +207,7 @@ export const SpacesListPage: React.FC = () => {
                             e.stopPropagation();
                             handleUnarchiveSpace(space.id);
                           }}>
+                            <Icon src={ICONS.archive} size="sm" />
                             Разархивировать
                           </button>
                         ) : (
@@ -213,6 +215,7 @@ export const SpacesListPage: React.FC = () => {
                             e.stopPropagation();
                             handleArchiveSpace(space.id);
                           }}>
+                            <Icon src={ICONS.archive} size="sm" />
                             Архивировать
                           </button>
                         )}
@@ -250,50 +253,54 @@ export const SpacesListPage: React.FC = () => {
                     <span className="spaces-grid-card-date">
                       Обновлено: {new Date(space.updated_at).toLocaleDateString('ru-RU')}
                     </span>
-                    {space.is_archived && (
-                      <span className="spaces-grid-card-status">Архивировано</span>
-                    )}
-                  </div>
-                  <div className="spaces-grid-card-actions">
-                    <button
-                      className="spaces-grid-card-action-btn"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        startEdit(space);
-                      }}
-                    >
-                      <Icon src={ICONS.edit} size="sm" />
-                    </button>
-                    {space.is_archived ? (
-                      <button
-                        className="spaces-grid-card-action-btn"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleUnarchiveSpace(space.id);
-                        }}
-                      >
-                        Разархивировать
-                      </button>
-                    ) : (
-                      <button
-                        className="spaces-grid-card-action-btn"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleArchiveSpace(space.id);
-                        }}
-                      >
-                        Архивировать
-                      </button>
-                    )}
-                    <button
-                      className="spaces-grid-card-action-btn danger"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteSpace(space.id);
-                      }}
-                    >
-                      <Icon src={ICONS.trash} size="sm" />
-                    </button>
+                    <div className="spaces-grid-card-footer-right">
+                      {space.is_archived && (
+                        <span className="spaces-grid-card-status">Архивировано</span>
+                      )}
+                      <div className="spaces-grid-card-actions">
+                        <button
+                          className="spaces-grid-card-action-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            startEdit(space);
+                          }}
+                        >
+                          <Icon src={ICONS.edit} size="sm" />
+                        </button>
+                        {space.is_archived ? (
+                          <button
+                            className="spaces-grid-card-action-btn"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleUnarchiveSpace(space.id);
+                            }}
+                            title="Разархивировать"
+                          >
+                            <Icon src={ICONS.archive} size="sm" />
+                          </button>
+                        ) : (
+                          <button
+                            className="spaces-grid-card-action-btn"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleArchiveSpace(space.id);
+                            }}
+                            title="Архивировать"
+                          >
+                            <Icon src={ICONS.archive} size="sm" />
+                          </button>
+                        )}
+                        <button
+                          className="spaces-grid-card-action-btn danger"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteSpace(space.id);
+                          }}
+                        >
+                          <Icon src={ICONS.trash} size="sm" />
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               ))}

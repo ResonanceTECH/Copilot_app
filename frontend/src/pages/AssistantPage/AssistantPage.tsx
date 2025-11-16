@@ -380,7 +380,6 @@ export const AssistantPage: React.FC = () => {
           onSendMessage={handleSendMessage}
           activeTool={activeTool}
           onToolSelect={setActiveTool}
-          showActions={panelMode === 'sidebar'}
         />
       </div>
       {panelMode === 'bottom' && (

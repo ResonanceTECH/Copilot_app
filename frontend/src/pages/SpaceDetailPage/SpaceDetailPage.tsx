@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { spacesAPI, chatAPI, notesAPI } from '../../utils/api';
-import type { Space, ChatHistoryItem, NotePreview, SpaceTag } from '../../types';
+import { spacesAPI, chatAPI, notesAPI, type ChatHistoryItem } from '../../utils/api';
+import type { Space, NotePreview, SpaceTag } from '../../types';
 import { Header } from '../../components/common/Header';
 import { Icon } from '../../components/ui/Icon';
 import { ICONS } from '../../utils/icons';
@@ -19,7 +19,6 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
   const [chats, setChats] = useState<ChatHistoryItem[]>([]);
   const [notes, setNotes] = useState<NotePreview[]>([]);
   const [tags, setTags] = useState<SpaceTag[]>([]);
-  const [showEditModal, setShowEditModal] = useState(false);
   const [editName, setEditName] = useState('');
   const [editDescription, setEditDescription] = useState('');
 
@@ -70,7 +69,6 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
         name: editName,
         description: editDescription || undefined,
       });
-      setShowEditModal(false);
       loadSpace();
     } catch (error) {
       console.error('Ошибка обновления пространства:', error);
@@ -166,6 +164,7 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
                   onClick={handleUnarchiveSpace}
                   title="Разархивировать"
                 >
+                  <Icon src={ICONS.archive} size="sm" />
                   Разархивировать
                 </button>
               ) : (
@@ -174,6 +173,7 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
                   onClick={handleArchiveSpace}
                   title="Архивировать"
                 >
+                  <Icon src={ICONS.archive} size="sm" />
                   Архивировать
                 </button>
               )}
