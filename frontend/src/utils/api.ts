@@ -106,3 +106,144 @@ export const authAPI = {
   },
 };
 
+// API методы для пространств (mock версия)
+import type { Space, SpaceCreateRequest, SpaceUpdateRequest } from '../types';
+
+export const spacesAPI = {
+  // Получить список пространств
+  getSpaces: async (includeArchived = false, limit = 50, offset = 0): Promise<{ spaces: Space[]; total: number }> => {
+    await delay(300);
+
+    // Mock данные из localStorage
+    const savedSpaces = localStorage.getItem('spaces');
+    let spaces: Space[] = savedSpaces ? JSON.parse(savedSpaces) : [];
+
+    if (!includeArchived) {
+      spaces = spaces.filter(s => !s.is_archived);
+    }
+
+    const total = spaces.length;
+    spaces = spaces.slice(offset, offset + limit);
+
+    return { spaces, total };
+  },
+
+  // Создать пространство
+  createSpace: async (data: SpaceCreateRequest): Promise<Space> => {
+    await delay(500);
+
+    const savedSpaces = localStorage.getItem('spaces');
+    const spaces: Space[] = savedSpaces ? JSON.parse(savedSpaces) : [];
+
+    const newSpace: Space = {
+      id: Date.now(),
+      name: data.name,
+      description: data.description,
+      is_archived: false,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      chats_count: 0,
+      notes_count: 0,
+      tags_count: 0,
+    };
+
+    spaces.push(newSpace);
+    localStorage.setItem('spaces', JSON.stringify(spaces));
+
+    return newSpace;
+  },
+
+  // Обновить пространство
+  updateSpace: async (spaceId: number, data: SpaceUpdateRequest): Promise<Space> => {
+    await delay(400);
+
+    const savedSpaces = localStorage.getItem('spaces');
+    const spaces: Space[] = savedSpaces ? JSON.parse(savedSpaces) : [];
+    const spaceIndex = spaces.findIndex(s => s.id === spaceId);
+
+    if (spaceIndex === -1) {
+      throw new Error('Пространство не найдено');
+    }
+
+    spaces[spaceIndex] = {
+      ...spaces[spaceIndex],
+      ...data,
+      updated_at: new Date().toISOString(),
+    };
+
+    localStorage.setItem('spaces', JSON.stringify(spaces));
+    return spaces[spaceIndex];
+  },
+
+  // Удалить пространство
+  deleteSpace: async (spaceId: number): Promise<void> => {
+    await delay(300);
+
+    const savedSpaces = localStorage.getItem('spaces');
+    const spaces: Space[] = savedSpaces ? JSON.parse(savedSpaces) : [];
+    const filtered = spaces.filter(s => s.id !== spaceId);
+
+    localStorage.setItem('spaces', JSON.stringify(filtered));
+
+    // Также удаляем связанные чаты и файлы
+    const savedChats = localStorage.getItem('space_chats');
+    const savedFiles = localStorage.getItem('space_files');
+
+    if (savedChats) {
+      const chats: Record<number, any[]> = JSON.parse(savedChats);
+      delete chats[spaceId];
+      localStorage.setItem('space_chats', JSON.stringify(chats));
+    }
+
+    if (savedFiles) {
+      const files: Record<number, any[]> = JSON.parse(savedFiles);
+      delete files[spaceId];
+      localStorage.setItem('space_files', JSON.stringify(files));
+    }
+  },
+
+  // Архивировать пространство
+  archiveSpace: async (spaceId: number): Promise<Space> => {
+    await delay(300);
+
+    const savedSpaces = localStorage.getItem('spaces');
+    const spaces: Space[] = savedSpaces ? JSON.parse(savedSpaces) : [];
+    const spaceIndex = spaces.findIndex(s => s.id === spaceId);
+
+    if (spaceIndex === -1) {
+      throw new Error('Пространство не найдено');
+    }
+
+    spaces[spaceIndex] = {
+      ...spaces[spaceIndex],
+      is_archived: true,
+      updated_at: new Date().toISOString(),
+    };
+
+    localStorage.setItem('spaces', JSON.stringify(spaces));
+    return spaces[spaceIndex];
+  },
+
+  // Разархивировать пространство
+  unarchiveSpace: async (spaceId: number): Promise<Space> => {
+    await delay(300);
+
+    const savedSpaces = localStorage.getItem('spaces');
+    const spaces: Space[] = savedSpaces ? JSON.parse(savedSpaces) : [];
+    const spaceIndex = spaces.findIndex(s => s.id === spaceId);
+
+    if (spaceIndex === -1) {
+      throw new Error('Пространство не найдено');
+    }
+
+    spaces[spaceIndex] = {
+      ...spaces[spaceIndex],
+      is_archived: false,
+      updated_at: new Date().toISOString(),
+    };
+
+    localStorage.setItem('spaces', JSON.stringify(spaces));
+    return spaces[spaceIndex];
+  },
+};
+

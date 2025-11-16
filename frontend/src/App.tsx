@@ -3,25 +3,30 @@ import { useAuth } from './contexts/AuthContext';
 import { AssistantPage } from './pages/AssistantPage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
+import { SpacesPage } from './pages/SpacesPage';
 
 export const App: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
-  const [currentPage, setCurrentPage] = React.useState<'login' | 'register'>('login');
+  const [currentPage, setCurrentPage] = React.useState<'login' | 'register' | 'assistant' | 'spaces'>('login');
 
-  // Определяем текущую страницу из URL или используем состояние
+  // Определяем текущую страницу из URL
   React.useEffect(() => {
     const path = window.location.pathname;
     if (path === '/register') {
       setCurrentPage('register');
+    } else if (path === '/spaces') {
+      setCurrentPage('spaces');
+    } else if (path === '/assistant' || path === '/') {
+      setCurrentPage('assistant');
     } else {
       setCurrentPage('login');
     }
   }, []);
 
   // Обработка навигации
-  const handleNavigation = (page: 'login' | 'register') => {
+  const handleNavigation = (page: 'login' | 'register' | 'assistant' | 'spaces') => {
     setCurrentPage(page);
-    window.history.pushState({}, '', `/${page}`);
+    window.history.pushState({}, '', `/${page === 'assistant' ? '' : page}`);
   };
 
   if (isLoading) {
@@ -43,6 +48,11 @@ export const App: React.FC = () => {
       return <RegisterPage onNavigateToLogin={() => handleNavigation('login')} />;
     }
     return <LoginPage onNavigateToRegister={() => handleNavigation('register')} />;
+  }
+
+  // Роутинг для авторизованных пользователей
+  if (currentPage === 'spaces') {
+    return <SpacesPage />;
   }
 
   return <AssistantPage />;

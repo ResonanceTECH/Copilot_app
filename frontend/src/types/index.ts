@@ -47,3 +47,42 @@ export interface ChatThread {
   timestamp: Date;
 }
 
+export interface Space {
+  id: number;
+  name: string;
+  description?: string;
+  is_archived: boolean;
+  created_at: string;
+  updated_at: string;
+  chats_count: number;
+  notes_count: number;
+  tags_count: number;
+}
+
+export interface SpaceCreateRequest {
+  name: string;
+  description?: string;
+}
+
+export interface SpaceUpdateRequest {
+  name?: string;
+  description?: string;
+}
+
+export interface SpaceFile {
+  id: string;
+  name: string;
+  type: string;
+  size: number;
+  uploaded_at: string;
+  thumbnail?: string;
+}
+
+export interface SpaceChat {
+  id: string;
+  title: string;
+  preview: string;
+  date: string;
+  is_important?: boolean;
+}
+

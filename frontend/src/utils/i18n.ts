@@ -45,7 +45,7 @@ const translations: Record<Language, Translations> = {
     aiAssistant: 'AI-ассистент',
     createNew: '+ Создать новый',
     chats: 'Чаты',
-    explore: 'Исследовать',
+    explore: 'Пространства',
     settings: 'Настройки',
     more: 'Еще',
     greeting: 'Привет, чем могу помочь?',

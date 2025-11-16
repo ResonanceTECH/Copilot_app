@@ -103,6 +103,17 @@ export const Header: React.FC<HeaderProps> = ({
     <header className="header">
       <div className="header-left">
         <div className="header-logo-group">
+          {window.location.pathname === '/spaces' && (
+            <button
+              className="header-back-btn"
+              onClick={() => {
+                window.location.href = '/';
+              }}
+              title="Назад к ассистенту"
+            >
+              <Icon src={ICONS.arrowLeft} size="sm" />
+            </button>
+          )}
           <div className="header-model-selector" ref={modelSelectorRef}>
             <button
               className="header-model-btn"

@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Icon } from '../../ui/Icon';
 import { ICONS } from '../../../utils/icons';
-import { ChatThread } from '../../../types';
+import { ChatThread, Space } from '../../../types';
 import logoIcon from '../../../assets/icons/logo.svg';
 import { ThreadContextMenu } from './ThreadContextMenu';
 import { useLanguage } from '../../../contexts/LanguageContext';
 import { getTranslation } from '../../../utils/i18n';
+import { spacesAPI } from '../../../utils/api';
 import './Sidebar.css';
 
 interface SidebarProps {
@@ -35,8 +36,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
   } | null>(null);
   const [editingThreadId, setEditingThreadId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
+  const [spaces, setSpaces] = useState<Space[]>([]);
+  const [showSpaces, setShowSpaces] = useState(false);
   const contextMenuRef = useRef<HTMLDivElement>(null);
   const { language } = useLanguage();
+
+  // Загрузка пространств
+  useEffect(() => {
+    const loadSpaces = async () => {
+      try {
+        const response = await spacesAPI.getSpaces();
+        setSpaces(response.spaces);
+      } catch (error) {
+        console.error('Ошибка загрузки пространств:', error);
+      }
+    };
+    loadSpaces();
+  }, []);
 
   const handleMenuClick = (e: React.MouseEvent, threadId: string) => {
     e.stopPropagation();
@@ -235,10 +251,52 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {!isCollapsed && (
         <div className="sidebar-footer">
           <div className="sidebar-navigation">
-            <button className="sidebar-nav-item">
-              <Icon src={ICONS.flame} size="md" />
-              <span>{getTranslation('explore', language)}</span>
-            </button>
+            <div className="sidebar-spaces-section">
+              <button 
+                className="sidebar-nav-item"
+                onClick={() => setShowSpaces(!showSpaces)}
+              >
+                <Icon src={ICONS.flame} size="md" />
+                <span>{getTranslation('explore', language)}</span>
+                <Icon 
+                  src={ICONS.chevronDown} 
+                  size="sm" 
+                  className={showSpaces ? 'sidebar-chevron-open' : 'sidebar-chevron-closed'}
+                />
+              </button>
+              {showSpaces && (
+                <div className="sidebar-spaces-list">
+                  {spaces.length > 0 ? (
+                    spaces.map(space => (
+                      <button
+                        key={space.id}
+                        className="sidebar-space-item"
+                        onClick={() => {
+                          window.location.href = `/spaces`;
+                        }}
+                      >
+                        <div className="sidebar-space-name">{space.name}</div>
+                        <div className="sidebar-space-meta">
+                          {space.chats_count} чатов • {space.notes_count} файлов
+                        </div>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="sidebar-empty-spaces">
+                      <p>Нет пространств</p>
+                      <button
+                        className="sidebar-create-space-btn"
+                        onClick={() => {
+                          window.location.href = '/spaces';
+                        }}
+                      >
+                        Создать пространство
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
             <button className="sidebar-nav-item">
               <Icon src={ICONS.settings} size="md" />
               <span>{getTranslation('settings', language)}</span>
