@@ -239,7 +239,13 @@ export const AssistantPage: React.FC = () => {
         />
       )}
       <div className={`assistant-main ${panelMode === 'bottom' ? 'assistant-main--full-width' : ''} ${isSidebarCollapsed && panelMode === 'sidebar' ? 'assistant-main--sidebar-collapsed' : ''}`}>
-        <Header title={activeThreadId ? threads.get(activeThreadId)?.thread.title : undefined} />
+        <Header 
+          title={activeThreadId ? threads.get(activeThreadId)?.thread.title : undefined}
+          threadId={activeThreadId}
+          onRename={handleThreadRename}
+          activeTool={activeTool}
+          onToolSelect={setActiveTool}
+        />
         <ChatArea
           userName={userName}
           messages={messages}

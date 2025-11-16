@@ -12,6 +12,8 @@
   flex-direction: column;
   padding: 48px 24px;
   overflow-y: auto;
+  position: relative;
+  z-index: 0;
 }
 
 .chat-welcome {
@@ -194,6 +196,8 @@
 
 .chat-input-section {
   border-top: 1px solid var(--color-border);
+  position: relative;
+  z-index: 1;
 }
 
 .chat-model-selector {
@@ -201,6 +205,7 @@
   padding: 12px 24px 8px 24px;
   display: flex;
   align-items: center;
+  z-index: 10;
 }
 
 .chat-model-toggle-btn {
@@ -223,7 +228,7 @@
 
 .chat-actions {
   position: absolute;
-  bottom: calc(100% + 8px);
+  top: calc(100% + 16px);
   left: 24px;
   display: flex;
   flex-direction: column;
@@ -233,7 +238,7 @@
   border-radius: 12px;
   padding: 8px;
   box-shadow: var(--shadow-lg);
-  z-index: 100;
+  z-index: 1000;
   min-width: 200px;
 }
 

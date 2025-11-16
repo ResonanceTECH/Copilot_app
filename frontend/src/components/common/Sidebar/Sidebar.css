@@ -17,16 +17,18 @@
   padding: 20px 16px;
   border-bottom: 1px solid var(--color-border);
   position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .sidebar--collapsed .sidebar-header {
   padding: 20px 12px;
+  align-items: center;
+  gap: 16px;
 }
 
 .sidebar-collapse-btn {
-  position: absolute;
-  top: 20px;
-  right: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -38,6 +40,9 @@
   cursor: pointer;
   color: var(--color-text-secondary);
   transition: all 0.2s ease;
+  position: absolute;
+  top: 20px;
+  right: 12px;
 }
 
 .sidebar-collapse-btn:hover {
@@ -47,7 +52,10 @@
 
 .sidebar--collapsed .sidebar-collapse-btn {
   position: static;
-  margin: 0 auto;
+  align-self: center;
+  width: 40px;
+  height: 40px;
+  margin-top: 0;
 }
 
 .sidebar-logo {
@@ -55,6 +63,12 @@
   align-items: center;
   gap: 12px;
   margin-bottom: 16px;
+}
+
+.sidebar--collapsed .sidebar-logo {
+  margin-bottom: 0;
+  justify-content: center;
+  width: 100%;
 }
 
 .sidebar-logo-icon {
@@ -113,7 +127,8 @@
   cursor: pointer;
   color: var(--color-text-on-primary);
   transition: all 0.2s ease;
-  margin: 0 auto 8px;
+  margin: 0 auto;
+  flex-shrink: 0;
 }
 
 .sidebar-new-btn-collapsed:hover {

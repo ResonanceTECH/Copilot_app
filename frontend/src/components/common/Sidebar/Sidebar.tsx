@@ -126,30 +126,41 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {!isCollapsed && <span className="sidebar-logo-text">{getTranslation('aiAssistant', language)}</span>}
         </div>
         {!isCollapsed ? (
-          <div className="sidebar-new-container">
+          <>
+            <div className="sidebar-new-container">
+              <button
+                onClick={onNewThread}
+                className="sidebar-new-btn"
+              >
+                {getTranslation('createNew', language)}
+              </button>
+            </div>
+            <button
+              className="sidebar-collapse-btn"
+              onClick={onToggleCollapse}
+              title={getTranslation('settings', language)}
+            >
+              <Icon src={ICONS.menu} size="sm" />
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              className="sidebar-collapse-btn"
+              onClick={onToggleCollapse}
+              title={getTranslation('settings', language)}
+            >
+              <Icon src={ICONS.menu} size="sm" />
+            </button>
             <button
               onClick={onNewThread}
-              className="sidebar-new-btn"
+              className="sidebar-new-btn-collapsed"
+              title={getTranslation('createNewChat', language)}
             >
-              {getTranslation('createNew', language)}
+              <Icon src={ICONS.plus} size="md" />
             </button>
-          </div>
-        ) : (
-          <button
-            onClick={onNewThread}
-            className="sidebar-new-btn-collapsed"
-            title={getTranslation('createNewChat', language)}
-          >
-            <Icon src={ICONS.plus} size="md" />
-          </button>
+          </>
         )}
-        <button
-          className="sidebar-collapse-btn"
-          onClick={onToggleCollapse}
-          title={isCollapsed ? getTranslation('settings', language) : getTranslation('settings', language)}
-        >
-          <Icon src={ICONS.menu} size="sm" />
-        </button>
       </div>
 
       <div className="sidebar-content">
