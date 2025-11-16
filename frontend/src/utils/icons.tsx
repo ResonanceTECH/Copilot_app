@@ -1,0 +1,61 @@
+import {
+  Rocket01Icon,
+  Add01Icon as Plus01Icon,
+  Search01Icon,
+  File01Icon as Flame01Icon,
+  Settings01Icon,
+  MoreVerticalIcon,
+  Brain01Icon,
+  AiCloud01Icon as Cloud01Icon,
+  SparklesIcon as Magic01Icon,
+  Pen01Icon as Send01Icon,
+  Attachment01Icon,
+  Mic01Icon,
+  Menu01Icon,
+  ArrowDown01Icon as ChevronDown01Icon,
+  Delete01Icon,
+  Edit01Icon,
+} from '@hugeicons/core-free-icons';
+
+export type IconSvgObject = typeof Search01Icon;
+
+export const ICON_COMPONENTS: Record<string, IconSvgObject> = {
+  rocket: Rocket01Icon,
+  plus: Plus01Icon,
+  search: Search01Icon,
+  flame: Flame01Icon,
+  settings: Settings01Icon,
+  more: MoreVerticalIcon,
+  brain: Brain01Icon,
+  cloud: Cloud01Icon,
+  sparkle: Magic01Icon,
+  send: Send01Icon,
+  paperclip: Attachment01Icon,
+  microphone: Mic01Icon,
+  menu: Menu01Icon,
+  chevronDown: ChevronDown01Icon,
+  trash: Delete01Icon,
+  edit: Edit01Icon,
+};
+
+// Старые URL для обратной совместимости (если нужно)
+export const ICONS = {
+  rocket: 'rocket',
+  plus: 'plus',
+  search: 'search',
+  flame: 'flame',
+  settings: 'settings',
+  more: 'more',
+  brain: 'brain',
+  cloud: 'cloud',
+  sparkle: 'sparkle',
+  send: 'send',
+  paperclip: 'paperclip',
+  microphone: 'microphone',
+  menu: 'menu',
+  chevronDown: 'chevronDown',
+  trash: 'trash',
+  edit: 'edit',
+} as const;
+
+export type IconName = keyof typeof ICONS;
