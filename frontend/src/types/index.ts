@@ -124,6 +124,7 @@ export interface SpaceTag {
   id: number;
   name: string;
   color?: string;
+  tag_type?: string;
   space_id: number;
   created_at: string;
 }
@@ -131,5 +132,12 @@ export interface SpaceTag {
 export interface SpaceTagCreateRequest {
   name: string;
   color?: string;
+  tag_type?: string;
+}
+
+export interface SpaceTagUpdateRequest {
+  name?: string;
+  color?: string;
+  tag_type?: string;
 }
 

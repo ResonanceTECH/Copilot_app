@@ -368,7 +368,7 @@ export const chatAPI = {
 };
 
 // API методы для пространств (mock версия)
-import type { Space, SpaceCreateRequest, SpaceUpdateRequest, Note, NotePreview, NoteCreateRequest, NoteUpdateRequest, SpaceTag, SpaceChat } from '../types';
+import type { Space, SpaceCreateRequest, SpaceUpdateRequest, Note, NotePreview, NoteCreateRequest, NoteUpdateRequest, SpaceTag, SpaceTagCreateRequest, SpaceTagUpdateRequest, SpaceChat } from '../types';
 
 // Имитация задержки сети для mock методов
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -527,11 +527,33 @@ export const spacesAPI = {
 
   // Получить теги пространства
   getSpaceTags: async (spaceId: number): Promise<SpaceTag[]> => {
-    await delay(300);
+    const response = await apiRequest<{ tags: SpaceTag[]; total: number }>(`/spaces/${spaceId}/tags`, {
+      method: 'GET',
+    });
+    return response.tags;
+  },
 
-    const savedTags = localStorage.getItem('space_tags');
-    const tags: Record<number, SpaceTag[]> = savedTags ? JSON.parse(savedTags) : {};
-    return tags[spaceId] || [];
+  // Создать тег в пространстве
+  createSpaceTag: async (spaceId: number, data: SpaceTagCreateRequest): Promise<SpaceTag> => {
+    return apiRequest<SpaceTag>(`/spaces/${spaceId}/tags/create`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  // Обновить тег
+  updateSpaceTag: async (spaceId: number, tagId: number, data: SpaceTagUpdateRequest): Promise<SpaceTag> => {
+    return apiRequest<SpaceTag>(`/spaces/${spaceId}/tags/${tagId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  // Удалить тег
+  deleteSpaceTag: async (spaceId: number, tagId: number): Promise<void> => {
+    return apiRequest<void>(`/spaces/${spaceId}/tags/${tagId}`, {
+      method: 'DELETE',
+    });
   },
 };
 

@@ -21,6 +21,11 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
   const [tags, setTags] = useState<SpaceTag[]>([]);
   const [editName, setEditName] = useState('');
   const [editDescription, setEditDescription] = useState('');
+  const [showTagModal, setShowTagModal] = useState(false);
+  const [editingTag, setEditingTag] = useState<SpaceTag | null>(null);
+  const [tagName, setTagName] = useState('');
+  const [tagColor, setTagColor] = useState('#6366f1');
+  const [tagType, setTagType] = useState('');
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -110,6 +115,74 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
   const handleExport = () => {
     // TODO: Реализовать экспорт данных пространства
     alert('Экспорт будет реализован позже');
+  };
+
+  const handleCreateTag = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!tagName.trim()) return;
+
+    try {
+      await spacesAPI.createSpaceTag(spaceId, {
+        name: tagName.trim(),
+        color: tagColor,
+        tag_type: tagType || undefined,
+      });
+      setTagName('');
+      setTagColor('#6366f1');
+      setTagType('');
+      setShowTagModal(false);
+      loadData();
+    } catch (error) {
+      console.error('Ошибка создания тега:', error);
+    }
+  };
+
+  const handleStartEditTag = (tag: SpaceTag) => {
+    setEditingTag(tag);
+    setTagName(tag.name);
+    setTagColor(tag.color || '#6366f1');
+    setTagType(tag.tag_type || '');
+    setShowTagModal(true);
+  };
+
+  const handleUpdateTag = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTag || !tagName.trim()) return;
+
+    try {
+      await spacesAPI.updateSpaceTag(spaceId, editingTag.id, {
+        name: tagName.trim(),
+        color: tagColor,
+        tag_type: tagType || undefined,
+      });
+      setEditingTag(null);
+      setTagName('');
+      setTagColor('#6366f1');
+      setTagType('');
+      setShowTagModal(false);
+      loadData();
+    } catch (error) {
+      console.error('Ошибка обновления тега:', error);
+    }
+  };
+
+  const handleDeleteTag = async (tagId: number) => {
+    if (!confirm('Вы уверены, что хотите удалить этот тег?')) return;
+
+    try {
+      await spacesAPI.deleteSpaceTag(spaceId, tagId);
+      loadData();
+    } catch (error) {
+      console.error('Ошибка удаления тега:', error);
+    }
+  };
+
+  const handleCancelTagModal = () => {
+    setShowTagModal(false);
+    setEditingTag(null);
+    setTagName('');
+    setTagColor('#6366f1');
+    setTagType('');
   };
 
   if (!isAuthenticated) {
@@ -287,6 +360,22 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
 
           {activeTab === 'tags' && (
             <div className="space-detail-tags">
+              <div className="space-detail-tags-header">
+                <h3>Теги</h3>
+                <button
+                  className="space-detail-tags-add-btn"
+                  onClick={() => {
+                    setEditingTag(null);
+                    setTagName('');
+                    setTagColor('#6366f1');
+                    setTagType('');
+                    setShowTagModal(true);
+                  }}
+                >
+                  <Icon src={ICONS.plus} size="sm" />
+                  Добавить тег
+                </button>
+              </div>
               {tags.length === 0 ? (
                 <div className="space-detail-empty">Нет тегов в этом пространстве</div>
               ) : (
@@ -299,6 +388,22 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
                       >
                         {tag.name}
                       </span>
+                      <div className="space-detail-tag-actions">
+                        <button
+                          className="space-detail-tag-action-btn"
+                          onClick={() => handleStartEditTag(tag)}
+                          title="Редактировать"
+                        >
+                          <Icon src={ICONS.edit} size="sm" />
+                        </button>
+                        <button
+                          className="space-detail-tag-action-btn danger"
+                          onClick={() => handleDeleteTag(tag.id)}
+                          title="Удалить"
+                        >
+                          <Icon src={ICONS.trash} size="sm" />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -336,6 +441,61 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
           )}
         </div>
       </div>
+
+      {showTagModal && (
+        <div className="space-detail-tag-modal-overlay" onClick={handleCancelTagModal}>
+          <div className="space-detail-tag-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>{editingTag ? 'Редактировать тег' : 'Создать тег'}</h3>
+            <form onSubmit={editingTag ? handleUpdateTag : handleCreateTag}>
+              <div className="space-detail-tag-modal-field">
+                <label>Название тега</label>
+                <input
+                  type="text"
+                  value={tagName}
+                  onChange={(e) => setTagName(e.target.value)}
+                  placeholder="Введите название тега"
+                  required
+                  autoFocus
+                />
+              </div>
+              <div className="space-detail-tag-modal-field">
+                <label>Цвет</label>
+                <div className="space-detail-tag-color-input">
+                  <input
+                    type="color"
+                    value={tagColor}
+                    onChange={(e) => setTagColor(e.target.value)}
+                  />
+                  <input
+                    type="text"
+                    value={tagColor}
+                    onChange={(e) => setTagColor(e.target.value)}
+                    placeholder="#6366f1"
+                    pattern="^#[0-9A-Fa-f]{6}$"
+                  />
+                </div>
+              </div>
+              <div className="space-detail-tag-modal-field">
+                <label>Тип тега (необязательно)</label>
+                <input
+                  type="text"
+                  value={tagType}
+                  onChange={(e) => setTagType(e.target.value)}
+                  placeholder="Например: urgent, important"
+                />
+              </div>
+              <div className="space-detail-tag-modal-actions">
+                <button type="button" onClick={handleCancelTagModal}>
+                  Отмена
+                </button>
+                <button type="submit">
+                  {editingTag ? 'Сохранить' : 'Создать'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
