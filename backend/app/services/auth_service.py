@@ -1,6 +1,6 @@
 import os
 import hashlib
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from jose import JWTError, jwt
 from dotenv import load_dotenv
@@ -28,21 +28,23 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     """Создание JWT токена доступа"""
     to_encode = data.copy()
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     
     to_encode.update({"exp": expire, "type": "access"})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    print(f"✅ Создан access токен для user_id={data.get('sub')}, expires={expire}")
     return encoded_jwt
 
 
 def create_refresh_token(data: dict) -> str:
     """Создание refresh токена"""
     to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    expire = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
     to_encode.update({"exp": expire, "type": "refresh"})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    print(f"✅ Создан refresh токен для user_id={data.get('sub')}, expires={expire}")
     return encoded_jwt
 
 
@@ -51,14 +53,28 @@ def decode_token(token: str) -> Optional[dict]:
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return payload
-    except JWTError:
+    except JWTError as e:
+        # Логируем ошибку для отладки
+        print(f"❌ JWT Error: {type(e).__name__}: {str(e)}")
         return None
 
 
 def verify_token(token: str, token_type: str = "access") -> Optional[dict]:
     """Проверка токена и его типа"""
+    if not token:
+        print("❌ Токен пустой")
+        return None
+    
     payload = decode_token(token)
-    if payload and payload.get("type") == token_type:
-        return payload
-    return None
+    if payload is None:
+        print(f"❌ Не удалось декодировать токен (тип: {token_type})")
+        return None
+    
+    token_type_in_payload = payload.get("type")
+    if token_type_in_payload != token_type:
+        print(f"❌ Неверный тип токена: ожидается '{token_type}', получен '{token_type_in_payload}'")
+        return None
+    
+    print(f"✅ Токен валидный (тип: {token_type}, user_id: {payload.get('sub')})")
+    return payload
 

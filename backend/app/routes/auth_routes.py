@@ -74,9 +74,9 @@ async def register(
     db.add(default_space)
     db.commit()
     
-    # Создаем токены
-    access_token = create_access_token(data={"sub": new_user.id})
-    refresh_token = create_refresh_token(data={"sub": new_user.id})
+    # Создаем токены (sub должен быть строкой согласно JWT стандарту)
+    access_token = create_access_token(data={"sub": str(new_user.id)})
+    refresh_token = create_refresh_token(data={"sub": str(new_user.id)})
     
     return TokenResponse(
         access_token=access_token,
@@ -105,9 +105,9 @@ async def login(
             detail="Пользователь неактивен"
         )
     
-    # Создаем токены
-    access_token = create_access_token(data={"sub": user.id})
-    refresh_token = create_refresh_token(data={"sub": user.id})
+    # Создаем токены (sub должен быть строкой согласно JWT стандарту)
+    access_token = create_access_token(data={"sub": str(user.id)})
+    refresh_token = create_refresh_token(data={"sub": str(user.id)})
     
     return TokenResponse(
         access_token=access_token,
@@ -153,9 +153,9 @@ async def refresh_token(
             detail="Пользователь не найден или неактивен"
         )
     
-    # Создаем новый access токен
-    access_token = create_access_token(data={"sub": user.id})
-    refresh_token = create_refresh_token(data={"sub": user.id})
+    # Создаем новый access токен (sub должен быть строкой согласно JWT стандарту)
+    access_token = create_access_token(data={"sub": str(user.id)})
+    refresh_token = create_refresh_token(data={"sub": str(user.id)})
     
     return TokenResponse(
         access_token=access_token,
