@@ -15,6 +15,9 @@ import {
   ArrowDown01Icon as ChevronDown01Icon,
   Delete01Icon,
   Edit01Icon,
+  Notification01Icon as Bell01Icon,
+  ArrowLeft01Icon as ArrowLeft01Icon,
+  User01Icon as User01Icon,
 } from '@hugeicons/core-free-icons';
 
 export type IconSvgObject = typeof Search01Icon;
@@ -36,6 +39,9 @@ export const ICON_COMPONENTS: Record<string, IconSvgObject> = {
   chevronDown: ChevronDown01Icon,
   trash: Delete01Icon,
   edit: Edit01Icon,
+  bell: Bell01Icon,
+  arrowLeft: ArrowLeft01Icon,
+  user: User01Icon,
 };
 
 // Старые URL для обратной совместимости (если нужно)
@@ -56,6 +62,9 @@ export const ICONS = {
   chevronDown: 'chevronDown',
   trash: 'trash',
   edit: 'edit',
+  bell: 'bell',
+  arrowLeft: 'arrowLeft',
+  user: 'user',
 } as const;
 
 export type IconName = keyof typeof ICONS;
