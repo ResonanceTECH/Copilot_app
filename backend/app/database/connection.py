@@ -64,6 +64,12 @@ def init_db():
     from pathlib import Path
     from sqlalchemy import text
     
+    # Импортируем все модели, чтобы они были зарегистрированы в Base.metadata
+    # Это нужно для fallback создания таблиц через SQLAlchemy
+    from backend.app.models import (
+        User, Space, Chat, Message, Note, Tag, NotificationSettings, note_tags
+    )
+    
     # Путь к SQL-скрипту
     sql_file = Path(__file__).parent / "init.sql"
     
@@ -98,6 +104,14 @@ def drop_db():
     
     with engine.begin() as conn:
         # Удаляем таблицы в правильном порядке (с учетом foreign keys)
+        # Сначала удаляем зависимые таблицы
+        conn.execute(text("DROP TABLE IF EXISTS note_tags CASCADE;"))
+        conn.execute(text("DROP TABLE IF EXISTS notification_settings CASCADE;"))
+        conn.execute(text("DROP TABLE IF EXISTS tags CASCADE;"))
+        conn.execute(text("DROP TABLE IF EXISTS notes CASCADE;"))
+        conn.execute(text("DROP TABLE IF EXISTS messages CASCADE;"))
+        conn.execute(text("DROP TABLE IF EXISTS chats CASCADE;"))
+        conn.execute(text("DROP TABLE IF EXISTS spaces CASCADE;"))
         conn.execute(text("DROP TABLE IF EXISTS users CASCADE;"))
         conn.execute(text("DROP FUNCTION IF EXISTS update_updated_at_column() CASCADE;"))
     
