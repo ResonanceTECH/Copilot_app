@@ -1,6 +1,8 @@
 import React, { useEffect, useRef } from 'react';
 import { Icon } from '../../ui/Icon';
 import { ICONS } from '../../../utils/icons';
+import { useLanguage } from '../../../contexts/LanguageContext';
+import { getTranslation } from '../../../utils/i18n';
 import './ThreadContextMenu.css';
 
 interface ThreadContextMenuProps {
@@ -19,6 +21,7 @@ export const ThreadContextMenu: React.FC<ThreadContextMenuProps> = ({
   onRename,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
+  const { language } = useLanguage();
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -66,11 +69,11 @@ export const ThreadContextMenu: React.FC<ThreadContextMenuProps> = ({
     >
       <button className="thread-context-menu-item" onClick={handleDelete}>
         <Icon src={ICONS.trash} size="sm" />
-        <span>Удалить Thread</span>
+        <span>{getTranslation('deleteThread', language)}</span>
       </button>
       <button className="thread-context-menu-item" onClick={handleRename}>
         <Icon src={ICONS.edit} size="sm" />
-        <span>Переименовать</span>
+        <span>{getTranslation('rename', language)}</span>
       </button>
     </div>
   );

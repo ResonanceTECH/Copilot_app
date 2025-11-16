@@ -6,11 +6,48 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  transition: width 0.3s ease;
+}
+
+.sidebar--collapsed {
+  width: 64px;
 }
 
 .sidebar-header {
   padding: 20px 16px;
   border-bottom: 1px solid var(--color-border);
+  position: relative;
+}
+
+.sidebar--collapsed .sidebar-header {
+  padding: 20px 12px;
+}
+
+.sidebar-collapse-btn {
+  position: absolute;
+  top: 20px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  transition: all 0.2s ease;
+}
+
+.sidebar-collapse-btn:hover {
+  background: var(--color-hover);
+  color: var(--color-text);
+}
+
+.sidebar--collapsed .sidebar-collapse-btn {
+  position: static;
+  margin: 0 auto;
 }
 
 .sidebar-logo {
@@ -64,6 +101,25 @@
   color: var(--color-text);
 }
 
+.sidebar-new-btn-collapsed {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: var(--color-primary);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--color-text-on-primary);
+  transition: all 0.2s ease;
+  margin: 0 auto 8px;
+}
+
+.sidebar-new-btn-collapsed:hover {
+  background: var(--color-primary-hover);
+}
+
 .sidebar-shortcut {
   display: flex;
   align-items: center;
@@ -88,6 +144,11 @@
   flex-direction: column;
 }
 
+.sidebar--collapsed .sidebar-content {
+  padding: 16px 8px;
+  overflow: visible;
+}
+
 .sidebar-section {
   margin-bottom: 24px;
 }
@@ -97,6 +158,18 @@
   align-items: center;
   justify-content: space-between;
   margin-bottom: 12px;
+}
+
+.sidebar--collapsed .sidebar-section-header {
+  justify-content: center;
+}
+
+.sidebar--collapsed .sidebar-section-title {
+  display: none;
+}
+
+.sidebar--collapsed .sidebar-search-btn {
+  margin: 0 auto;
 }
 
 .sidebar-section-title {
@@ -143,6 +216,16 @@
 
 .sidebar-thread-item:hover {
   background: var(--color-hover);
+}
+
+.sidebar-thread-item--active {
+  background: var(--color-primary-alpha);
+  border-left: 3px solid var(--color-primary);
+}
+
+.sidebar-thread-item--active .sidebar-thread-title {
+  color: var(--color-text);
+  font-weight: 500;
 }
 
 .sidebar-thread-item:hover .sidebar-thread-menu {
@@ -229,13 +312,88 @@
   border-top: 1px solid var(--color-border);
 }
 
-.sidebar-upgrade-btn {
+.sidebar-footer .sidebar-navigation {
+  margin-top: 0;
+}
+
+.sidebar-thread-placeholder {
+  height: 40px;
+  background: var(--color-hover);
+  border-radius: 8px;
+  margin-bottom: 4px;
+  opacity: 0.3;
+}
+
+.sidebar-signup-section {
+  margin-top: 24px;
+  padding: 16px;
+  background: var(--color-input-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  text-align: center;
+}
+
+.sidebar-signup-text {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin: 0 0 12px 0;
+  line-height: 1.4;
+}
+
+.sidebar-signup-btn {
   width: 100%;
+  padding: 10px 16px;
+  background: var(--color-primary);
+  border: none;
+  border-radius: 8px;
+  color: var(--color-text-on-primary);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.sidebar-signup-btn:hover {
+  background: var(--color-primary-hover);
+}
+
+.sidebar--collapsed .sidebar-logo {
+  justify-content: center;
   margin-bottom: 8px;
 }
 
-.sidebar-trial-text {
-  font-size: 12px;
-  color: var(--color-text-placeholder);
-  text-align: center;
+.sidebar--collapsed .sidebar-logo-text {
+  display: none;
+}
+
+.sidebar--collapsed .sidebar-threads {
+  gap: 8px;
+}
+
+.sidebar--collapsed .sidebar-thread-item {
+  justify-content: center;
+  padding: 12px;
+  border-left: none;
+  width: 48px;
+  height: 48px;
+  margin: 0 auto;
+  border-radius: 12px;
+}
+
+.sidebar--collapsed .sidebar-thread-item--active {
+  background: var(--color-primary);
+  border-left: none;
+}
+
+.sidebar--collapsed .sidebar-thread-item--active .icon {
+  color: var(--color-text-on-primary);
+}
+
+.sidebar--collapsed .sidebar-thread-title {
+  display: none;
+}
+
+.sidebar--collapsed .sidebar-thread-menu {
+  display: none;
 }
