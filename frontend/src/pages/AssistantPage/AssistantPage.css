@@ -3,6 +3,7 @@
   height: 100vh;
   width: 100vw;
   overflow: hidden;
+  position: relative;
 }
 
 .assistant-main {
@@ -11,5 +12,17 @@
   flex-direction: column;
   overflow: hidden;
   background: var(--color-bg);
+  transition: margin 0.3s ease;
 }
+
+.assistant-main--full-width {
+  margin-left: 0;
+  padding-bottom: 80px;
+}
+
+.assistant-main--sidebar-collapsed {
+  margin-left: 64px;
+  transition: margin-left 0.3s ease;
+}
+
 

@@ -2,7 +2,11 @@ import React, { useState, useCallback } from 'react';
 import { Sidebar } from '../../components/common/Sidebar';
 import { Header } from '../../components/common/Header';
 import { ChatArea } from '../../components/common/ChatArea';
+import { BottomPanel } from '../../components/common/BottomPanel';
+import { PanelToggle } from '../../components/common/PanelToggle';
 import { ChatMessage, ChatThread } from '../../types';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { getTranslation } from '../../utils/i18n';
 import './AssistantPage.css';
 
 interface ThreadData {
@@ -15,6 +19,24 @@ export const AssistantPage: React.FC = () => {
   const [threads, setThreads] = useState<Map<string, ThreadData>>(new Map());
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [panelMode, setPanelMode] = useState<'sidebar' | 'bottom'>('sidebar');
+  const [activeTool, setActiveTool] = useState<string>('assistant');
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const { language } = useLanguage();
+  const [panelTogglePosition, setPanelTogglePosition] = useState<{
+    side: 'left' | 'right' | 'top' | 'bottom';
+    offset: number;
+  }>(() => {
+    const saved = localStorage.getItem('panelTogglePosition');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return { side: 'left', offset: 50 };
+      }
+    }
+    return { side: 'left', offset: 50 };
+  });
 
   // Получить список чатов для отображения
   const getThreadsList = useCallback((): ChatThread[] => {
@@ -28,7 +50,7 @@ export const AssistantPage: React.FC = () => {
     const newThreadId = `thread-${Date.now()}`;
     const newThread: ChatThread = {
       id: newThreadId,
-      title: 'Новый чат',
+      title: getTranslation('newChat', language),
       timestamp: new Date(),
     };
 
@@ -45,7 +67,7 @@ export const AssistantPage: React.FC = () => {
 
     setActiveThreadId(newThreadId);
     setMessages([]);
-  }, []);
+  }, [language]);
 
   // Выбрать чат
   const handleThreadSelect = useCallback((threadId: string) => {
@@ -82,13 +104,13 @@ export const AssistantPage: React.FC = () => {
           ...threadData,
           thread: {
             ...threadData.thread,
-            title: newTitle.trim() || 'New Chat',
+            title: newTitle.trim() || getTranslation('newChat', language),
           },
         });
       }
       return updated;
     });
-  }, []);
+  }, [language]);
 
   // Отправить сообщение в конкретный чат
   const handleSendMessageToThread = useCallback((
@@ -176,7 +198,7 @@ export const AssistantPage: React.FC = () => {
       const newThreadId = `thread-${Date.now()}`;
       const newThread: ChatThread = {
         id: newThreadId,
-        title: 'Новый чат',
+        title: getTranslation('newChat', language),
         timestamp: new Date(),
       };
 
@@ -200,25 +222,50 @@ export const AssistantPage: React.FC = () => {
     }
 
     handleSendMessageToThread(activeThreadId, content, false);
-  }, [activeThreadId, handleSendMessageToThread]);
+  }, [activeThreadId, handleSendMessageToThread, language]);
 
   return (
     <div className="assistant-page">
-      <Sidebar
-        threads={getThreadsList()}
-        onNewThread={handleNewThread}
-        onThreadSelect={handleThreadSelect}
-        onThreadDelete={handleThreadDelete}
-        onThreadRename={handleThreadRename}
-      />
-      <div className="assistant-main">
-        <Header title={activeThreadId ? threads.get(activeThreadId)?.thread.title || "Тред" : "Тред"} />
+      {panelMode === 'sidebar' && (
+        <Sidebar
+          threads={getThreadsList()}
+          activeThreadId={activeThreadId}
+          isCollapsed={isSidebarCollapsed}
+          onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          onNewThread={handleNewThread}
+          onThreadSelect={handleThreadSelect}
+          onThreadDelete={handleThreadDelete}
+          onThreadRename={handleThreadRename}
+        />
+      )}
+      <div className={`assistant-main ${panelMode === 'bottom' ? 'assistant-main--full-width' : ''} ${isSidebarCollapsed && panelMode === 'sidebar' ? 'assistant-main--sidebar-collapsed' : ''}`}>
+        <Header title={activeThreadId ? threads.get(activeThreadId)?.thread.title : undefined} />
         <ChatArea
           userName={userName}
           messages={messages}
           onSendMessage={handleSendMessage}
+          activeTool={activeTool}
+          onToolSelect={setActiveTool}
+          showActions={panelMode === 'sidebar'}
         />
       </div>
+      {panelMode === 'bottom' && (
+        <BottomPanel
+          threads={getThreadsList()}
+          activeThreadId={activeThreadId}
+          onThreadSelect={handleThreadSelect}
+          onNewThread={handleNewThread}
+        />
+      )}
+      <PanelToggle
+        panelMode={panelMode}
+        onPanelModeChange={setPanelMode}
+        position={panelTogglePosition}
+        onPositionChange={(pos) => {
+          setPanelTogglePosition(pos);
+          localStorage.setItem('panelTogglePosition', JSON.stringify(pos));
+        }}
+      />
     </div>
   );
 };
