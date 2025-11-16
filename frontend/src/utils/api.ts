@@ -1,4 +1,6 @@
-const API_BASE_URL = 'http://localhost:8000/api';
+// Mock API - работает без реальных запросов к бэкенду
+// Все данные хранятся только в localStorage
+// Без проверок БД - просто генерирует токены
 
 export interface AuthResponse {
   access_token: string;
@@ -18,9 +20,10 @@ export interface LoginRequest {
   password: string;
 }
 
-export interface RefreshRequest {
-  refresh_token: string;
-}
+// Генерация mock токенов
+const generateMockToken = (): string => {
+  return `mock_token_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+};
 
 // Получить токен из localStorage
 export const getAccessToken = (): string | null => {
@@ -43,106 +46,63 @@ export const clearTokens = (): void => {
   localStorage.removeItem('refresh_token');
 };
 
-// Получить заголовки с токеном
-export const getAuthHeaders = (): HeadersInit => {
-  const token = getAccessToken();
-  return {
-    'Content-Type': 'application/json',
-    ...(token && { Authorization: `Bearer ${token}` }),
-  };
-};
+// Имитация задержки сети
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Базовый fetch с обработкой ошибок
-const fetchAPI = async (
-  endpoint: string,
-  options: RequestInit = {}
-): Promise<Response> => {
-  const url = `${API_BASE_URL}${endpoint}`;
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      ...getAuthHeaders(),
-      ...options.headers,
-    },
-  });
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Ошибка запроса' }));
-    throw new Error(error.message || `HTTP error! status: ${response.status}`);
-  }
-
-  return response;
-};
-
-// API методы для аутентификации (без токена)
+// Mock API методы для аутентификации (без проверок БД)
 export const authAPI = {
-  // Регистрация
-  register: async (data: RegisterRequest): Promise<AuthResponse> => {
-    const response = await fetch(`${API_BASE_URL}/auth/register`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-    });
+  // Регистрация - просто генерирует токены
+  register: async (_data: RegisterRequest): Promise<AuthResponse> => {
+    await delay(500); // Имитация задержки сети
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: 'Ошибка регистрации' }));
-      throw new Error(error.message || `HTTP error! status: ${response.status}`);
-    }
+    // Генерация токенов без проверок
+    const tokens: AuthResponse = {
+      access_token: generateMockToken(),
+      refresh_token: generateMockToken(),
+      token_type: 'bearer',
+    };
 
-    return response.json();
+    return tokens;
   },
 
-  // Вход
-  login: async (data: LoginRequest): Promise<AuthResponse> => {
-    const response = await fetch(`${API_BASE_URL}/auth/login`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-    });
+  // Вход - просто генерирует токены
+  login: async (_data: LoginRequest): Promise<AuthResponse> => {
+    await delay(500); // Имитация задержки сети
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: 'Ошибка входа' }));
-      throw new Error(error.message || `HTTP error! status: ${response.status}`);
-    }
+    // Генерация токенов без проверок
+    const tokens: AuthResponse = {
+      access_token: generateMockToken(),
+      refresh_token: generateMockToken(),
+      token_type: 'bearer',
+    };
 
-    return response.json();
+    return tokens;
   },
 
   // Обновление токена
   refresh: async (refreshToken: string): Promise<AuthResponse> => {
-    const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ refresh_token: refreshToken }),
-    });
+    await delay(300); // Имитация задержки сети
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: 'Ошибка обновления токена' }));
-      throw new Error(error.message || `HTTP error! status: ${response.status}`);
+    // Проверка refresh токена
+    const storedRefreshToken = getRefreshToken();
+    if (!storedRefreshToken || storedRefreshToken !== refreshToken) {
+      throw new Error('Неверный или истекший refresh токен');
     }
 
-    return response.json();
+    // Генерация новых токенов
+    const tokens: AuthResponse = {
+      access_token: generateMockToken(),
+      refresh_token: generateMockToken(),
+      token_type: 'bearer',
+    };
+
+    return tokens;
   },
 
   // Выход
   logout: async (): Promise<void> => {
-    const response = await fetch(`${API_BASE_URL}/auth/logout`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: 'Ошибка выхода' }));
-      throw new Error(error.message || `HTTP error! status: ${response.status}`);
-    }
+    await delay(200); // Имитация задержки сети
+    // В mock версии просто ничего не делаем, токены удаляются в clearTokens()
   },
 };
 

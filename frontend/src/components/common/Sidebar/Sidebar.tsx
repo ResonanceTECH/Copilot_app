@@ -173,17 +173,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
           <div className="sidebar-threads">
             {threads.length === 0 && !isCollapsed ? (
-              <>
-                <div className="sidebar-thread-placeholder"></div>
-                <div className="sidebar-thread-placeholder"></div>
-                <div className="sidebar-thread-placeholder"></div>
-                <div className="sidebar-signup-section">
-                  <p className="sidebar-signup-text">{getTranslation('signUpForFree', language)}</p>
-                  <button className="sidebar-signup-btn">
-                    {getTranslation('signUp', language)}
-                  </button>
-                </div>
-              </>
+              <div className="sidebar-empty-state">
+                <p className="sidebar-empty-text">{getTranslation('noChats', language)}</p>
+              </div>
             ) : (
               threads.map((thread) => (
                 <div

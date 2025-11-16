@@ -5,7 +5,7 @@ export interface Translations {
   thread: string;
   english: string;
   russian: string;
-  
+
   // Sidebar
   aiAssistant: string;
   createNew: string;
@@ -13,7 +13,7 @@ export interface Translations {
   explore: string;
   settings: string;
   more: string;
-  
+
   // ChatArea
   greeting: string;
   greetingWithName: string;
@@ -21,19 +21,20 @@ export interface Translations {
   startNewThread: string;
   assistant: string;
   deepseekChimera: string;
-  
+
   // Thread management
   newChat: string;
   deleteThread: string;
   rename: string;
-  
+
   // BottomPanel
   createNewChat: string;
-  
+
   // Sidebar
   signUpForFree: string;
   signUp: string;
   saveChatHistory: string;
+  noChats: string;
 }
 
 const translations: Record<Language, Translations> = {
@@ -60,6 +61,7 @@ const translations: Record<Language, Translations> = {
     signUpForFree: 'Зарегистрируйтесь бесплатно, чтобы сохранить историю чатов',
     signUp: 'Зарегистрироваться',
     saveChatHistory: 'Сохранить историю чатов',
+    noChats: 'Нет чатов. Создайте новый чат, чтобы начать общение.',
   },
   en: {
     thread: 'Thread',
@@ -84,18 +86,19 @@ const translations: Record<Language, Translations> = {
     signUpForFree: 'Sign up for free to save your chat history',
     signUp: 'Sign up',
     saveChatHistory: 'Save chat history',
+    noChats: 'No chats. Create a new chat to start a conversation.',
   },
 };
 
 export const getTranslation = (key: keyof Translations, language: Language, params?: Record<string, string>): string => {
   let translation = translations[language][key];
-  
+
   if (params) {
     Object.entries(params).forEach(([paramKey, paramValue]) => {
       translation = translation.replace(`{${paramKey}}`, paramValue);
     });
   }
-  
+
   return translation;
 };
 

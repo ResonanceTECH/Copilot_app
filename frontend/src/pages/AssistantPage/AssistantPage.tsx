@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Sidebar } from '../../components/common/Sidebar';
 import { Header } from '../../components/common/Header';
 import { ChatArea } from '../../components/common/ChatArea';
@@ -6,6 +6,7 @@ import { BottomPanel } from '../../components/common/BottomPanel';
 import { PanelToggle } from '../../components/common/PanelToggle';
 import { ChatMessage, ChatThread } from '../../types';
 import { useLanguage } from '../../contexts/LanguageContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { getTranslation } from '../../utils/i18n';
 import './AssistantPage.css';
 
@@ -15,6 +16,7 @@ interface ThreadData {
 }
 
 export const AssistantPage: React.FC = () => {
+  const { isAuthenticated } = useAuth();
   const [userName] = useState('');
   const [threads, setThreads] = useState<Map<string, ThreadData>>(new Map());
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
@@ -37,6 +39,62 @@ export const AssistantPage: React.FC = () => {
     }
     return { side: 'left', offset: 50 };
   });
+
+  // Загрузка истории чатов из localStorage при входе
+  useEffect(() => {
+    if (isAuthenticated) {
+      const savedThreads = localStorage.getItem('chat_threads');
+      if (savedThreads) {
+        try {
+          const parsed = JSON.parse(savedThreads);
+          const threadsMap = new Map<string, ThreadData>();
+          
+          // Преобразуем сохраненные данные обратно в Map
+          Object.entries(parsed).forEach(([id, data]: [string, any]) => {
+            threadsMap.set(id, {
+              thread: {
+                ...data.thread,
+                timestamp: new Date(data.thread.timestamp),
+              },
+              messages: data.messages.map((msg: any) => ({
+                ...msg,
+                timestamp: new Date(msg.timestamp),
+              })),
+            });
+          });
+          
+          setThreads(threadsMap);
+        } catch (error) {
+          console.error('Ошибка загрузки истории чатов:', error);
+        }
+      }
+    } else {
+      // Если пользователь не авторизован, очищаем историю
+      setThreads(new Map());
+      setActiveThreadId(null);
+      setMessages([]);
+    }
+  }, [isAuthenticated]);
+
+  // Сохранение истории чатов в localStorage при изменении
+  useEffect(() => {
+    if (isAuthenticated && threads.size > 0) {
+      const threadsObj: Record<string, any> = {};
+      threads.forEach((data, id) => {
+        threadsObj[id] = {
+          thread: {
+            ...data.thread,
+            timestamp: data.thread.timestamp.toISOString(),
+          },
+          messages: data.messages.map(msg => ({
+            ...msg,
+            timestamp: msg.timestamp.toISOString(),
+          })),
+        };
+      });
+      localStorage.setItem('chat_threads', JSON.stringify(threadsObj));
+    }
+  }, [threads, isAuthenticated]);
 
   // Получить список чатов для отображения
   const getThreadsList = useCallback((): ChatThread[] => {
