@@ -18,6 +18,7 @@ interface SidebarProps {
   onThreadSelect?: (threadId: string) => void;
   onThreadDelete?: (threadId: string) => void;
   onThreadRename?: (threadId: string, newTitle: string) => void;
+  onSettingsClick?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -29,6 +30,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onThreadSelect,
   onThreadDelete,
   onThreadRename,
+  onSettingsClick,
 }) => {
   const [contextMenu, setContextMenu] = useState<{
     threadId: string;
@@ -297,7 +299,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </div>
               )}
             </div>
-            <button className="sidebar-nav-item">
+            <button 
+              className="sidebar-nav-item"
+              onClick={() => {
+                onSettingsClick?.();
+              }}
+            >
               <Icon src={ICONS.settings} size="md" />
               <span>{getTranslation('settings', language)}</span>
             </button>

@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { Sidebar } from '../../components/common/Sidebar';
 import { Header } from '../../components/common/Header';
 import { ChatArea } from '../../components/common/ChatArea';
+import { SupportPanel } from '../../components/common/SupportPanel';
 import { BottomPanel } from '../../components/common/BottomPanel';
 import { PanelToggle } from '../../components/common/PanelToggle';
 import { ChatMessage, ChatThread } from '../../types';
@@ -26,6 +27,7 @@ export const AssistantPage: React.FC = () => {
   const [panelMode, setPanelMode] = useState<'sidebar' | 'bottom'>('sidebar');
   const [activeTool, setActiveTool] = useState<string>('assistant');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [showSupportPanel, setShowSupportPanel] = useState(false);
   const { language } = useLanguage();
   const [panelTogglePosition, setPanelTogglePosition] = useState<{
     side: 'left' | 'right' | 'top' | 'bottom';
@@ -94,6 +96,7 @@ export const AssistantPage: React.FC = () => {
 
   // Создать новый чат
   const handleNewThread = useCallback(() => {
+    setShowSupportPanel(false);
     const newThreadId = `thread-${Date.now()}`;
     const newThread: ChatThread = {
       id: newThreadId,
@@ -118,6 +121,7 @@ export const AssistantPage: React.FC = () => {
 
   // Выбрать чат
   const handleThreadSelect = useCallback(async (threadId: string) => {
+    setShowSupportPanel(false);
     setActiveThreadId(threadId);
     const threadData = threads.get(threadId);
     
@@ -364,23 +368,28 @@ export const AssistantPage: React.FC = () => {
           onThreadSelect={handleThreadSelect}
           onThreadDelete={handleThreadDelete}
           onThreadRename={handleThreadRename}
+          onSettingsClick={() => setShowSupportPanel(true)}
         />
       )}
       <div className={`assistant-main ${panelMode === 'bottom' ? 'assistant-main--full-width' : ''} ${isSidebarCollapsed && panelMode === 'sidebar' ? 'assistant-main--sidebar-collapsed' : ''}`}>
         <Header 
-          title={activeThreadId ? threads.get(activeThreadId)?.thread.title : undefined}
+          title={showSupportPanel ? 'Настройки' : (activeThreadId ? threads.get(activeThreadId)?.thread.title : undefined)}
           threadId={activeThreadId}
           onRename={handleThreadRename}
           activeTool={activeTool}
           onToolSelect={setActiveTool}
         />
-        <ChatArea
-          userName={userName}
-          messages={messages}
-          onSendMessage={handleSendMessage}
-          activeTool={activeTool}
-          onToolSelect={setActiveTool}
-        />
+        {showSupportPanel ? (
+          <SupportPanel />
+        ) : (
+          <ChatArea
+            userName={userName}
+            messages={messages}
+            onSendMessage={handleSendMessage}
+            activeTool={activeTool}
+            onToolSelect={setActiveTool}
+          />
+        )}
       </div>
       {panelMode === 'bottom' && (
         <BottomPanel

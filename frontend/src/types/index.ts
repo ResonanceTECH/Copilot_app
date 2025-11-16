@@ -141,3 +141,32 @@ export interface SpaceTagUpdateRequest {
   tag_type?: string;
 }
 
+export interface SupportFeedback {
+  id: number;
+  message: string;
+  created_at: string;
+}
+
+export interface SupportFeedbackRequest {
+  subject: string;
+  message: string;
+  feedback_type?: 'bug' | 'feature' | 'question' | 'other';
+  email?: string; // обязательно для неавторизованных
+  name?: string; // обязательно для неавторизованных
+}
+
+export interface SupportArticle {
+  id: number;
+  title: string;
+  content: string;
+  category: string;
+  order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SupportArticlesResponse {
+  articles: SupportArticle[];
+  total: number;
+}
+

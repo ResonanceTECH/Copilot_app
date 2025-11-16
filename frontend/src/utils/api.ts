@@ -368,7 +368,7 @@ export const chatAPI = {
 };
 
 // API методы для пространств (mock версия)
-import type { Space, SpaceCreateRequest, SpaceUpdateRequest, Note, NotePreview, NoteCreateRequest, NoteUpdateRequest, SpaceTag, SpaceTagCreateRequest, SpaceTagUpdateRequest, SpaceChat } from '../types';
+import type { Space, SpaceCreateRequest, SpaceUpdateRequest, Note, NotePreview, NoteCreateRequest, NoteUpdateRequest, SpaceTag, SpaceTagCreateRequest, SpaceTagUpdateRequest, SpaceChat, SupportFeedback, SupportFeedbackRequest, SupportArticle, SupportArticlesResponse } from '../types';
 
 // Имитация задержки сети для mock методов
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -700,6 +700,41 @@ export const notesAPI = {
     }
 
     localStorage.setItem('notes', JSON.stringify(filtered));
+  },
+};
+
+// API методы для поддержки
+export const supportAPI = {
+  // Отправка отзыва или запроса в поддержку
+  sendFeedback: async (data: SupportFeedbackRequest): Promise<SupportFeedback> => {
+    return apiRequest<SupportFeedback>('/support/feedback', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  // Получение списка справочных статей
+  getArticles: async (params?: {
+    category?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<SupportArticlesResponse> => {
+    const queryParams = new URLSearchParams();
+    if (params?.category) queryParams.append('category', params.category);
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    if (params?.offset) queryParams.append('offset', params.offset.toString());
+
+    const url = `/support/articles${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    return apiRequest<SupportArticlesResponse>(url, {
+      method: 'GET',
+    });
+  },
+
+  // Получение справочной статьи по ID
+  getArticle: async (articleId: number): Promise<SupportArticle> => {
+    return apiRequest<SupportArticle>(`/support/articles/${articleId}`, {
+      method: 'GET',
+    });
   },
 };
 
