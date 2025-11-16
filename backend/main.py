@@ -10,7 +10,10 @@ load_dotenv()
 app = FastAPI(
     title="Business Assistant API",
     description="AI помощник для бизнес-консультаций",
-    version="1.0.0"
+    version="1.0.0",
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+    openapi_url="/api/openapi.json"
 )
 
 # CORS middleware
@@ -30,8 +33,14 @@ if os.path.exists(static_dir):
 
 # Импортируем и подключаем роуты с префиксом /api
 try:
-    from backend.app.routes.chat_routes import router
-    app.include_router(router, prefix="/api")
+    from backend.app.routes.chat_routes import router as chat_router
+    from backend.app.routes.auth_routes import router as auth_router
+    from backend.app.routes.user_routes import router as user_router
+    
+    app.include_router(chat_router, prefix="/api")
+    app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
+    app.include_router(user_router, prefix="/api/user", tags=["user"])
+    
     print("✅ Роуты успешно подключены с префиксом /api")
 except Exception as e:
     print(f"❌ Ошибка подключения роутов: {e}")
@@ -47,7 +56,7 @@ async def serve_frontend():
         return FileResponse(static_html)
     return {"message": "Frontend not found"}
 
-@app.get("/health")
+@app.get("/api/health")
 async def health_check():
     """Проверка здоровья приложения"""
     return {"status": "healthy", "message": "Business Assistant is running"}
@@ -56,8 +65,7 @@ if __name__ == "__main__":
     import uvicorn
     print("🚀 Запуск Business Assistant...")
     print("🌐 Веб-интерфейс: http://localhost:8000")
-    print("📖 Документация API: http://localhost:8000/docs")
+    print("📖 Документация API: http://localhost:8000/api/docs")
     print("🔧 API endpoints: http://localhost:8000/api/*")
     uvicorn.run(app, host="0.0.0.0", port=8000)
-
 

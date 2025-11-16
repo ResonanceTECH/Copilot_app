@@ -18,10 +18,17 @@ if not DATABASE_URL:
     # Фиксированные значения для локальной разработки (без Docker)
     DATABASE_URL = "postgresql://copilot_user:copilot_pass@localhost:5431/copilot_db"
 
-# Отладочный вывод (можно раскомментировать для отладки)
-# if DATABASE_URL:
-#     masked_url = DATABASE_URL.replace('copilot_pass', '***')
-#     print(f"🔍 DATABASE_URL: {masked_url}")
+# Отладочный вывод
+if DATABASE_URL:
+    masked_url = DATABASE_URL.replace('copilot_pass', '***')
+    print(f"🔍 DATABASE_URL: {masked_url}")
+    # Проверяем имя базы данных
+    if '/copilot_db' in DATABASE_URL:
+        print("✅ Имя базы данных правильное: copilot_db")
+    else:
+        print(f"❌ ОШИБКА! В DATABASE_URL неправильное имя базы: {DATABASE_URL}")
+else:
+    print("❌ DATABASE_URL не задан!")
 
 # Создаем движок SQLAlchemy
 engine = create_engine(
@@ -52,11 +59,47 @@ def get_db() -> Generator[Session, None, None]:
 
 
 def init_db():
-    """Создание всех таблиц в БД (для начальной инициализации)"""
-    Base.metadata.create_all(bind=engine)
+    """Создание всех таблиц в БД через SQL-скрипты"""
+    import os
+    from pathlib import Path
+    from sqlalchemy import text
+    
+    # Путь к SQL-скрипту
+    sql_file = Path(__file__).parent / "init.sql"
+    
+    if not sql_file.exists():
+        print(f"⚠️ SQL-скрипт не найден: {sql_file}")
+        # Fallback: используем SQLAlchemy для создания таблиц
+        Base.metadata.create_all(bind=engine)
+        return
+    
+    # Читаем и выполняем SQL-скрипт
+    with open(sql_file, 'r', encoding='utf-8') as f:
+        sql_script = f.read()
+    
+    with engine.begin() as conn:
+        # Выполняем скрипт по частям (разделяем по ;)
+        statements = [s.strip() for s in sql_script.split(';') if s.strip()]
+        for statement in statements:
+            if statement:
+                try:
+                    conn.execute(text(statement))
+                except Exception as e:
+                    # Игнорируем ошибки "уже существует" для CREATE TABLE IF NOT EXISTS
+                    if "already exists" not in str(e).lower() and "duplicate" not in str(e).lower():
+                        print(f"⚠️ Ошибка выполнения SQL: {e}")
+    
+    print("✅ База данных инициализирована через SQL-скрипты")
 
 
 def drop_db():
     """Удаление всех таблиц из БД (осторожно!)"""
-    Base.metadata.drop_all(bind=engine)
+    from sqlalchemy import text
+    
+    with engine.begin() as conn:
+        # Удаляем таблицы в правильном порядке (с учетом foreign keys)
+        conn.execute(text("DROP TABLE IF EXISTS users CASCADE;"))
+        conn.execute(text("DROP FUNCTION IF EXISTS update_updated_at_column() CASCADE;"))
+    
+    print("⚠️ Все таблицы удалены из БД")
 

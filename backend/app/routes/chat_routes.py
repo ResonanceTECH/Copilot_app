@@ -115,18 +115,3 @@ async def ask_question(request: QuestionRequest):
             error="Временная ошибка сервера. Пожалуйста, попробуйте ещё раз."
         )
 
-
-@router.get("/health")
-async def health_check():
-    """Проверка здоровья сервисов"""
-    services_status = {
-        "classifier": classifier_service.is_ready(),
-        "llm": True,
-        "cache": True,
-        "formatting": True
-    }
-
-    return {
-        "status": "healthy" if all(services_status.values()) else "degraded",
-        "services": services_status
-    }
