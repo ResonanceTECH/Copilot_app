@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from backend.app.database.connection import get_db
 from backend.app.models.user import User
+from backend.app.models.space import Space
 from backend.app.services.auth_service import (
     verify_password,
     get_password_hash,
@@ -63,6 +64,15 @@ async def register(
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
+    
+    # Создаем дефолтное рабочее пространство для нового пользователя
+    default_space = Space(
+        user_id=new_user.id,
+        name="Моё рабочее пространство",
+        description="Рабочее пространство по умолчанию"
+    )
+    db.add(default_space)
+    db.commit()
     
     # Создаем токены
     access_token = create_access_token(data={"sub": new_user.id})
