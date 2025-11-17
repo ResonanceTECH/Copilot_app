@@ -302,11 +302,34 @@ async def send_message(
         enhanced_prompt, category, probabilities = get_enhanced_system_prompt(user_message)
 
         # Генерируем ответ с учетом всей истории чата
-        ai_response = llm_service.generate_response(
-            system_prompt=enhanced_prompt,
-            user_question=user_message,
-            conversation_history=conversation_history
-        )
+        try:
+            ai_response = llm_service.generate_response(
+                system_prompt=enhanced_prompt,
+                user_question=user_message,
+                conversation_history=conversation_history
+            )
+        except ValueError as e:
+            # Ошибка валидации или конфигурации LLM
+            error_msg = str(e)
+            print(f"❌ Ошибка генерации ответа: {error_msg}")
+            return ChatSendResponse(
+                success=False,
+                chat_id=chat.id if chat else 0,
+                message_id=0,
+                error=error_msg
+            )
+        except Exception as e:
+            # Другие ошибки LLM
+            error_msg = f"Ошибка при генерации ответа: {str(e)}"
+            print(f"❌ Неожиданная ошибка LLM: {e}")
+            import traceback
+            traceback.print_exc()
+            return ChatSendResponse(
+                success=False,
+                chat_id=chat.id if chat else 0,
+                message_id=0,
+                error="Не удалось получить ответ от AI. Попробуйте ещё раз."
+            )
 
         # Форматируем ответ
         formatted_response = formatting_service.format_response(ai_response)

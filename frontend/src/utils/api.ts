@@ -536,7 +536,7 @@ export const notesAPI = {
     
     if (data.content && data.content.trim()) {
       requestBody.content = data.content.trim();
-    }
+      }
     
     if (data.space_id) {
       requestBody.space_id = data.space_id;

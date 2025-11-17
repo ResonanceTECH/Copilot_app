@@ -5,13 +5,13 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
 import joblib
 import re
-from sentence_transformers import SentenceTransformer
+# from sentence_transformers import SentenceTransformer
 
 
 class EnhancedBusinessClassifier:
     def __init__(self):
         # Используем легкую модель для эмбеддингов
-        self.embedder = SentenceTransformer('sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2')
+        # self.embedder = SentenceTransformer('sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2')
         self.classifier = RandomForestClassifier(
             n_estimators=100,
             max_depth=20,
