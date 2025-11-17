@@ -35,6 +35,9 @@ export interface Translations {
   signUp: string;
   saveChatHistory: string;
   noChats: string;
+
+  // Auth
+  logout: string;
 }
 
 const translations: Record<Language, Translations> = {
@@ -62,6 +65,7 @@ const translations: Record<Language, Translations> = {
     signUp: 'Зарегистрироваться',
     saveChatHistory: 'Сохранить историю чатов',
     noChats: 'Нет чатов. Создайте новый чат, чтобы начать общение.',
+    logout: 'Выход',
   },
   en: {
     thread: 'Thread',
@@ -87,6 +91,7 @@ const translations: Record<Language, Translations> = {
     signUp: 'Sign up',
     saveChatHistory: 'Save chat history',
     noChats: 'No chats. Create a new chat to start a conversation.',
+    logout: 'Logout',
   },
 };
 
