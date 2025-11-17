@@ -42,6 +42,11 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
   const [selectedChatIds, setSelectedChatIds] = useState<Set<number>>(new Set());
   const [isLoadingChats, setIsLoadingChats] = useState(false);
   const [isAddingChats, setIsAddingChats] = useState(false);
+  // Состояния для создания заметки
+  const [showCreateNoteModal, setShowCreateNoteModal] = useState(false);
+  const [newNoteTitle, setNewNoteTitle] = useState('');
+  const [newNoteContent, setNewNoteContent] = useState('');
+  const [isCreatingNote, setIsCreatingNote] = useState(false);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -164,9 +169,10 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
     if (!space) return;
     try {
       await spacesAPI.archiveSpace(space.id);
-      loadSpace();
-    } catch (error) {
+      await loadSpace();
+    } catch (error: any) {
       console.error('Ошибка архивирования пространства:', error);
+      alert(error.message || 'Ошибка при архивировании пространства. Попробуйте позже.');
     }
   };
 
@@ -174,9 +180,10 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
     if (!space) return;
     try {
       await spacesAPI.unarchiveSpace(space.id);
-      loadSpace();
-    } catch (error) {
+      await loadSpace();
+    } catch (error: any) {
       console.error('Ошибка разархивирования пространства:', error);
+      alert(error.message || 'Ошибка при разархивировании пространства. Попробуйте позже.');
     }
   };
 
@@ -192,9 +199,60 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
     }
   };
 
-  const handleExport = () => {
-    // TODO: Реализовать экспорт данных пространства
-    alert('Экспорт будет реализован позже');
+  const handleExport = async () => {
+    if (!space) return;
+
+    try {
+      const { blob, filename } = await spacesAPI.exportSpace(spaceId);
+
+      // Создаем ссылку для скачивания
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+
+      // Добавляем ссылку в DOM, кликаем и удаляем
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // Освобождаем память
+      window.URL.revokeObjectURL(url);
+    } catch (error: any) {
+      console.error('Ошибка экспорта пространства:', error);
+      alert(error.message || 'Ошибка при экспорте пространства. Попробуйте позже.');
+    }
+  };
+
+  const handleCreateNote = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newNoteTitle.trim()) return;
+
+    setIsCreatingNote(true);
+    try {
+      await notesAPI.createNote({
+        title: newNoteTitle.trim(),
+        content: newNoteContent.trim() || undefined,
+        space_id: spaceId,
+      });
+
+      // Очищаем форму
+      setNewNoteTitle('');
+      setNewNoteContent('');
+      setShowCreateNoteModal(false);
+
+      // Обновляем список заметок
+      const response = await notesAPI.getNotes(spaceId);
+      setNotes(response.notes);
+
+      // Обновляем информацию о пространстве
+      await loadSpace();
+    } catch (error: any) {
+      console.error('Ошибка создания заметки:', error);
+      alert(error.message || 'Ошибка при создании заметки. Попробуйте позже.');
+    } finally {
+      setIsCreatingNote(false);
+    }
   };
 
   const handleCreateTag = async (e: React.FormEvent) => {
@@ -331,10 +389,10 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
 
   return (
     <div className="space-detail-page">
-      <Header 
+      <Header
         title={space.name}
         activeTool="assistant"
-        onToolSelect={() => {}}
+        onToolSelect={() => { }}
       />
       <div className="space-detail-content">
         <div className="space-detail-header">
@@ -465,6 +523,16 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
 
           {activeTab === 'notes' && (
             <div className="space-detail-notes">
+              <div className="space-detail-notes-header">
+                <h3>Заметки в пространстве</h3>
+                <button
+                  className="space-detail-add-note-btn"
+                  onClick={() => setShowCreateNoteModal(true)}
+                >
+                  <Icon src={ICONS.plus} size="sm" />
+                  Добавить заметку
+                </button>
+              </div>
               {notes.length === 0 ? (
                 <div className="space-detail-empty">Нет заметок в этом пространстве</div>
               ) : (
@@ -773,13 +841,28 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
           <div className="space-detail-add-chats-modal" onClick={(e) => e.stopPropagation()}>
             <div className="space-detail-add-chats-modal-header">
               <h3>Добавить чаты в пространство</h3>
-              <button
-                className="space-detail-add-chats-modal-close"
-                onClick={() => setShowAddChatsModal(false)}
-                title="Закрыть"
-              >
-                <Icon src={ICONS.close} size="md" />
-              </button>
+              <div className="space-detail-add-chats-modal-header-actions">
+                <button
+                  className="space-detail-add-chats-cancel-btn"
+                  onClick={() => setShowAddChatsModal(false)}
+                >
+                  Отмена
+                </button>
+                <button
+                  className="space-detail-add-chats-add-btn"
+                  onClick={handleAddChatsToSpace}
+                  disabled={selectedChatIds.size === 0 || isAddingChats}
+                >
+                  {isAddingChats ? 'Добавление...' : `Добавить (${selectedChatIds.size})`}
+                </button>
+                <button
+                  className="space-detail-add-chats-modal-close"
+                  onClick={() => setShowAddChatsModal(false)}
+                  title="Закрыть"
+                >
+                  <Icon src={ICONS.close} size="md" />
+                </button>
+              </div>
             </div>
             <div className="space-detail-add-chats-modal-content">
               {isLoadingChats ? (
@@ -820,24 +903,71 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
                       </div>
                     ))}
                   </div>
-                  <div className="space-detail-add-chats-modal-actions">
-                    <button
-                      className="space-detail-add-chats-cancel-btn"
-                      onClick={() => setShowAddChatsModal(false)}
-                    >
-                      Отмена
-                    </button>
-                    <button
-                      className="space-detail-add-chats-add-btn"
-                      onClick={handleAddChatsToSpace}
-                      disabled={selectedChatIds.size === 0 || isAddingChats}
-                    >
-                      {isAddingChats ? 'Добавление...' : `Добавить (${selectedChatIds.size})`}
-                    </button>
-                  </div>
                 </>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {showCreateNoteModal && (
+        <div
+          className="space-detail-create-note-modal-overlay"
+          onClick={() => setShowCreateNoteModal(false)}
+        >
+          <div className="space-detail-create-note-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="space-detail-create-note-modal-header">
+              <h3>Создать заметку</h3>
+              <button
+                className="space-detail-create-note-modal-close"
+                onClick={() => setShowCreateNoteModal(false)}
+                title="Закрыть"
+              >
+                <Icon src={ICONS.close} size="md" />
+              </button>
+            </div>
+            <form onSubmit={handleCreateNote} className="space-detail-create-note-modal-content">
+              <div className="space-detail-create-note-field">
+                <label>Название заметки *</label>
+                <input
+                  type="text"
+                  value={newNoteTitle}
+                  onChange={(e) => setNewNoteTitle(e.target.value)}
+                  placeholder="Введите название заметки"
+                  required
+                  autoFocus
+                />
+              </div>
+              <div className="space-detail-create-note-field">
+                <label>Содержимое (необязательно)</label>
+                <textarea
+                  value={newNoteContent}
+                  onChange={(e) => setNewNoteContent(e.target.value)}
+                  placeholder="Введите содержимое заметки"
+                  rows={8}
+                />
+              </div>
+              <div className="space-detail-create-note-modal-actions">
+                <button
+                  type="button"
+                  className="space-detail-create-note-cancel-btn"
+                  onClick={() => {
+                    setShowCreateNoteModal(false);
+                    setNewNoteTitle('');
+                    setNewNoteContent('');
+                  }}
+                >
+                  Отмена
+                </button>
+                <button
+                  type="submit"
+                  className="space-detail-create-note-submit-btn"
+                  disabled={!newNoteTitle.trim() || isCreatingNote}
+                >
+                  {isCreatingNote ? 'Создание...' : 'Создать'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -419,46 +419,16 @@ export const spacesAPI = {
 
   // Архивировать пространство
   archiveSpace: async (spaceId: number): Promise<Space> => {
-    await delay(300);
-
-    const savedSpaces = localStorage.getItem('spaces');
-    const spaces: Space[] = savedSpaces ? JSON.parse(savedSpaces) : [];
-    const spaceIndex = spaces.findIndex(s => s.id === spaceId);
-
-    if (spaceIndex === -1) {
-      throw new Error('Пространство не найдено');
-    }
-
-    spaces[spaceIndex] = {
-      ...spaces[spaceIndex],
-      is_archived: true,
-      updated_at: new Date().toISOString(),
-    };
-
-    localStorage.setItem('spaces', JSON.stringify(spaces));
-    return spaces[spaceIndex];
+    return apiRequest<Space>(`/spaces/${spaceId}/archive`, {
+      method: 'POST',
+    });
   },
 
   // Разархивировать пространство
   unarchiveSpace: async (spaceId: number): Promise<Space> => {
-    await delay(300);
-
-    const savedSpaces = localStorage.getItem('spaces');
-    const spaces: Space[] = savedSpaces ? JSON.parse(savedSpaces) : [];
-    const spaceIndex = spaces.findIndex(s => s.id === spaceId);
-
-    if (spaceIndex === -1) {
-      throw new Error('Пространство не найдено');
-    }
-
-    spaces[spaceIndex] = {
-      ...spaces[spaceIndex],
-      is_archived: false,
-      updated_at: new Date().toISOString(),
-    };
-
-    localStorage.setItem('spaces', JSON.stringify(spaces));
-    return spaces[spaceIndex];
+    return apiRequest<Space>(`/spaces/${spaceId}/unarchive`, {
+      method: 'POST',
+    });
   },
 
   // Получить конкретное пространство
@@ -513,97 +483,90 @@ export const spacesAPI = {
       body: JSON.stringify(data),
     });
   },
+
+  // Экспорт пространства в ZIP архив
+  exportSpace: async (spaceId: number): Promise<{ blob: Blob; filename: string }> => {
+    const token = getAccessToken();
+    const headers: Record<string, string> = {};
+    
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`${API_BASE_URL}/spaces/${spaceId}/export`, {
+      method: 'POST',
+      headers,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      let errorMessage = 'Ошибка при экспорте пространства';
+      try {
+        const errorData = JSON.parse(errorText);
+        errorMessage = errorData.detail || errorData.message || errorMessage;
+      } catch {
+        errorMessage = response.statusText || errorMessage;
+      }
+      throw new Error(errorMessage);
+    }
+
+    // Получаем имя файла из заголовка Content-Disposition
+    const contentDisposition = response.headers.get('Content-Disposition');
+    let filename = `space_${spaceId}_export.zip`;
+    
+    if (contentDisposition) {
+      const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+      if (filenameMatch && filenameMatch[1]) {
+        filename = filenameMatch[1].replace(/['"]/g, '');
+      }
+    }
+
+    const blob = await response.blob();
+    return { blob, filename };
+  },
 };
 
-// API методы для заметок (mock версия)
+// API методы для заметок
 export const notesAPI = {
   // Создание новой заметки
   createNote: async (data: NoteCreateRequest): Promise<Note> => {
-    await delay(500);
-
-    if (!data.title.trim()) {
-      throw new Error('Название заметки не может быть пустым');
-    }
-
-    const savedNotes = localStorage.getItem('notes');
-    const notes: Note[] = savedNotes ? JSON.parse(savedNotes) : [];
-
-    // Получаем пространство (или используем дефолтное)
-    const savedSpaces = localStorage.getItem('spaces');
-    const spaces: Space[] = savedSpaces ? JSON.parse(savedSpaces) : [];
-    let spaceId = data.space_id;
-    let spaceName = 'Без пространства';
-
-    if (spaceId) {
-      const space = spaces.find(s => s.id === spaceId);
-      if (!space) {
-        throw new Error('Пространство не найдено');
-      }
-      spaceName = space.name;
-    } else if (spaces.length > 0) {
-      // Используем первое доступное пространство как дефолтное
-      spaceId = spaces[0].id;
-      spaceName = spaces[0].name;
-    }
-
-    const newNote: Note = {
-      id: Date.now(),
-      space_id: spaceId || 0,
-      space_name: spaceName,
-      user_id: 1, // Mock user ID
-      title: data.title,
-      content: data.content || '',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      tags: [],
+    const requestBody: { title: string; content?: string; space_id?: number } = {
+      title: data.title.trim(),
     };
-
-    notes.push(newNote);
-    localStorage.setItem('notes', JSON.stringify(notes));
-
-    return newNote;
+    
+    if (data.content && data.content.trim()) {
+      requestBody.content = data.content.trim();
+    }
+    
+    if (data.space_id) {
+      requestBody.space_id = data.space_id;
+    }
+    
+    return apiRequest<Note>('/notes/create', {
+      method: 'POST',
+      body: JSON.stringify(requestBody),
+    });
   },
 
   // Получение списка заметок
   getNotes: async (spaceId?: number, limit = 50, offset = 0): Promise<{ notes: NotePreview[]; total: number }> => {
-    await delay(300);
-
-    const savedNotes = localStorage.getItem('notes');
-    let notes: Note[] = savedNotes ? JSON.parse(savedNotes) : [];
-
+    const params = new URLSearchParams();
     if (spaceId) {
-      notes = notes.filter(n => n.space_id === spaceId);
+      params.append('space_id', spaceId.toString());
     }
-
-    const total = notes.length;
-    const paginatedNotes = notes.slice(offset, offset + limit);
-
-    const previews: NotePreview[] = paginatedNotes.map(note => ({
-      id: note.id,
-      space_id: note.space_id,
-      space_name: note.space_name,
-      title: note.title,
-      content_preview: note.content.length > 100 ? note.content.substring(0, 100) + '...' : note.content,
-      created_at: note.created_at,
-      updated_at: note.updated_at,
-    }));
-
-    return { notes: previews, total };
+    params.append('limit', limit.toString());
+    params.append('offset', offset.toString());
+    
+    return apiRequest<{ notes: NotePreview[]; total: number }>(`/notes/list?${params.toString()}`, {
+      method: 'GET',
+    });
   },
 
   // Получение конкретной заметки
   getNote: async (noteId: number): Promise<Note> => {
-    await delay(300);
-
-    const savedNotes = localStorage.getItem('notes');
-    const notes: Note[] = savedNotes ? JSON.parse(savedNotes) : [];
-    const note = notes.find(n => n.id === noteId);
-
-    if (!note) {
-      throw new Error('Заметка не найдена');
-    }
-
-    return note;
+    return apiRequest<Note>(`/notes/${noteId}`, {
+      method: 'GET',
+    });
   },
 
   // Обновление заметки
