@@ -241,3 +241,21 @@ export interface NotificationSettingsRequest {
   settings_json: NotificationSettings;
 }
 
+// Типы для уведомлений
+export interface Notification {
+  id: number;
+  user_id: number;
+  space_id: number | null;
+  notification_type: string;
+  title: string;
+  message: string | null;
+  is_read: boolean;
+  created_at: string;
+}
+
+export interface NotificationListResponse {
+  notifications: Notification[];
+  total: number;
+  unread_count: number;
+}
+

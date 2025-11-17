@@ -332,7 +332,7 @@ export const chatAPI = {
 };
 
 // API методы для пространств (mock версия)
-import type { Space, SpaceCreateRequest, SpaceUpdateRequest, Note, NotePreview, NoteCreateRequest, NoteUpdateRequest, SpaceTag, SpaceTagCreateRequest, SpaceTagUpdateRequest, SpaceChat, SupportFeedback, SupportFeedbackRequest, SupportArticle, SupportArticlesResponse, SearchResults, SearchRequest, NotificationSettingsResponse, NotificationSettingsRequest } from '../types';
+import type { Space, SpaceCreateRequest, SpaceUpdateRequest, Note, NotePreview, NoteCreateRequest, NoteUpdateRequest, SpaceTag, SpaceTagCreateRequest, SpaceTagUpdateRequest, SpaceChat, SupportFeedback, SupportFeedbackRequest, SupportArticle, SupportArticlesResponse, SearchResults, SearchRequest, NotificationSettingsResponse, NotificationSettingsRequest, Notification, NotificationListResponse } from '../types';
 
 // Имитация задержки сети для mock методов
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -433,17 +433,9 @@ export const spacesAPI = {
 
   // Получить конкретное пространство
   getSpace: async (spaceId: number): Promise<Space> => {
-    await delay(300);
-
-    const savedSpaces = localStorage.getItem('spaces');
-    const spaces: Space[] = savedSpaces ? JSON.parse(savedSpaces) : [];
-    const space = spaces.find(s => s.id === spaceId);
-
-    if (!space) {
-      throw new Error('Пространство не найдено');
-    }
-
-    return space;
+    return apiRequest<Space>(`/spaces/${spaceId}`, {
+      method: 'GET',
+    });
   },
 
   // Получить теги пространства
@@ -687,6 +679,54 @@ export const searchAPI = {
     }
     
     return apiRequest<SearchResults>(`/search?${queryParams.toString()}`, {
+      method: 'GET',
+    });
+  },
+};
+
+// API методы для уведомлений
+export const notificationAPI = {
+  // Получить список уведомлений
+  getNotifications: async (params?: {
+    limit?: number;
+    offset?: number;
+    unread_only?: boolean;
+  }): Promise<NotificationListResponse> => {
+    const queryParams = new URLSearchParams();
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    if (params?.offset) queryParams.append('offset', params.offset.toString());
+    if (params?.unread_only) queryParams.append('unread_only', 'true');
+    
+    const url = `/notifications${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    return apiRequest<NotificationListResponse>(url, {
+      method: 'GET',
+    });
+  },
+
+  // Отметить уведомление как прочитанное
+  markAsRead: async (notificationId: number): Promise<Notification> => {
+    return apiRequest<Notification>(`/notifications/${notificationId}/read`, {
+      method: 'PUT',
+    });
+  },
+
+  // Отметить все уведомления как прочитанные
+  markAllAsRead: async (): Promise<{ updated_count: number }> => {
+    return apiRequest<{ updated_count: number }>('/notifications/read-all', {
+      method: 'PUT',
+    });
+  },
+
+  // Удалить уведомление
+  deleteNotification: async (notificationId: number): Promise<void> => {
+    return apiRequest<void>(`/notifications/${notificationId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // Получить количество непрочитанных уведомлений
+  getUnreadCount: async (): Promise<{ unread_count: number }> => {
+    return apiRequest<{ unread_count: number }>('/notifications/unread-count', {
       method: 'GET',
     });
   },

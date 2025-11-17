@@ -10,6 +10,7 @@ from backend.app.models.user import User
 from backend.app.models.space import Space
 from backend.app.models.note import Note
 from backend.app.routes.chat_routes import get_or_create_default_space
+from backend.app.services.notification_service import create_note_notification
 
 router = APIRouter()
 
@@ -100,6 +101,23 @@ async def create_note(
     db.add(new_note)
     db.commit()
     db.refresh(new_note)
+
+    # Создаем уведомление о новой заметке
+    # ВАЖНО: В реальном приложении уведомления должны приходить когда:
+    # - Кто-то другой создает заметку в общем пространстве
+    # - Система автоматически создает что-то
+    # - Происходит важное событие
+    # Здесь создаем для тестирования системы уведомлений
+    notification = create_note_notification(
+        db=db,
+        user_id=current_user.id,
+        space_id=space.id,
+        note_title=new_note.title
+    )
+    if notification:
+        print(f"✅ Уведомление создано: {notification.id}")
+    else:
+        print(f"⚠️ Уведомление не создано (возможно, отключено в настройках)")
 
     # Загружаем связанные данные
     db.refresh(new_note)

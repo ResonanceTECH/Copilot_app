@@ -67,7 +67,7 @@ def init_db():
     # Импортируем все модели, чтобы они были зарегистрированы в Base.metadata
     # Это нужно для fallback создания таблиц через SQLAlchemy
     from backend.app.models import (
-        User, Space, Chat, Message, Note, Tag, NotificationSettings, note_tags,
+        User, Space, Chat, Message, Note, Tag, NotificationSettings, Notification, note_tags,
         Feedback, SupportArticle
     )
     
@@ -107,6 +107,7 @@ def drop_db():
         # Удаляем таблицы в правильном порядке (с учетом foreign keys)
         # Сначала удаляем зависимые таблицы
         conn.execute(text("DROP TABLE IF EXISTS note_tags CASCADE;"))
+        conn.execute(text("DROP TABLE IF EXISTS notifications CASCADE;"))
         conn.execute(text("DROP TABLE IF EXISTS notification_settings CASCADE;"))
         conn.execute(text("DROP TABLE IF EXISTS tags CASCADE;"))
         conn.execute(text("DROP TABLE IF EXISTS notes CASCADE;"))

@@ -68,8 +68,10 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
       setSpace(spaceData);
       setEditName(spaceData.name);
       setEditDescription(spaceData.description || '');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Ошибка загрузки пространства:', error);
+      // Ошибка уже обработана в компоненте через проверку !space
+      setSpace(null);
     } finally {
       setIsLoading(false);
     }
