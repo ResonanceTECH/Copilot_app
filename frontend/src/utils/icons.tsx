@@ -48,6 +48,7 @@ export const ICON_COMPONENTS: Record<string, IconSvgObject> = {
   note: Note01Icon,
   open: Open01Icon,
   archive: Archive01Icon,
+  close: Delete01Icon,
 };
 
 // Старые URL для обратной совместимости (если нужно)
@@ -74,6 +75,7 @@ export const ICONS = {
   note: 'note',
   open: 'open',
   archive: 'archive',
+  close: 'close',
 } as const;
 
 export type IconName = keyof typeof ICONS;

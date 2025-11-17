@@ -4,6 +4,7 @@ import { ICONS } from '../../../utils/icons';
 import { ChatThread, Space } from '../../../types';
 import logoIcon from '../../../assets/icons/logo.svg';
 import { ThreadContextMenu } from './ThreadContextMenu';
+import { SearchPanel } from '../SearchPanel';
 import { useLanguage } from '../../../contexts/LanguageContext';
 import { getTranslation } from '../../../utils/i18n';
 import { spacesAPI } from '../../../utils/api';
@@ -40,6 +41,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [editingTitle, setEditingTitle] = useState('');
   const [spaces, setSpaces] = useState<Space[]>([]);
   const [showSpaces, setShowSpaces] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
   const contextMenuRef = useRef<HTMLDivElement>(null);
   const { language } = useLanguage();
 
@@ -185,7 +187,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="sidebar-section">
           <div className="sidebar-section-header">
             <span className="sidebar-section-title">{getTranslation('chats', language)}</span>
-            <button className="sidebar-search-btn">
+            <button 
+              className="sidebar-search-btn"
+              onClick={() => setShowSearch(true)}
+              title="Поиск"
+            >
               <Icon src={ICONS.search} size="sm" />
             </button>
           </div>
@@ -314,6 +320,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
           </div>
         </div>
+      )}
+      {showSearch && (
+        <SearchPanel
+          onClose={() => setShowSearch(false)}
+          onChatSelect={(chatId) => {
+            const threadId = `chat-${chatId}`;
+            onThreadSelect?.(threadId);
+          }}
+        />
       )}
     </aside>
   );

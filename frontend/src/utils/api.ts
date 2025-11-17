@@ -332,7 +332,7 @@ export const chatAPI = {
 };
 
 // API методы для пространств (mock версия)
-import type { Space, SpaceCreateRequest, SpaceUpdateRequest, Note, NotePreview, NoteCreateRequest, NoteUpdateRequest, SpaceTag, SpaceTagCreateRequest, SpaceTagUpdateRequest, SpaceChat, SupportFeedback, SupportFeedbackRequest, SupportArticle, SupportArticlesResponse } from '../types';
+import type { Space, SpaceCreateRequest, SpaceUpdateRequest, Note, NotePreview, NoteCreateRequest, NoteUpdateRequest, SpaceTag, SpaceTagCreateRequest, SpaceTagUpdateRequest, SpaceChat, SupportFeedback, SupportFeedbackRequest, SupportArticle, SupportArticlesResponse, SearchResults, SearchRequest } from '../types';
 
 // Имитация задержки сети для mock методов
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -697,6 +697,31 @@ export const supportAPI = {
   // Получение справочной статьи по ID
   getArticle: async (articleId: number): Promise<SupportArticle> => {
     return apiRequest<SupportArticle>(`/support/articles/${articleId}`, {
+      method: 'GET',
+    });
+  },
+};
+
+// API методы для поиска
+export const searchAPI = {
+  // Универсальный поиск
+  search: async (params: SearchRequest): Promise<SearchResults> => {
+    const queryParams = new URLSearchParams();
+    queryParams.append('q', params.q);
+    
+    if (params.type && params.type !== 'all') {
+      queryParams.append('type', params.type);
+    }
+    
+    if (params.space_id) {
+      queryParams.append('space_id', params.space_id.toString());
+    }
+    
+    if (params.limit) {
+      queryParams.append('limit', params.limit.toString());
+    }
+    
+    return apiRequest<SearchResults>(`/search?${queryParams.toString()}`, {
       method: 'GET',
     });
   },

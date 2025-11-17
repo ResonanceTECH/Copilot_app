@@ -171,3 +171,56 @@ export interface SupportArticlesResponse {
   total: number;
 }
 
+// Типы для поиска
+export interface SearchChatItem {
+  id: number;
+  title: string | null;
+  space_id: number;
+  space_name: string;
+  created_at: string;
+  updated_at: string;
+  snippet: string | null;
+}
+
+export interface SearchNoteItem {
+  id: number;
+  title: string;
+  space_id: number;
+  space_name: string;
+  created_at: string;
+  updated_at: string;
+  snippet: string | null;
+}
+
+export interface SearchMessageItem {
+  id: number;
+  chat_id: number;
+  chat_title: string | null;
+  space_id: number;
+  space_name: string;
+  role: string;
+  content: string;
+  created_at: string;
+  snippet: string | null;
+}
+
+export interface SearchResults {
+  query: string;
+  total: number;
+  results: {
+    chats_count: number;
+    notes_count: number;
+    messages_count: number;
+  };
+  chats: SearchChatItem[];
+  notes: SearchNoteItem[];
+  messages: SearchMessageItem[];
+}
+
+export interface SearchRequest {
+  q: string;
+  type?: 'all' | 'chats' | 'notes' | 'messages';
+  space_id?: number;
+  limit?: number;
+}
+
