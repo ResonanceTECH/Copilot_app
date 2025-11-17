@@ -232,10 +232,8 @@ Copilot App - это полнофункциональная платформа �
 ### Предварительные требования
 
 - **Docker** >= 20.10
-- **Docker Compose** >= 2.0
+- **Docker Compose** >= 3.0
 - **Python** >= 3.11 (для локальной разработки)
-- **Node.js** >= 18.0.0 (для локальной разработки frontend)
-- **OpenRouter API Key** - для работы AI-ассистента
 
 ### Переменные окружения
 
@@ -243,25 +241,20 @@ Copilot App - это полнофункциональная платформа �
 
 ```env
 # OpenRouter API
-OPENROUTER_API_KEY=your_openrouter_api_key_here
+OPENROUTER_API_KEY=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
 
 # База данных (опционально, есть значения по умолчанию)
 POSTGRES_USER=copilot_user
 POSTGRES_PASSWORD=copilot_pass
 POSTGRES_DB=copilot_db
-DATABASE_URL=postgresql://copilot_user:copilot_pass@db:5432/copilot_db
-
-# JWT секреты (опционально)
-JWT_SECRET_KEY=your-secret-key-here
-JWT_ALGORITHM=HS256
 ```
 
-### Запуск через Docker Compose
+### Запуск
 
 #### 1. Клонирование репозитория
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/ResonanceTECH/Copilot_app.git
 cd Copilot_app
 ```
 
@@ -269,10 +262,18 @@ cd Copilot_app
 
 Создайте `.env` файл с необходимыми переменными (см. выше).
 
-#### 3. Запуск всех сервисов
+#### 3. Запуск Бэкенда и БД
 
 ```bash
 docker compose up --build
+```
+
+#### Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
 ```
 
 #### 4. Доступ к сервисам
@@ -285,44 +286,7 @@ docker compose up --build
 - **ReDoc документация**: `http://localhost:8000/api/redoc`
 - **PostgreSQL**: `localhost:5431` (для внешнего доступа)
 
-### Локальная разработка
-
-#### Backend
-
-```bash
-cd backend
-pip install -r requirements.txt
-
-# Убедитесь, что PostgreSQL запущен
-# Создайте .env файл с переменными окружения
-
-# Запуск сервера
-python main.py
-```
-
-Backend будет доступен на `http://localhost:8000`
-
-#### Frontend
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Frontend будет доступен на `http://localhost:3000`
-
-#### База данных
-
-```bash
-# Запуск только PostgreSQL
-docker compose up db
-
-# Или используйте локальный PostgreSQL
-# Укажите DATABASE_URL в .env
-```
-
-### Обучение ML модели
+### Обучение ML модели (Опционально, так как уже обучена)
 
 Перед использованием классификатора необходимо обучить модель:
 
@@ -556,33 +520,6 @@ python train_classifier.py
 3. **База данных**: Обновите модели в `backend/app/models/`
 4. **Миграции**: Используйте Alembic для миграций БД
 
-### Тестирование
-
-```bash
-# Backend тесты (если есть)
-cd backend
-pytest
-
-# Frontend тесты (если есть)
-cd frontend
-npm test
-```
-
-### Линтинг
-
-```bash
-# Frontend
-cd frontend
-npm run lint
-
-# Backend (если настроен)
-cd backend
-flake8 .
-black .
-```
-
----
-
 ## Производственное развертывание
 
 ### Рекомендации
@@ -592,27 +529,6 @@ black .
 3. **SSL**: Настройте HTTPS через reverse proxy (nginx/Caddy)
 4. **Мониторинг**: Добавьте логирование и мониторинг
 5. **Масштабирование**: Используйте load balancer для нескольких инстансов
-
-### Docker Compose для production
-
-Создайте `docker-compose.prod.yml` с настройками для production:
-
-```yaml
-version: '3.8'
-
-services:
-  app:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    environment:
-      - DATABASE_URL=postgresql://user:pass@db:5432/dbname
-      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
-    restart: always
-    # Добавьте health checks, limits и т.д.
-```
-
----
 
 ## Известные ограничения
 
