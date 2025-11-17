@@ -4,7 +4,7 @@ import { ICONS } from '../../../utils/icons';
 import { ChatThread, Space } from '../../../types';
 import logoIcon from '../../../assets/icons/logo.svg';
 import { ThreadContextMenu } from './ThreadContextMenu';
-import { SearchPanel } from '../SearchPanel/SearchPanel';
+import { SearchPanel } from '../SearchPanel';
 import { useLanguage } from '../../../contexts/LanguageContext';
 import { getTranslation } from '../../../utils/i18n';
 import { spacesAPI } from '../../../utils/api';

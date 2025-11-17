@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 .notification-panel-overlay {
   position: fixed;
   top: 0;
@@ -22,24 +23,50 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+=======
+.notification-panel {
+  position: fixed;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 400px;
+  background: var(--color-sidebar-bg);
+  border-left: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  z-index: 1000;
+  box-shadow: -4px 0 12px rgba(0, 0, 0, 0.1);
+>>>>>>> 4347a6bfb039ecdd21b3103ee6191940f80e76f6
 }
 
 .notification-panel-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+<<<<<<< HEAD
   padding: 20px 24px;
+=======
+  padding: 16px;
+>>>>>>> 4347a6bfb039ecdd21b3103ee6191940f80e76f6
   border-bottom: 1px solid var(--color-border);
 }
 
 .notification-panel-title {
+<<<<<<< HEAD
   font-size: 20px;
+=======
+  font-size: 18px;
+>>>>>>> 4347a6bfb039ecdd21b3103ee6191940f80e76f6
   font-weight: 600;
   color: var(--color-text);
   margin: 0;
 }
 
+<<<<<<< HEAD
 .notification-panel-close {
+=======
+.notification-panel-close-btn {
+>>>>>>> 4347a6bfb039ecdd21b3103ee6191940f80e76f6
   display: flex;
   align-items: center;
   justify-content: center;
@@ -53,7 +80,11 @@
   transition: all 0.2s ease;
 }
 
+<<<<<<< HEAD
 .notification-panel-close:hover {
+=======
+.notification-panel-close-btn:hover {
+>>>>>>> 4347a6bfb039ecdd21b3103ee6191940f80e76f6
   background: var(--color-hover);
   color: var(--color-text);
 }
@@ -61,6 +92,7 @@
 .notification-panel-content {
   flex: 1;
   overflow-y: auto;
+<<<<<<< HEAD
   padding: 24px;
 }
 
@@ -99,6 +131,14 @@
 .notification-panel-empty,
 .notification-panel-error {
   display: flex;
+=======
+  padding: 16px;
+}
+
+.notification-panel-empty {
+  display: flex;
+  flex-direction: column;
+>>>>>>> 4347a6bfb039ecdd21b3103ee6191940f80e76f6
   align-items: center;
   justify-content: center;
   padding: 48px 24px;
@@ -106,6 +146,7 @@
   color: var(--color-text-secondary);
 }
 
+<<<<<<< HEAD
 .notification-panel-error {
   color: var(--color-error, #ef4444);
   background: rgba(239, 68, 68, 0.1);
@@ -241,5 +282,10 @@
 
 .notification-panel-btn--primary:hover:not(:disabled) {
   background: var(--color-primary-hover);
+=======
+.notification-panel-empty p {
+  margin: 16px 0;
+  font-size: 14px;
+>>>>>>> 4347a6bfb039ecdd21b3103ee6191940f80e76f6
 }
 
