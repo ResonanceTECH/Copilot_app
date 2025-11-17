@@ -315,11 +315,11 @@ export const chatAPI = {
     });
   },
 
-  // Обновление чата (переименование)
-  updateChat: async (chatId: number, title: string): Promise<ChatHistoryItem> => {
+  // Обновление чата (переименование или перемещение в пространство)
+  updateChat: async (chatId: number, data: { title?: string; space_id?: number }): Promise<ChatHistoryItem> => {
     return apiRequest<ChatHistoryItem>(`/chat/${chatId}`, {
       method: 'PUT',
-      body: JSON.stringify({ title }),
+      body: JSON.stringify(data),
     });
   },
 
@@ -332,7 +332,7 @@ export const chatAPI = {
 };
 
 // API методы для пространств (mock версия)
-import type { Space, SpaceCreateRequest, SpaceUpdateRequest, Note, NotePreview, NoteCreateRequest, NoteUpdateRequest, SpaceTag, SpaceTagCreateRequest, SpaceTagUpdateRequest, SpaceChat, SupportFeedback, SupportFeedbackRequest, SupportArticle, SupportArticlesResponse, SearchResults, SearchRequest } from '../types';
+import type { Space, SpaceCreateRequest, SpaceUpdateRequest, Note, NotePreview, NoteCreateRequest, NoteUpdateRequest, SpaceTag, SpaceTagCreateRequest, SpaceTagUpdateRequest, SpaceChat, SupportFeedback, SupportFeedbackRequest, SupportArticle, SupportArticlesResponse, SearchResults, SearchRequest, NotificationSettingsResponse, NotificationSettingsRequest } from '../types';
 
 // Имитация задержки сети для mock методов
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -340,45 +340,32 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 export const spacesAPI = {
   // Получить список пространств
   getSpaces: async (includeArchived = false, limit = 50, offset = 0): Promise<{ spaces: Space[]; total: number }> => {
-    await delay(300);
-
-    // Mock данные из localStorage
-    const savedSpaces = localStorage.getItem('spaces');
-    let spaces: Space[] = savedSpaces ? JSON.parse(savedSpaces) : [];
-
-    if (!includeArchived) {
-      spaces = spaces.filter(s => !s.is_archived);
+    const params = new URLSearchParams();
+    if (includeArchived) {
+      params.append('include_archived', 'true');
     }
+    params.append('limit', limit.toString());
+    params.append('offset', offset.toString());
 
-    const total = spaces.length;
-    spaces = spaces.slice(offset, offset + limit);
-
-    return { spaces, total };
+    return apiRequest<{ spaces: Space[]; total: number }>(`/spaces?${params.toString()}`, {
+      method: 'GET',
+    });
   },
 
   // Создать пространство
   createSpace: async (data: SpaceCreateRequest): Promise<Space> => {
-    await delay(500);
-
-    const savedSpaces = localStorage.getItem('spaces');
-    const spaces: Space[] = savedSpaces ? JSON.parse(savedSpaces) : [];
-
-    const newSpace: Space = {
-      id: Date.now(),
+    const requestBody: { name: string; description?: string } = {
       name: data.name,
-      description: data.description,
-      is_archived: false,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      chats_count: 0,
-      notes_count: 0,
-      tags_count: 0,
     };
-
-    spaces.push(newSpace);
-    localStorage.setItem('spaces', JSON.stringify(spaces));
-
-    return newSpace;
+    
+    if (data.description && data.description.trim()) {
+      requestBody.description = data.description.trim();
+    }
+    
+    return apiRequest<Space>('/spaces', {
+      method: 'POST',
+      body: JSON.stringify(requestBody),
+    });
   },
 
   // Обновить пространство
@@ -517,6 +504,21 @@ export const spacesAPI = {
   deleteSpaceTag: async (spaceId: number, tagId: number): Promise<void> => {
     return apiRequest<void>(`/spaces/${spaceId}/tags/${tagId}`, {
       method: 'DELETE',
+    });
+  },
+
+  // Получить настройки уведомлений для пространства
+  getNotificationSettings: async (spaceId: number): Promise<NotificationSettingsResponse> => {
+    return apiRequest<NotificationSettingsResponse>(`/spaces/${spaceId}/notifications/settings`, {
+      method: 'GET',
+    });
+  },
+
+  // Обновить настройки уведомлений для пространства
+  updateNotificationSettings: async (spaceId: number, data: NotificationSettingsRequest): Promise<NotificationSettingsResponse> => {
+    return apiRequest<NotificationSettingsResponse>(`/spaces/${spaceId}/notifications/settings`, {
+      method: 'POST',
+      body: JSON.stringify(data),
     });
   },
 };

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Icon } from '../../ui/Icon';
 import { ICONS } from '../../../utils/icons';
+import { NotificationPanel } from '../NotificationPanel';
 import { useLanguage } from '../../../contexts/LanguageContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { getTranslation, getLanguageName, Language } from '../../../utils/i18n';
@@ -25,6 +26,7 @@ export const Header: React.FC<HeaderProps> = ({
   const { logout } = useAuth();
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+  const [showNotificationPanel, setShowNotificationPanel] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editingTitle, setEditingTitle] = useState('');
   const [isModelSelectorVisible, setIsModelSelectorVisible] = useState(false);
@@ -180,7 +182,11 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
       <div className="header-right">
-        <button className="header-notification-btn" title="Notifications">
+        <button 
+          className="header-notification-btn" 
+          title="Notifications"
+          onClick={() => setShowNotificationPanel(true)}
+        >
           <Icon src={ICONS.bell} size="md" />
         </button>
         <div className="header-language-selector" ref={dropdownRef}>
@@ -219,6 +225,9 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </div>
       </div>
+      {showNotificationPanel && (
+        <NotificationPanel onClose={() => setShowNotificationPanel(false)} />
+      )}
     </header>
   );
 };

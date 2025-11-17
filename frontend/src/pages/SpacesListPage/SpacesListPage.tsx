@@ -48,15 +48,16 @@ export const SpacesListPage: React.FC = () => {
 
     try {
       await spacesAPI.createSpace({
-        name: newSpaceName,
-        description: newSpaceDescription || undefined,
+        name: newSpaceName.trim(),
+        description: newSpaceDescription.trim() || undefined,
       });
       setNewSpaceName('');
       setNewSpaceDescription('');
       setShowCreateModal(false);
       loadSpaces();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Ошибка создания пространства:', error);
+      alert(error.message || 'Ошибка при создании пространства. Попробуйте позже.');
     }
   };
 

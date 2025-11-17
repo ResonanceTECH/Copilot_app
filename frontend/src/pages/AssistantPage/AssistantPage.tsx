@@ -276,7 +276,7 @@ export const AssistantPage: React.FC = () => {
 
     try {
       // Обновляем на сервере
-      await chatAPI.updateChat(chatId, finalTitle);
+      await chatAPI.updateChat(chatId, { title: finalTitle });
     } catch (error) {
       console.error('Ошибка переименования чата:', error);
       // Откатываем изменение при ошибке
