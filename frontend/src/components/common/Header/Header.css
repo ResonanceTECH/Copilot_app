@@ -20,6 +20,25 @@
   gap: 8px;
 }
 
+.header-back-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  transition: all 0.2s ease;
+}
+
+.header-back-btn:hover {
+  background: var(--color-hover);
+  color: var(--color-text);
+}
+
 .header-logo {
   width: 32px;
   height: 32px;
@@ -220,6 +239,7 @@
   background: var(--color-hover);
 }
 
+.header-nav-btn,
 .header-notification-btn {
   display: flex;
   align-items: center;
@@ -234,6 +254,7 @@
   transition: all 0.2s ease;
 }
 
+.header-nav-btn:hover,
 .header-notification-btn:hover {
   background: var(--color-hover);
   color: var(--color-text);

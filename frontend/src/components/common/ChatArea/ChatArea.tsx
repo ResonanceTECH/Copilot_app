@@ -5,6 +5,7 @@ import { ChatMessage } from '../../../types';
 import logoIcon from '../../../assets/icons/logo.svg';
 import { useLanguage } from '../../../contexts/LanguageContext';
 import { getTranslation } from '../../../utils/i18n';
+import { NotesPanel } from '../NotesPanel';
 import './ChatArea.css';
 
 interface ChatAreaProps {
@@ -13,7 +14,6 @@ interface ChatAreaProps {
   activeTool?: string;
   onToolSelect?: (tool: string) => void;
   onSendMessage?: (message: string) => void;
-  showActions?: boolean;
 }
 
 export const ChatArea: React.FC<ChatAreaProps> = ({
@@ -22,11 +22,11 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   activeTool: externalActiveTool,
   onToolSelect,
   onSendMessage,
-  showActions = true,
 }) => {
   const [inputValue, setInputValue] = useState('');
   const [internalActiveTool, setInternalActiveTool] = useState<string>('assistant');
   const [isModelSelectorVisible, setIsModelSelectorVisible] = useState(false);
+  const [isNotesPanelVisible, setIsNotesPanelVisible] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const modelSelectorRef = useRef<HTMLDivElement>(null);
@@ -175,6 +175,14 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             rows={1}
           />
           <div className="chat-input-actions">
+            <button 
+              className="chat-input-icon-btn" 
+              type="button"
+              onClick={() => setIsNotesPanelVisible(!isNotesPanelVisible)}
+              title="Заметки"
+            >
+              <Icon src={ICONS.note} size="md" />
+            </button>
             <button className="chat-input-icon-btn" type="button">
               <Icon src={ICONS.paperclip} size="md" />
             </button>
@@ -192,6 +200,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         </div>
       </div>
       </div>
+      {isNotesPanelVisible && (
+        <NotesPanel onClose={() => setIsNotesPanelVisible(false)} />
+      )}
     </div>
   );
 };

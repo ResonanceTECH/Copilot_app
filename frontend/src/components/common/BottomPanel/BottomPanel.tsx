@@ -41,6 +41,15 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
             <Icon src={ICONS.rocket} size="md" />
           </button>
         ))}
+        <button
+          className="bottom-panel-tool"
+          onClick={() => {
+            window.location.href = '/spaces';
+          }}
+          title="Пространства"
+        >
+          <Icon src={ICONS.flame} size="md" />
+        </button>
       </div>
     </div>
   );
