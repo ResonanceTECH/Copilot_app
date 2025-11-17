@@ -36,6 +36,12 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
   const [feedbackName, setFeedbackName] = useState('');
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
   const [feedbackSuccess, setFeedbackSuccess] = useState(false);
+  // Состояния для добавления чатов
+  const [showAddChatsModal, setShowAddChatsModal] = useState(false);
+  const [allChats, setAllChats] = useState<ChatHistoryItem[]>([]);
+  const [selectedChatIds, setSelectedChatIds] = useState<Set<number>>(new Set());
+  const [isLoadingChats, setIsLoadingChats] = useState(false);
+  const [isAddingChats, setIsAddingChats] = useState(false);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -57,8 +63,10 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
       setSpace(spaceData);
       setEditName(spaceData.name);
       setEditDescription(spaceData.description || '');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Ошибка загрузки пространства:', error);
+      // Пространство не найдено или ошибка загрузки
+      setSpace(null);
     } finally {
       setIsLoading(false);
     }
@@ -78,6 +86,62 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
       }
     } catch (error) {
       console.error('Ошибка загрузки данных:', error);
+    }
+  };
+
+  const loadAllChats = async () => {
+    setIsLoadingChats(true);
+    try {
+      // Загружаем все чаты без фильтра по пространству
+      const allChatsResponse = await chatAPI.getHistory();
+      // Загружаем чаты текущего пространства для фильтрации
+      const spaceChatsResponse = await chatAPI.getHistory(spaceId);
+      const chatsInSpace = new Set(spaceChatsResponse.chats.map(c => c.id));
+      // Фильтруем чаты, которые еще не в этом пространстве
+      const availableChats = allChatsResponse.chats.filter(chat => !chatsInSpace.has(chat.id));
+      setAllChats(availableChats);
+    } catch (error) {
+      console.error('Ошибка загрузки чатов:', error);
+    } finally {
+      setIsLoadingChats(false);
+    }
+  };
+
+  const handleOpenAddChatsModal = async () => {
+    setShowAddChatsModal(true);
+    setSelectedChatIds(new Set());
+    await loadAllChats();
+  };
+
+  const handleToggleChatSelection = (chatId: number) => {
+    setSelectedChatIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(chatId)) {
+        newSet.delete(chatId);
+      } else {
+        newSet.add(chatId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleAddChatsToSpace = async () => {
+    if (selectedChatIds.size === 0) return;
+
+    setIsAddingChats(true);
+    try {
+      const promises = Array.from(selectedChatIds).map(chatId =>
+        chatAPI.updateChat(chatId, { space_id: spaceId })
+      );
+      await Promise.all(promises);
+      setShowAddChatsModal(false);
+      setSelectedChatIds(new Set());
+      loadData(); // Перезагружаем список чатов в пространстве
+    } catch (error) {
+      console.error('Ошибка добавления чатов:', error);
+      alert('Ошибка при добавлении чатов. Попробуйте позже.');
+    } finally {
+      setIsAddingChats(false);
     }
   };
 
@@ -360,6 +424,16 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
         <div className="space-detail-tab-content">
           {activeTab === 'chats' && (
             <div className="space-detail-chats">
+              <div className="space-detail-chats-header">
+                <h3>Чаты в пространстве</h3>
+                <button
+                  className="space-detail-add-chats-btn"
+                  onClick={handleOpenAddChatsModal}
+                >
+                  <Icon src={ICONS.plus} size="sm" />
+                  Добавить чаты
+                </button>
+              </div>
               {chats.length === 0 ? (
                 <div className="space-detail-empty">Нет чатов в этом пространстве</div>
               ) : (
@@ -687,6 +761,83 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
               </button>
             </div>
             <div className="space-detail-article-modal-content">{selectedArticle.content}</div>
+          </div>
+        </div>
+      )}
+
+      {showAddChatsModal && (
+        <div
+          className="space-detail-add-chats-modal-overlay"
+          onClick={() => setShowAddChatsModal(false)}
+        >
+          <div className="space-detail-add-chats-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="space-detail-add-chats-modal-header">
+              <h3>Добавить чаты в пространство</h3>
+              <button
+                className="space-detail-add-chats-modal-close"
+                onClick={() => setShowAddChatsModal(false)}
+                title="Закрыть"
+              >
+                <Icon src={ICONS.close} size="md" />
+              </button>
+            </div>
+            <div className="space-detail-add-chats-modal-content">
+              {isLoadingChats ? (
+                <div className="space-detail-add-chats-loading">Загрузка чатов...</div>
+              ) : allChats.length === 0 ? (
+                <div className="space-detail-add-chats-empty">
+                  Нет доступных чатов для добавления
+                </div>
+              ) : (
+                <>
+                  <div className="space-detail-add-chats-list">
+                    {allChats.map(chat => (
+                      <div
+                        key={chat.id}
+                        className={`space-detail-add-chat-item ${selectedChatIds.has(chat.id) ? 'selected' : ''}`}
+                        onClick={() => handleToggleChatSelection(chat.id)}
+                      >
+                        <div className="space-detail-add-chat-checkbox">
+                          <input
+                            type="checkbox"
+                            checked={selectedChatIds.has(chat.id)}
+                            onChange={() => handleToggleChatSelection(chat.id)}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </div>
+                        <div className="space-detail-add-chat-icon">
+                          <Icon src={ICONS.rocket} size="md" />
+                        </div>
+                        <div className="space-detail-add-chat-content">
+                          <div className="space-detail-add-chat-title">{chat.title || 'Без названия'}</div>
+                          <div className="space-detail-add-chat-preview">{chat.last_message || 'Нет сообщений'}</div>
+                          {chat.space_name && (
+                            <div className="space-detail-add-chat-space">
+                              Текущее пространство: {chat.space_name}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="space-detail-add-chats-modal-actions">
+                    <button
+                      className="space-detail-add-chats-cancel-btn"
+                      onClick={() => setShowAddChatsModal(false)}
+                    >
+                      Отмена
+                    </button>
+                    <button
+                      className="space-detail-add-chats-add-btn"
+                      onClick={handleAddChatsToSpace}
+                      disabled={selectedChatIds.size === 0 || isAddingChats}
+                    >
+                      {isAddingChats ? 'Добавление...' : `Добавить (${selectedChatIds.size})`}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}

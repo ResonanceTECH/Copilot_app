@@ -224,3 +224,20 @@ export interface SearchRequest {
   limit?: number;
 }
 
+// Типы для настроек уведомлений
+export interface NotificationSettings {
+  new_message: boolean;
+  new_note: boolean;
+  new_file: boolean;
+}
+
+export interface NotificationSettingsResponse {
+  id: number;
+  space_id: number;
+  settings_json: NotificationSettings;
+}
+
+export interface NotificationSettingsRequest {
+  settings_json: NotificationSettings;
+}
+
