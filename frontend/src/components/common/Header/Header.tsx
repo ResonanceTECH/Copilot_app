@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Icon } from '../../ui/Icon';
 import { ICONS } from '../../../utils/icons';
 import { useLanguage } from '../../../contexts/LanguageContext';
-import { useAuth } from '../../../contexts/AuthContext';
 import { getTranslation, getLanguageName, Language } from '../../../utils/i18n';
 import './Header.css';
 
@@ -22,15 +21,12 @@ export const Header: React.FC<HeaderProps> = ({
   onToolSelect,
 }) => {
   const { language, setLanguage } = useLanguage();
-  const { logout } = useAuth();
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
-  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editingTitle, setEditingTitle] = useState('');
   const [isModelSelectorVisible, setIsModelSelectorVisible] = useState(false);
   const [showModelTooltip, setShowModelTooltip] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const profileDropdownRef = useRef<HTMLDivElement>(null);
   const modelSelectorRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -39,21 +35,18 @@ export const Header: React.FC<HeaderProps> = ({
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setShowLanguageDropdown(false);
       }
-      if (profileDropdownRef.current && !profileDropdownRef.current.contains(event.target as Node)) {
-        setShowProfileDropdown(false);
-      }
       if (modelSelectorRef.current && !modelSelectorRef.current.contains(event.target as Node)) {
         setIsModelSelectorVisible(false);
       }
     };
 
-    if (showLanguageDropdown || showProfileDropdown || isModelSelectorVisible) {
+    if (showLanguageDropdown || isModelSelectorVisible) {
       document.addEventListener('mousedown', handleClickOutside);
       return () => {
         document.removeEventListener('mousedown', handleClickOutside);
       };
     }
-  }, [showLanguageDropdown, showProfileDropdown, isModelSelectorVisible]);
+  }, [showLanguageDropdown, isModelSelectorVisible]);
 
   const handleLanguageChange = (lang: Language) => {
     setLanguage(lang);
@@ -104,16 +97,6 @@ export const Header: React.FC<HeaderProps> = ({
   const handleModelSelect = (tool: string) => {
     onToolSelect?.(tool);
     setIsModelSelectorVisible(false);
-  };
-
-  const handleLogout = async () => {
-    try {
-      await logout();
-      // Перенаправление на страницу входа произойдет автоматически через AuthContext
-      window.location.href = '/login';
-    } catch (error) {
-      console.error('Ошибка при выходе:', error);
-    }
   };
 
   return (
@@ -202,22 +185,9 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           )}
         </div>
-        <div className="header-profile-selector" ref={profileDropdownRef}>
-          <button
-            className="header-avatar-btn"
-            onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-            title="User profile"
-          >
+        <button className="header-avatar-btn" title="User profile">
           <Icon src={ICONS.user} size="md" />
         </button>
-          {showProfileDropdown && (
-            <div className="header-profile-dropdown">
-              <button onClick={handleLogout}>
-                {getTranslation('logout', language)}
-              </button>
-            </div>
-          )}
-        </div>
       </div>
     </header>
   );
