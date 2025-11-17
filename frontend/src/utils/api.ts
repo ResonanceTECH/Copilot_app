@@ -50,14 +50,14 @@ interface ApiError {
 
 const handleApiError = async (response: Response): Promise<never> => {
   let errorMessage = 'Произошла ошибка при выполнении запроса';
-  
+
   try {
     const errorData: ApiError = await response.json();
     errorMessage = errorData.detail || errorData.message || errorMessage;
   } catch {
     errorMessage = response.statusText || errorMessage;
   }
-  
+
   throw new Error(errorMessage);
 };
 
@@ -106,18 +106,18 @@ const apiRequest = async <T>(
 ): Promise<T> => {
   // Исключаем auth endpoints из автоматического refresh
   const isAuthEndpoint = endpoint.startsWith('/auth/');
-  
+
   const token = getAccessToken();
-  
-  const headers: HeadersInit = {
+
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...options.headers,
+    ...(options.headers as Record<string, string> || {}),
   };
-  
+
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
-  
+
   // Отладочное логирование (можно убрать в продакшене)
   if (import.meta.env.DEV) {
     console.log(`[API] ${options.method || 'GET'} ${endpoint}`, {
@@ -125,7 +125,7 @@ const apiRequest = async <T>(
       tokenPreview: token ? `${token.substring(0, 20)}...` : null,
     });
   }
-  
+
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     ...options,
     headers,
@@ -143,29 +143,29 @@ const apiRequest = async <T>(
           ...options,
           headers,
         });
-        
+
         if (!retryResponse.ok) {
           await handleApiError(retryResponse);
         }
-        
+
         if (retryResponse.status === 204 || retryResponse.headers.get('content-length') === '0') {
           return {} as T;
         }
-        
+
         return retryResponse.json();
       }
     }
   }
-  
+
   if (!response.ok) {
     await handleApiError(response);
   }
-  
+
   // Если ответ пустой (например, для logout)
   if (response.status === 204 || response.headers.get('content-length') === '0') {
     return {} as T;
   }
-  
+
   return response.json();
 };
 
@@ -181,11 +181,11 @@ export const authAPI = {
       },
       body: JSON.stringify(data),
     });
-    
+
     if (!response.ok) {
       await handleApiError(response);
     }
-    
+
     return response.json();
   },
 
@@ -199,11 +199,11 @@ export const authAPI = {
       },
       body: JSON.stringify(data),
     });
-    
+
     if (!response.ok) {
       await handleApiError(response);
     }
-    
+
     return response.json();
   },
 
@@ -300,12 +300,71 @@ export const chatAPI = {
     });
   },
 
-  // Получение истории чатов
+  // Получение истории чатов (mock версия с поддержкой фильтрации по space_id)
   getHistory: async (spaceId?: number): Promise<ChatHistoryResponse> => {
-    const params = spaceId ? `?space_id=${spaceId}` : '';
-    return apiRequest<ChatHistoryResponse>(`/chat/history${params}`, {
-      method: 'GET',
+    // Если есть реальный API, используем его
+    if (import.meta.env.VITE_USE_REAL_API === 'true') {
+      const params = spaceId ? `?space_id=${spaceId}` : '';
+      return apiRequest<ChatHistoryResponse>(`/chat/history${params}`, {
+        method: 'GET',
+      });
+    }
+
+    // Mock версия
+    await delay(300);
+
+    const savedChats = localStorage.getItem('space_chats');
+    const chats: Record<number, SpaceChat[]> = savedChats ? JSON.parse(savedChats) : {};
+
+    let allChats: ChatHistoryItem[] = [];
+
+    if (spaceId) {
+      // Получаем чаты для конкретного пространства
+      const spaceChats = chats[spaceId] || [];
+      allChats = spaceChats.map(chat => ({
+        id: parseInt(chat.id) || 0,
+        title: chat.title,
+        space_id: spaceId,
+        space_name: '', // Будет заполнено из пространства
+        last_message: chat.preview,
+        last_message_at: chat.date,
+        created_at: chat.date,
+        updated_at: chat.date,
+      }));
+    } else {
+      // Получаем все чаты из всех пространств
+      Object.entries(chats).forEach(([spaceIdStr, spaceChats]) => {
+        const sid = parseInt(spaceIdStr);
+        spaceChats.forEach(chat => {
+          allChats.push({
+            id: parseInt(chat.id) || 0,
+            title: chat.title,
+            space_id: sid,
+            space_name: '',
+            last_message: chat.preview,
+            last_message_at: chat.date,
+            created_at: chat.date,
+            updated_at: chat.date,
+          });
+        });
+      });
+    }
+
+    // Заполняем space_name из пространств
+    const savedSpaces = localStorage.getItem('spaces');
+    const spaces: Space[] = savedSpaces ? JSON.parse(savedSpaces) : [];
+    allChats = allChats.map(chat => {
+      const space = spaces.find(s => s.id === chat.space_id);
+      return {
+        ...chat,
+        space_name: space?.name || 'Без пространства',
+      };
     });
+
+    return {
+      chats: allChats,
+      total: allChats.length,
+    };
   },
 
   // Получение сообщений чата
@@ -332,7 +391,10 @@ export const chatAPI = {
 };
 
 // API методы для пространств (mock версия)
-import type { Space, SpaceCreateRequest, SpaceUpdateRequest, Note, NotePreview, NoteCreateRequest, NoteUpdateRequest } from '../types';
+import type { Space, SpaceCreateRequest, SpaceUpdateRequest, Note, NotePreview, NoteCreateRequest, NoteUpdateRequest, SpaceTag, SpaceTagCreateRequest, SpaceTagUpdateRequest, SpaceChat, SupportFeedback, SupportFeedbackRequest, SupportArticle, SupportArticlesResponse } from '../types';
+
+// Имитация задержки сети для mock методов
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export const spacesAPI = {
   // Получить список пространств
@@ -469,6 +531,52 @@ export const spacesAPI = {
 
     localStorage.setItem('spaces', JSON.stringify(spaces));
     return spaces[spaceIndex];
+  },
+
+  // Получить конкретное пространство
+  getSpace: async (spaceId: number): Promise<Space> => {
+    await delay(300);
+
+    const savedSpaces = localStorage.getItem('spaces');
+    const spaces: Space[] = savedSpaces ? JSON.parse(savedSpaces) : [];
+    const space = spaces.find(s => s.id === spaceId);
+
+    if (!space) {
+      throw new Error('Пространство не найдено');
+    }
+
+    return space;
+  },
+
+  // Получить теги пространства
+  getSpaceTags: async (spaceId: number): Promise<SpaceTag[]> => {
+    const response = await apiRequest<{ tags: SpaceTag[]; total: number }>(`/spaces/${spaceId}/tags`, {
+      method: 'GET',
+    });
+    return response.tags;
+  },
+
+  // Создать тег в пространстве
+  createSpaceTag: async (spaceId: number, data: SpaceTagCreateRequest): Promise<SpaceTag> => {
+    return apiRequest<SpaceTag>(`/spaces/${spaceId}/tags/create`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  // Обновить тег
+  updateSpaceTag: async (spaceId: number, tagId: number, data: SpaceTagUpdateRequest): Promise<SpaceTag> => {
+    return apiRequest<SpaceTag>(`/spaces/${spaceId}/tags/${tagId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  // Удалить тег
+  deleteSpaceTag: async (spaceId: number, tagId: number): Promise<void> => {
+    return apiRequest<void>(`/spaces/${spaceId}/tags/${tagId}`, {
+      method: 'DELETE',
+    });
   },
 };
 
@@ -615,6 +723,41 @@ export const notesAPI = {
     }
 
     localStorage.setItem('notes', JSON.stringify(filtered));
+  },
+};
+
+// API методы для поддержки
+export const supportAPI = {
+  // Отправка отзыва или запроса в поддержку
+  sendFeedback: async (data: SupportFeedbackRequest): Promise<SupportFeedback> => {
+    return apiRequest<SupportFeedback>('/support/feedback', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  // Получение списка справочных статей
+  getArticles: async (params?: {
+    category?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<SupportArticlesResponse> => {
+    const queryParams = new URLSearchParams();
+    if (params?.category) queryParams.append('category', params.category);
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    if (params?.offset) queryParams.append('offset', params.offset.toString());
+
+    const url = `/support/articles${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    return apiRequest<SupportArticlesResponse>(url, {
+      method: 'GET',
+    });
+  },
+
+  // Получение справочной статьи по ID
+  getArticle: async (articleId: number): Promise<SupportArticle> => {
+    return apiRequest<SupportArticle>(`/support/articles/${articleId}`, {
+      method: 'GET',
+    });
   },
 };
 

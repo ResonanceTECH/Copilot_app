@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { Sidebar } from '../../components/common/Sidebar';
 import { Header } from '../../components/common/Header';
 import { ChatArea } from '../../components/common/ChatArea';
+import { SupportPanel } from '../../components/common/SupportPanel';
 import { BottomPanel } from '../../components/common/BottomPanel';
 import { PanelToggle } from '../../components/common/PanelToggle';
 import { ChatMessage, ChatThread } from '../../types';
@@ -26,6 +27,7 @@ export const AssistantPage: React.FC = () => {
   const [panelMode, setPanelMode] = useState<'sidebar' | 'bottom'>('sidebar');
   const [activeTool, setActiveTool] = useState<string>('assistant');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [showSupportPanel, setShowSupportPanel] = useState(false);
   const { language } = useLanguage();
   const [panelTogglePosition, setPanelTogglePosition] = useState<{
     side: 'left' | 'right' | 'top' | 'bottom';
@@ -97,7 +99,7 @@ export const AssistantPage: React.FC = () => {
     try {
       // Создаем чат на сервере
       const chatData = await chatAPI.createChat(getTranslation('newChat', language));
-      
+
       const newThreadId = `chat-${chatData.id}`;
       const newThread: ChatThread = {
         id: newThreadId,
@@ -147,6 +149,7 @@ export const AssistantPage: React.FC = () => {
 
   // Выбрать чат
   const handleThreadSelect = useCallback(async (threadId: string) => {
+    setShowSupportPanel(false);
     setActiveThreadId(threadId);
     const threadData = threads.get(threadId);
     
@@ -210,7 +213,7 @@ export const AssistantPage: React.FC = () => {
     try {
       // Удаляем чат на сервере
       await chatAPI.deleteChat(chatId);
-      
+
       // Удаляем локально
       setThreads((prev) => {
         const updated = new Map(prev);
@@ -231,13 +234,13 @@ export const AssistantPage: React.FC = () => {
   // Переименовать чат
   const handleThreadRename = useCallback(async (threadId: string, newTitle: string) => {
     const finalTitle = newTitle.trim() || getTranslation('newChat', language);
-    
+
     // Получаем текущие данные чата
     const currentThreadData = threads.get(threadId);
     if (!currentThreadData) {
       return;
     }
-    
+
     const oldTitle = currentThreadData.thread.title;
     const chatId = currentThreadData.chatId;
 
@@ -317,7 +320,7 @@ export const AssistantPage: React.FC = () => {
             messages: updatedMessages,
           });
         }
-        
+
         return updated;
     });
 
@@ -441,7 +444,7 @@ export const AssistantPage: React.FC = () => {
 
         setActiveThreadId(newThreadId);
         setMessages([]);
-        
+
         // Отправляем сообщение в новый чат
         await handleSendMessageToThread(newThreadId, content, true);
         return;
@@ -468,7 +471,7 @@ export const AssistantPage: React.FC = () => {
 
         setActiveThreadId(newThreadId);
         setMessages([]);
-        
+
         await handleSendMessageToThread(newThreadId, content, true);
         return;
       }
@@ -489,24 +492,28 @@ export const AssistantPage: React.FC = () => {
           onThreadSelect={handleThreadSelect}
           onThreadDelete={handleThreadDelete}
           onThreadRename={handleThreadRename}
+          onSettingsClick={() => setShowSupportPanel(true)}
         />
       )}
       <div className={`assistant-main ${panelMode === 'bottom' ? 'assistant-main--full-width' : ''} ${isSidebarCollapsed && panelMode === 'sidebar' ? 'assistant-main--sidebar-collapsed' : ''}`}>
         <Header 
-          title={activeThreadId ? threads.get(activeThreadId)?.thread.title : undefined}
+          title={showSupportPanel ? 'Настройки' : (activeThreadId ? threads.get(activeThreadId)?.thread.title : undefined)}
           threadId={activeThreadId}
           onRename={handleThreadRename}
           activeTool={activeTool}
           onToolSelect={setActiveTool}
         />
-        <ChatArea
-          userName={userName}
-          messages={messages}
-          onSendMessage={handleSendMessage}
-          activeTool={activeTool}
-          onToolSelect={setActiveTool}
-          showActions={panelMode === 'sidebar'}
-        />
+        {showSupportPanel ? (
+          <SupportPanel />
+        ) : (
+          <ChatArea
+            userName={userName}
+            messages={messages}
+            onSendMessage={handleSendMessage}
+            activeTool={activeTool}
+            onToolSelect={setActiveTool}
+          />
+        )}
       </div>
       {panelMode === 'bottom' && (
         <BottomPanel

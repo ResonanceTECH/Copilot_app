@@ -329,6 +329,7 @@ async function sendQuestionToServer(question) {
         const response = await fetch('/api/ask', {
             method: 'POST',
             headers: {
+                "Authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjEsImV4cCI6MTc2MzMzMDUyMiwidHlwZSI6ImFjY2VzcyJ9.6oOmNF6VMr9XZ3OHJZBXW8Xqf9JLPqWxkWkCWgNOHAs',
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({ question: question })
