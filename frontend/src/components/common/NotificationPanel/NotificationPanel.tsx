@@ -1,18 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Icon } from '../../ui/Icon';
 import { ICONS } from '../../../utils/icons';
-<<<<<<< HEAD
 import { spacesAPI } from '../../../utils/api';
 import { NotificationSettings, Space } from '../../../types';
-=======
->>>>>>> 4347a6bfb039ecdd21b3103ee6191940f80e76f6
 import { useLanguage } from '../../../contexts/LanguageContext';
 import { getTranslation } from '../../../utils/i18n';
 import './NotificationPanel.css';
 
 interface NotificationPanelProps {
-<<<<<<< HEAD
-  onClose: () => void;
+  onClose?: () => void;
 }
 
 export const NotificationPanel: React.FC<NotificationPanelProps> = ({ onClose }) => {
@@ -82,7 +78,7 @@ export const NotificationPanel: React.FC<NotificationPanelProps> = ({ onClose })
       await spacesAPI.updateNotificationSettings(selectedSpaceId, {
         settings_json: settings,
       });
-      onClose();
+      onClose?.();
     } catch (error: any) {
       console.error('Ошибка сохранения настроек:', error);
       setError(error.message || 'Ошибка сохранения настроек');
@@ -102,7 +98,7 @@ export const NotificationPanel: React.FC<NotificationPanelProps> = ({ onClose })
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        onClose();
+        onClose?.();
       }
     };
 
@@ -114,35 +110,22 @@ export const NotificationPanel: React.FC<NotificationPanelProps> = ({ onClose })
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (panelRef.current && !panelRef.current.contains(event.target as Node)) {
-        onClose();
-=======
-  onClose?: () => void;
-}
-
-export const NotificationPanel: React.FC<NotificationPanelProps> = ({ onClose }) => {
-  const panelRef = useRef<HTMLDivElement>(null);
-  const { language } = useLanguage();
-
-  // Закрытие панели при клике вне её
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (panelRef.current && !panelRef.current.contains(event.target as Node)) {
         onClose?.();
->>>>>>> 4347a6bfb039ecdd21b3103ee6191940f80e76f6
       }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
-<<<<<<< HEAD
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
   }, [onClose]);
 
   return (
-    <div className="notification-panel-overlay">
-      <div className="notification-panel" ref={panelRef}>
+    <div className="notification-panel-overlay" onClick={() => onClose?.()}>
+      <div className="notification-panel" ref={panelRef} onClick={(e) => e.stopPropagation()}>
         <div className="notification-panel-header">
           <h3 className="notification-panel-title">Настройки уведомлений</h3>
-          <button className="notification-panel-close" onClick={onClose}>
+          <button className="notification-panel-close" onClick={() => onClose?.()}>
             <Icon src={ICONS.close} size="md" />
           </button>
         </div>
@@ -237,7 +220,7 @@ export const NotificationPanel: React.FC<NotificationPanelProps> = ({ onClose })
                   <div className="notification-panel-actions">
                     <button
                       className="notification-panel-btn notification-panel-btn--secondary"
-                      onClick={onClose}
+                      onClick={() => onClose?.()}
                     >
                       Отмена
                     </button>
@@ -253,35 +236,8 @@ export const NotificationPanel: React.FC<NotificationPanelProps> = ({ onClose })
               )}
             </>
           )}
-=======
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [onClose]);
-
-  return (
-    <div className="notification-panel" ref={panelRef}>
-      <div className="notification-panel-header">
-        <h3 className="notification-panel-title">Уведомления</h3>
-        {onClose && (
-          <button
-            className="notification-panel-close-btn"
-            onClick={onClose}
-            title="Закрыть"
-          >
-            <Icon src={ICONS.close} size="sm" />
-          </button>
-        )}
-      </div>
-
-      <div className="notification-panel-content">
-        <div className="notification-panel-empty">
-          <Icon src={ICONS.bell} size="lg" />
-          <p>Нет уведомлений</p>
->>>>>>> 4347a6bfb039ecdd21b3103ee6191940f80e76f6
         </div>
       </div>
     </div>
   );
 };
-

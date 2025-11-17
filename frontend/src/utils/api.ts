@@ -370,24 +370,20 @@ export const spacesAPI = {
 
   // Обновить пространство
   updateSpace: async (spaceId: number, data: SpaceUpdateRequest): Promise<Space> => {
-    await delay(400);
-
-    const savedSpaces = localStorage.getItem('spaces');
-    const spaces: Space[] = savedSpaces ? JSON.parse(savedSpaces) : [];
-    const spaceIndex = spaces.findIndex(s => s.id === spaceId);
-
-    if (spaceIndex === -1) {
-      throw new Error('Пространство не найдено');
+    const requestBody: { name?: string; description?: string } = {};
+    
+    if (data.name !== undefined) {
+      requestBody.name = data.name;
     }
-
-    spaces[spaceIndex] = {
-      ...spaces[spaceIndex],
-      ...data,
-      updated_at: new Date().toISOString(),
-    };
-
-    localStorage.setItem('spaces', JSON.stringify(spaces));
-    return spaces[spaceIndex];
+    
+    if (data.description !== undefined) {
+      requestBody.description = data.description;
+    }
+    
+    return apiRequest<Space>(`/spaces/${spaceId}`, {
+      method: 'PUT',
+      body: JSON.stringify(requestBody),
+    });
   },
 
   // Удалить пространство
@@ -433,17 +429,9 @@ export const spacesAPI = {
 
   // Получить конкретное пространство
   getSpace: async (spaceId: number): Promise<Space> => {
-    await delay(300);
-
-    const savedSpaces = localStorage.getItem('spaces');
-    const spaces: Space[] = savedSpaces ? JSON.parse(savedSpaces) : [];
-    const space = spaces.find(s => s.id === spaceId);
-
-    if (!space) {
-      throw new Error('Пространство не найдено');
-    }
-
-    return space;
+    return apiRequest<Space>(`/spaces/${spaceId}`, {
+      method: 'GET',
+    });
   },
 
   // Получить теги пространства
@@ -544,7 +532,7 @@ export const notesAPI = {
     
     if (data.content && data.content.trim()) {
       requestBody.content = data.content.trim();
-    }
+      }
     
     if (data.space_id) {
       requestBody.space_id = data.space_id;
