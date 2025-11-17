@@ -52,26 +52,33 @@ export const AssistantPage: React.FC = () => {
         await new Promise(resolve => setTimeout(resolve, 100));
         
         try {
+          console.log('[AssistantPage] Загрузка истории чатов...');
           const history = await chatAPI.getHistory();
+          console.log('[AssistantPage] Получена история:', history);
+          console.log('[AssistantPage] Количество чатов:', history.chats?.length || 0);
+          
           const threadsMap = new Map<string, ThreadData>();
           
-          history.chats.forEach((chat: ChatHistoryItem) => {
-            const threadId = `chat-${chat.id}`;
-            threadsMap.set(threadId, {
-              thread: {
-                id: threadId,
-                title: chat.title || getTranslation('newChat', language),
-                timestamp: new Date(chat.updated_at || chat.created_at),
-                lastMessage: chat.last_message || undefined,
-              },
-              messages: [],
-              chatId: chat.id,
+          if (history.chats && Array.isArray(history.chats)) {
+            history.chats.forEach((chat: ChatHistoryItem) => {
+              const threadId = `chat-${chat.id}`;
+              threadsMap.set(threadId, {
+                thread: {
+                  id: threadId,
+                  title: chat.title || getTranslation('newChat', language),
+                  timestamp: new Date(chat.updated_at || chat.created_at),
+                  lastMessage: chat.last_message || undefined,
+                },
+                messages: [],
+                chatId: chat.id,
+              });
             });
-          });
+          }
           
+          console.log('[AssistantPage] Создано threads:', threadsMap.size);
           setThreads(threadsMap);
         } catch (error) {
-          console.error('Ошибка загрузки истории чатов:', error);
+          console.error('[AssistantPage] Ошибка загрузки истории чатов:', error);
           // При ошибке 401 не очищаем историю, так как это может быть временная проблема
         }
       };
@@ -89,9 +96,11 @@ export const AssistantPage: React.FC = () => {
 
   // Получить список чатов для отображения
   const getThreadsList = useCallback((): ChatThread[] => {
-    return Array.from(threads.values())
+    const threadsList = Array.from(threads.values())
       .map((data) => data.thread)
       .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+    console.log('[AssistantPage] getThreadsList вызван, threads.size:', threads.size, 'threadsList.length:', threadsList.length);
+    return threadsList;
   }, [threads]);
 
   // Создать новый чат

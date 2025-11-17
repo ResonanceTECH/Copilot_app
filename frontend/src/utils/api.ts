@@ -300,71 +300,12 @@ export const chatAPI = {
     });
   },
 
-  // Получение истории чатов (mock версия с поддержкой фильтрации по space_id)
+  // Получение истории чатов
   getHistory: async (spaceId?: number): Promise<ChatHistoryResponse> => {
-    // Если есть реальный API, используем его
-    if (import.meta.env.VITE_USE_REAL_API === 'true') {
-      const params = spaceId ? `?space_id=${spaceId}` : '';
-      return apiRequest<ChatHistoryResponse>(`/chat/history${params}`, {
-        method: 'GET',
-      });
-    }
-
-    // Mock версия
-    await delay(300);
-
-    const savedChats = localStorage.getItem('space_chats');
-    const chats: Record<number, SpaceChat[]> = savedChats ? JSON.parse(savedChats) : {};
-
-    let allChats: ChatHistoryItem[] = [];
-
-    if (spaceId) {
-      // Получаем чаты для конкретного пространства
-      const spaceChats = chats[spaceId] || [];
-      allChats = spaceChats.map(chat => ({
-        id: parseInt(chat.id) || 0,
-        title: chat.title,
-        space_id: spaceId,
-        space_name: '', // Будет заполнено из пространства
-        last_message: chat.preview,
-        last_message_at: chat.date,
-        created_at: chat.date,
-        updated_at: chat.date,
-      }));
-    } else {
-      // Получаем все чаты из всех пространств
-      Object.entries(chats).forEach(([spaceIdStr, spaceChats]) => {
-        const sid = parseInt(spaceIdStr);
-        spaceChats.forEach(chat => {
-          allChats.push({
-            id: parseInt(chat.id) || 0,
-            title: chat.title,
-            space_id: sid,
-            space_name: '',
-            last_message: chat.preview,
-            last_message_at: chat.date,
-            created_at: chat.date,
-            updated_at: chat.date,
-          });
-        });
-      });
-    }
-
-    // Заполняем space_name из пространств
-    const savedSpaces = localStorage.getItem('spaces');
-    const spaces: Space[] = savedSpaces ? JSON.parse(savedSpaces) : [];
-    allChats = allChats.map(chat => {
-      const space = spaces.find(s => s.id === chat.space_id);
-      return {
-        ...chat,
-        space_name: space?.name || 'Без пространства',
-      };
+    const params = spaceId ? `?space_id=${spaceId}` : '';
+    return apiRequest<ChatHistoryResponse>(`/chat/history${params}`, {
+      method: 'GET',
     });
-
-    return {
-      chats: allChats,
-      total: allChats.length,
-    };
   },
 
   // Получение сообщений чата
