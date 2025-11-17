@@ -118,6 +118,26 @@ CREATE TABLE IF NOT EXISTS notification_settings (
 CREATE INDEX IF NOT EXISTS idx_notification_settings_space_id ON notification_settings(space_id);
 CREATE INDEX IF NOT EXISTS idx_notification_settings_user_id ON notification_settings(user_id);
 
+-- Создание таблицы notifications (уведомления)
+CREATE TABLE IF NOT EXISTS notifications (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    space_id INTEGER,
+    notification_type VARCHAR(50) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    message TEXT,
+    is_read BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_notifications_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_notifications_space FOREIGN KEY (space_id) REFERENCES spaces(id) ON DELETE CASCADE
+);
+
+-- Создание индексов для notifications
+CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_space_id ON notifications(space_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON notifications(is_read);
+CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at);
+
 -- Функция для автоматического обновления updated_at
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$

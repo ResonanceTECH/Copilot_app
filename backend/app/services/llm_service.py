@@ -105,7 +105,7 @@ class LLMService:
             max_history_tokens: Максимальное количество токенов для истории
 
         Returns:
-            Ответ от LLM
+            Ответ от LLM или None в случае ошибки
         """
         try:
             # Подготавливаем сообщения с учетом ограничений по токенам
@@ -115,8 +115,6 @@ class LLMService:
                 conversation_history,
                 max_history_tokens
             )
-
-            print(f"📨 Отправка в LLM с {len(messages)} сообщениями в контексте")
 
             completion = self.client.chat.completions.create(
                 extra_headers={
@@ -129,16 +127,30 @@ class LLMService:
                 max_tokens=1000  # Ограничение на ответ
             )
 
+            if not completion.choices or len(completion.choices) == 0:
+                raise ValueError("LLM вернул пустой ответ")
+
             response = completion.choices[0].message.content
-            print(f"✅ Получен ответ от LLM: {len(response)} символов")
+            
+            if not response:
+                raise ValueError("LLM вернул пустое содержимое")
 
             return response
 
+        except ValueError as e:
+            raise
         except Exception as e:
-            print(f"❌ Ошибка LLM: {e}")
-            import traceback
-            traceback.print_exc()
-            return "Извините, произошла ошибка при генерации ответа."
+            error_message = str(e)
+            
+            # Обработка ошибки 401 - неверный API ключ
+            if "401" in error_message or "User not found" in error_message or "authentication" in error_message.lower():
+                raise ValueError("Неверный API ключ OpenRouter. Проверьте переменную OPENROUTER_API_KEY.")
+            elif "rate limit" in error_message.lower() or "quota" in error_message.lower() or "429" in error_message:
+                raise ValueError("Превышен лимит запросов. Попробуйте позже.")
+            elif "timeout" in error_message.lower():
+                raise ValueError("Превышено время ожидания. Попробуйте ещё раз.")
+            else:
+                raise ValueError(f"Ошибка LLM: {error_message}")
 
     def generate_response_with_context(
             self,

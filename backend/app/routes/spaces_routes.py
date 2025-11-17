@@ -657,95 +657,113 @@ async def export_space(
     db: Session = Depends(get_db)
 ):
     """Экспорт всех данных пространства в JSON архив"""
-    space = db.query(Space).filter(
-        Space.id == space_id,
-        Space.user_id == current_user.id
-    ).first()
-    
-    if not space:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Пространство не найдено"
-        )
-    
-    # Собираем все данные пространства
-    export_data = {
-        "space": {
-            "id": space.id,
-            "name": space.name,
-            "description": space.description,
-            "is_archived": space.is_archived,
-            "created_at": space.created_at.isoformat(),
-            "updated_at": space.updated_at.isoformat()
-        },
-        "chats": [],
-        "messages": [],
-        "notes": [],
-        "tags": []
-    }
-    
-    # Экспортируем чаты
-    chats = db.query(Chat).filter(Chat.space_id == space_id).all()
-    for chat in chats:
-        export_data["chats"].append({
-            "id": chat.id,
-            "title": chat.title,
-            "created_at": chat.created_at.isoformat(),
-            "updated_at": chat.updated_at.isoformat()
-        })
+    try:
+        space = db.query(Space).filter(
+            Space.id == space_id,
+            Space.user_id == current_user.id
+        ).first()
         
-        # Экспортируем сообщения чата
-        messages = db.query(Message).filter(Message.chat_id == chat.id).all()
-        for msg in messages:
-            export_data["messages"].append({
-                "chat_id": msg.chat_id,
-                "role": msg.role,
-                "content": msg.content,
-                "created_at": msg.created_at.isoformat()
+        if not space:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Пространство не найдено"
+            )
+        
+        # Собираем все данные пространства
+        export_data = {
+            "space": {
+                "id": space.id,
+                "name": space.name,
+                "description": space.description,
+                "is_archived": space.is_archived,
+                "created_at": space.created_at.isoformat(),
+                "updated_at": space.updated_at.isoformat()
+            },
+            "chats": [],
+            "messages": [],
+            "notes": [],
+            "tags": []
+        }
+        
+        # Экспортируем чаты
+        chats = db.query(Chat).filter(Chat.space_id == space_id).all()
+        for chat in chats:
+            export_data["chats"].append({
+                "id": chat.id,
+                "title": chat.title,
+                "created_at": chat.created_at.isoformat(),
+                "updated_at": chat.updated_at.isoformat()
             })
-    
-    # Экспортируем заметки
-    notes = db.query(Note).filter(Note.space_id == space_id).all()
-    for note in notes:
-        note_data = {
-            "id": note.id,
-            "title": note.title,
-            "content": note.content,
-            "created_at": note.created_at.isoformat(),
-            "updated_at": note.updated_at.isoformat(),
-            "tags": [{"id": tag.id, "name": tag.name} for tag in note.tags]
-        }
-        export_data["notes"].append(note_data)
-    
-    # Экспортируем теги
-    tags = db.query(Tag).filter(Tag.space_id == space_id).all()
-    for tag in tags:
-        export_data["tags"].append({
-            "id": tag.id,
-            "name": tag.name,
-            "color": tag.color,
-            "tag_type": tag.tag_type,
-            "created_at": tag.created_at.isoformat()
-        })
-    
-    # Создаем JSON строку
-    json_data = json.dumps(export_data, ensure_ascii=False, indent=2)
-    
-    # Создаем ZIP архив в памяти
-    zip_buffer = io.BytesIO()
-    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-        zip_file.writestr(f"space_{space_id}_export.json", json_data.encode('utf-8'))
-    
-    zip_buffer.seek(0)
-    
-    from fastapi.responses import Response
-    return Response(
-        content=zip_buffer.getvalue(),
-        media_type="application/zip",
-        headers={
-            "Content-Disposition": f"attachment; filename=space_{space_id}_{space.name}_export.zip"
-        }
-    )
+            
+            # Экспортируем сообщения чата
+            messages = db.query(Message).filter(Message.chat_id == chat.id).all()
+            for msg in messages:
+                export_data["messages"].append({
+                    "chat_id": msg.chat_id,
+                    "role": msg.role,
+                    "content": msg.content,
+                    "created_at": msg.created_at.isoformat()
+                })
+        
+        # Экспортируем заметки
+        notes = db.query(Note).filter(Note.space_id == space_id).all()
+        for note in notes:
+            note_data = {
+                "id": note.id,
+                "title": note.title,
+                "content": note.content,
+                "created_at": note.created_at.isoformat(),
+                "updated_at": note.updated_at.isoformat(),
+                "tags": [{"id": tag.id, "name": tag.name} for tag in note.tags]
+            }
+            export_data["notes"].append(note_data)
+        
+        # Экспортируем теги
+        tags = db.query(Tag).filter(Tag.space_id == space_id).all()
+        for tag in tags:
+            export_data["tags"].append({
+                "id": tag.id,
+                "name": tag.name,
+                "color": tag.color,
+                "tag_type": tag.tag_type,
+                "created_at": tag.created_at.isoformat()
+            })
+        
+        # Создаем JSON строку
+        json_data = json.dumps(export_data, ensure_ascii=False, indent=2)
+        
+        # Создаем ZIP архив в памяти
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            zip_file.writestr(f"space_{space_id}_export.json", json_data.encode('utf-8'))
+        
+        zip_buffer.seek(0)
+        
+        # Экранируем имя файла для безопасной передачи в заголовке
+        safe_filename = space.name.replace(' ', '_').replace('/', '_').replace('\\', '_')
+        safe_filename = ''.join(c for c in safe_filename if c.isalnum() or c in ('_', '-', '.'))
+        
+        from fastapi.responses import Response
+        
+        print(f"✅ Экспорт пространства {space_id} ({space.name}): {len(export_data['chats'])} чатов, {len(export_data['messages'])} сообщений, {len(export_data['notes'])} заметок")
+        
+        return Response(
+            content=zip_buffer.getvalue(),
+            media_type="application/zip",
+            headers={
+                "Content-Disposition": f'attachment; filename="space_{space_id}_{safe_filename}_export.zip"'
+            }
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Ошибка экспорта пространства {space_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Ошибка при экспорте пространства: {str(e)}"
+        )
 
 
 @router.post("/import")

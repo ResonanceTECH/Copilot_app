@@ -3,10 +3,19 @@ import { Icon } from '../../ui/Icon';
 import { ICONS } from '../../../utils/icons';
 import { searchAPI } from '../../../utils/api';
 import type { SearchResults, SearchChatItem, SearchNoteItem, SearchMessageItem } from '../../../types';
+<<<<<<< HEAD
 import './SearchPanel.css';
 
 interface SearchPanelProps {
   onClose?: () => void;
+=======
+import { useLanguage } from '../../../contexts/LanguageContext';
+import { getTranslation } from '../../../utils/i18n';
+import './SearchPanel.css';
+
+interface SearchPanelProps {
+  onClose: () => void;
+>>>>>>> efb64d2df32fe329d7552f0f9e3546042ccd9af9
   onChatSelect?: (chatId: number) => void;
   onNoteSelect?: (noteId: number) => void;
 }
@@ -22,6 +31,10 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+<<<<<<< HEAD
+=======
+  const { language } = useLanguage();
+>>>>>>> efb64d2df32fe329d7552f0f9e3546042ccd9af9
 
   // Фокус на поле ввода при открытии
   useEffect(() => {
