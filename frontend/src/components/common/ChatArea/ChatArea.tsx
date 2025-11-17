@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { Icon } from '../../ui/Icon';
 import { ICONS } from '../../../utils/icons';
 import { ChatMessage } from '../../../types';
@@ -124,7 +126,15 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               key={message.id}
               className={`chat-message chat-message--${message.role} ${message.isLoading ? 'chat-message--loading' : ''}`}
             >
-              <div className="chat-message-content">{message.content}</div>
+              <div className="chat-message-content">
+                {message.role === 'assistant' && !message.isLoading ? (
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {message.content}
+                  </ReactMarkdown>
+                ) : (
+                  message.content
+                )}
+              </div>
             </div>
           ))}
           <div ref={messagesEndRef} />
