@@ -463,9 +463,17 @@ export const spacesAPI = {
 
   // Получить конкретное пространство
   getSpace: async (spaceId: number): Promise<Space> => {
-    return apiRequest<Space>(`/spaces/${spaceId}`, {
-      method: 'GET',
-    });
+    await delay(300);
+
+    const savedSpaces = localStorage.getItem('spaces');
+    const spaces: Space[] = savedSpaces ? JSON.parse(savedSpaces) : [];
+    const space = spaces.find(s => s.id === spaceId);
+
+    if (!space) {
+      throw new Error('Пространство не найдено');
+    }
+
+    return space;
   },
 
   // Получить теги пространства
