@@ -1,11 +1,12 @@
 import sys
 import os
+from collections import Counter
 
 # Добавляем пути для импортов
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from ml.models.business_classifier import EnhancedBusinessClassifier
-from datasets.dataset_generation import business_dataset
+from backend.ml.models.business_classifier import EnhancedBusinessClassifier
+from backend.ml.datasets.dataset_generation import business_dataset
 
 
 def train_classifier():
@@ -16,7 +17,6 @@ def train_classifier():
     print(f"📊 Размер датасета: {len(business_dataset)} примеров")
 
     # Считаем распределение по категориям
-    from collections import Counter
     label_counts = Counter([item['label'] for item in business_dataset])
     print("📈 Распределение по категориям:")
     for label, count in label_counts.items():
@@ -28,9 +28,12 @@ def train_classifier():
     print("🧠 Обучаем модель...")
     train_score, test_score = classifier.train(business_dataset)
 
-    # Сохраняем модель
+    # Сохраняем модель - ИСПРАВЛЕННЫЙ ПУТЬ
     model_path = 'models/business_classifier.pkl'
-    os.makedirs('models', exist_ok=True)
+
+    # Создаем все необходимые директории
+    os.makedirs(os.path.dirname(model_path), exist_ok=True)  # ← ИСПРАВЛЕНО ЗДЕСЬ
+
     classifier.save_model(model_path)
 
     print(f"✅ Обучение завершено!")

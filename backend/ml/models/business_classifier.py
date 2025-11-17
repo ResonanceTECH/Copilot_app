@@ -1,114 +1,150 @@
 import pandas as pd
-from sklearn.feature_extraction.text import TfidfVectorizer
+import numpy as np
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report
 import joblib
 import re
-import numpy as np
-from scipy.sparse import hstack
+from sentence_transformers import SentenceTransformer
 
 
 class EnhancedBusinessClassifier:
     def __init__(self):
-        self.vectorizer = TfidfVectorizer(
-            max_features=1500,
-            min_df=2,
-            max_df=0.85,
-            ngram_range=(1, 3),
-            stop_words=['как', 'для', 'что', 'это', 'так', 'в', 'на', 'с', 'по', 'о', 'и', 'или', 'а', 'но']
-        )
+        # Используем легкую модель для эмбеддингов
+        self.embedder = SentenceTransformer('sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2')
         self.classifier = RandomForestClassifier(
-            n_estimators=150,
-            max_depth=25,
-            min_samples_split=5,
-            min_samples_leaf=2,
+            n_estimators=100,
+            max_depth=20,
+            min_samples_split=3,
+            min_samples_leaf=1,
             random_state=42
         )
         self.labels = ['marketing', 'finance', 'legal', 'management', 'sales', 'general']
 
-        # Ключевые слова для каждой категории
+        # Расширенные ключевые слова
         self.category_keywords = {
-            'marketing': ['маркетинг', 'реклама', 'продвижение', 'бренд', 'smm', 'seo', 'конверсия', 'таргетинг'],
-            'finance': ['финанс', 'бюджет', 'налог', 'инвестиц', 'кредит', 'деньги', 'отчетность', 'рентабельность'],
-            'legal': ['юридич', 'договор', 'правов', 'закон', 'лиценз', 'регистрац', 'суд', 'иск'],
-            'management': ['управлен', 'команда', 'персонал', 'процесс', 'оптимизац', 'kpi', 'мотивац', 'руководств'],
-            'sales': ['продаж', 'клиент', 'сделка', 'лид', 'crm', 'возражен', 'коммерческ', 'контракт'],
-            'general': ['бизнес', 'стартап', 'компания', 'развитие', 'стратегия', 'план', 'идея', 'проект']
+            'marketing': ['маркетинг', 'реклама', 'продвижение', 'бренд', 'smm', 'seo', 'таргетинг',
+                          'контент', 'аудитория', 'трафик', 'конверсия', 'воронка'],
+            'finance': ['финанс', 'бюджет', 'налог', 'инвестиц', 'кредит', 'деньги', 'отчетность',
+                        'рентабельность', 'выручка', 'прибыль', 'расход', 'касса'],
+            'legal': ['юридич', 'договор', 'правов', 'закон', 'лиценз', 'регистрац', 'суд',
+                      'иск', 'адвокат', 'нотариус', 'патент', 'авторское'],
+            'management': ['управлен', 'команда', 'персонал', 'процесс', 'оптимизац', 'kpi',
+                           'мотивац', 'руководств', 'отдел', 'сотрудник', 'эффективность'],
+            'sales': ['продаж', 'клиент', 'сделка', 'лид', 'crm', 'возражен', 'коммерческ',
+                      'контракт', 'менеджер', 'запрос', 'предложение'],
+            'general': ['бизнес', 'стартап', 'компания', 'развитие', 'стратегия', 'план',
+                        'идея', 'проект', 'рынок', 'конкуренция', 'ниша']
         }
 
     def preprocess_text(self, text):
-        text = text.lower()
+        """Упрощенная предобработка"""
+        text = str(text).lower()
         text = re.sub(r'[^\w\s#+]', ' ', text)
-        text = re.sub(r'\d+', ' ', text)
         text = re.sub(r'\s+', ' ', text)
         return text.strip()
 
-    def calculate_keyword_score(self, text):
+    def calculate_keyword_features(self, text):
+        """Расширенные фичи ключевых слов"""
         text_lower = text.lower()
-        scores = {}
+        features = []
+
         for category, keywords in self.category_keywords.items():
-            score = sum(1 for keyword in keywords if keyword in text_lower)
-            scores[category] = score
-        return scores
+            # 1. Простое наличие
+            presence = sum(1 for keyword in keywords if keyword in text_lower)
+
+            # 2. Взвешенное по TF (частоте в тексте)
+            tf_score = sum(text_lower.count(keyword) for keyword in keywords)
+
+            # 3. Нормализованный счет
+            normalized_score = tf_score / max(len(text.split()), 1)
+
+            features.extend([presence, tf_score, normalized_score])
+
+        return np.array(features)
+
+    def get_text_embeddings(self, texts):
+        """Получение семантических эмбеддингов"""
+        if isinstance(texts, str):
+            texts = [texts]
+
+        # Получаем эмбеддинги
+        embeddings = self.embedder.encode(texts, convert_to_tensor=False)
+        return embeddings
+
+    def extract_text_features(self, text):
+        """Извлечение дополнительных текстовых фич"""
+        words = text.split()
+        sentences = text.split('.')
+
+        features = [
+            len(text),  # длина текста
+            len(words),  # количество слов
+            len(sentences),  # количество предложений
+            np.mean([len(word) for word in words]) if words else 0,  # средняя длина слова
+            len([w for w in words if len(w) > 6]) / max(len(words), 1),  # доля длинных слов
+        ]
+
+        return np.array(features)
 
     def train(self, dataset):
         df = pd.DataFrame(dataset)
         df['processed_text'] = df['text'].apply(self.preprocess_text)
 
-        # Создаем признаки ключевых слов для ВСЕГО датасета
-        keyword_features = []
-        for text in df['text']:
-            scores = self.calculate_keyword_score(text)
-            keyword_features.append([scores.get(label, 0) for label in self.labels])
+        print("🔍 Извлечение признаков...")
 
-        # Преобразуем в numpy array
-        keyword_features = np.array(keyword_features)
+        # 1. Семантические эмбеддинги
+        embeddings = self.get_text_embeddings(df['processed_text'].tolist())
 
-        # Разделение на обучающую и тестовую выборки
+        # 2. Признаки ключевых слов
+        keyword_features = np.array([self.calculate_keyword_features(text) for text in df['text']])
+
+        # 3. Текстовые метрики
+        text_metrics = np.array([self.extract_text_features(text) for text in df['processed_text']])
+
+        # Объединяем все признаки
+        X_combined = np.hstack([embeddings, keyword_features, text_metrics])
+        y = df['label']
+
+        # Разделение на train/test
         X_train, X_test, y_train, y_test = train_test_split(
-            df['processed_text'], df['label'], test_size=0.15, random_state=42, stratify=df['label']
+            X_combined, y, test_size=0.15, random_state=42, stratify=y
         )
 
-        # Векторизация текста
-        X_train_vec = self.vectorizer.fit_transform(X_train)
-        X_test_vec = self.vectorizer.transform(X_test)
-
-        # Получаем индексы для train и test выборок
-        train_indices = X_train.index
-        test_indices = X_test.index
-
-        # Берем соответствующие keyword_features для train и test
-        keyword_features_train = keyword_features[train_indices]
-        keyword_features_test = keyword_features[test_indices]
-
-        # Объединяем TF-IDF и keyword features
-        X_train_combined = hstack([X_train_vec, keyword_features_train])
-        X_test_combined = hstack([X_test_vec, keyword_features_test])
+        print(f"📊 Размерность признаков: {X_combined.shape}")
 
         # Обучение классификатора
-        self.classifier.fit(X_train_combined, y_train)
+        self.classifier.fit(X_train, y_train)
 
-        # Оценка точности
-        train_score = self.classifier.score(X_train_combined, y_train)
-        test_score = self.classifier.score(X_test_combined, y_test)
+        # Оценка
+        train_score = self.classifier.score(X_train, y_train)
+        test_score = self.classifier.score(X_test, y_test)
 
         print(f"✅ Точность на обучающей выборке: {train_score:.3f}")
         print(f"✅ Точность на тестовой выборке: {test_score:.3f}")
 
+        # Детальный отчет
+        y_pred = self.classifier.predict(X_test)
+        print("\n📋 Детальная метрика:")
+        print(classification_report(y_test, y_pred, target_names=self.labels))
+
         return train_score, test_score
 
     def predict(self, text):
+        """Предсказание с улучшенными признаками"""
         processed_text = self.preprocess_text(text)
 
-        # Векторизация текста
-        text_vec = self.vectorizer.transform([processed_text])
+        # 1. Эмбеддинги
+        embedding = self.get_text_embeddings(processed_text)
 
-        # Оценка ключевых слов
-        keyword_scores = self.calculate_keyword_score(text)
-        keyword_features = np.array([[keyword_scores.get(label, 0) for label in self.labels]])
+        # 2. Ключевые слова
+        keyword_feats = self.calculate_keyword_features(text).reshape(1, -1)
 
-        # Объединяем признаки
-        combined_features = hstack([text_vec, keyword_features])
+        # 3. Текстовые метрики
+        text_feats = self.extract_text_features(processed_text).reshape(1, -1)
+
+        # Объединяем
+        combined_features = np.hstack([embedding, keyword_feats, text_feats])
 
         # Предсказание
         prediction = self.classifier.predict(combined_features)[0]
@@ -122,8 +158,8 @@ class EnhancedBusinessClassifier:
         return prediction, prob_dict
 
     def save_model(self, path):
+        """Сохранение модели"""
         model_data = {
-            'vectorizer': self.vectorizer,
             'classifier': self.classifier,
             'labels': self.labels,
             'category_keywords': self.category_keywords
@@ -132,8 +168,8 @@ class EnhancedBusinessClassifier:
         print(f"✅ Модель сохранена в {path}")
 
     def load_model(self, path):
+        """Загрузка модели"""
         model_data = joblib.load(path)
-        self.vectorizer = model_data['vectorizer']
         self.classifier = model_data['classifier']
         self.labels = model_data['labels']
         self.category_keywords = model_data['category_keywords']
