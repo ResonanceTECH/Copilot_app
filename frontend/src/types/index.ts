@@ -30,6 +30,7 @@ export interface ChatMessage {
   content: string;
   role: 'user' | 'assistant';
   timestamp: Date;
+  isLoading?: boolean; // Флаг для сообщения "Поиск и формирование ответа"
 }
 
 export interface TrendingCard {

@@ -122,7 +122,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
           {messages.map((message) => (
             <div
               key={message.id}
-              className={`chat-message chat-message--${message.role}`}
+              className={`chat-message chat-message--${message.role} ${message.isLoading ? 'chat-message--loading' : ''}`}
             >
               <div className="chat-message-content">{message.content}</div>
             </div>

@@ -306,34 +306,50 @@ export const AssistantPage: React.FC = () => {
     const threadData = threads.get(threadId);
     const chatId = threadData?.chatId;
     
+    // Проверяем, есть ли уже сообщения от ассистента (чтобы не показывать "Поиск..." для первого сообщения)
+    const hasAssistantMessages = threadData?.messages.some(msg => msg.role === 'assistant') ?? false;
+    
     // Добавляем сообщение пользователя в UI сразу
     const userMessage: ChatMessage = {
-      id: `temp-${Date.now()}`,
+      id: `temp-user-${Date.now()}`,
       content,
       role: 'user',
       timestamp: new Date(),
     };
+
+    // Добавляем сообщение "Поиск и формирование ответа" (кроме первого сообщения)
+    const loadingMessage: ChatMessage | null = hasAssistantMessages ? {
+      id: `loading-${Date.now()}`,
+      content: 'Поиск и формирование ответа',
+      role: 'assistant',
+      timestamp: new Date(),
+      isLoading: true,
+    } : null;
 
     setThreads((prev) => {
       const updated = new Map(prev);
       const data = updated.get(threadId);
       
       if (data) {
-        const updatedMessages = [...data.messages, userMessage];
-          updated.set(threadId, {
+        const updatedMessages = loadingMessage 
+          ? [...data.messages, userMessage, loadingMessage]
+          : [...data.messages, userMessage];
+        updated.set(threadId, {
           ...data,
-            thread: {
+          thread: {
             ...data.thread,
-              lastMessage: content,
-            },
-            messages: updatedMessages,
-          });
-        }
+            lastMessage: content,
+          },
+          messages: updatedMessages,
+        });
+      }
 
-        return updated;
+      return updated;
     });
 
-    setMessages((prev) => [...prev, userMessage]);
+    setMessages((prev) => {
+      return loadingMessage ? [...prev, userMessage, loadingMessage] : [...prev, userMessage];
+    });
 
     // Отправляем сообщение на сервер
     try {
@@ -344,30 +360,31 @@ export const AssistantPage: React.FC = () => {
 
       if (response.success && response.response) {
         // Обновляем ID чата если это был новый чат (fallback для старых чатов без chatId)
-        if (isNewThread && !chatId && response.chat_id) {
-          setThreads((prev) => {
-            const updated = new Map(prev);
-            const data = updated.get(threadId);
-            if (data) {
-              // Обновляем threadId на основе реального chat_id из бэкенда
+        const finalThreadId = (isNewThread && !chatId && response.chat_id) 
+          ? (() => {
               const newThreadId = `chat-${response.chat_id}`;
-              updated.delete(threadId);
-              updated.set(newThreadId, {
-                ...data,
-                chatId: response.chat_id,
+              setThreads((prev) => {
+                const updated = new Map(prev);
+                const data = updated.get(threadId);
+                if (data) {
+                  updated.delete(threadId);
+                  updated.set(newThreadId, {
+                    ...data,
+                    chatId: response.chat_id,
+                  });
+                }
+                return updated;
               });
-              // Обновляем активный threadId
               if (activeThreadId === threadId) {
                 setActiveThreadId(newThreadId);
               }
-            }
-            return updated;
-          });
-        }
+              return newThreadId;
+            })()
+          : threadId;
 
         // Добавляем ответ ассистента
         const assistantMessage: ChatMessage = {
-          id: response.message_id.toString(),
+          id: `temp-assistant-${Date.now()}`,
           content: response.response.raw_text,
           role: 'assistant',
           timestamp: new Date(response.response.timestamp),
@@ -375,44 +392,86 @@ export const AssistantPage: React.FC = () => {
 
         setThreads((prev) => {
           const updated = new Map(prev);
-          const data = updated.get(threadId);
+          const data = updated.get(finalThreadId);
           if (data) {
-            // Заменяем временное сообщение пользователя на реальное
-            const messagesWithoutTemp = data.messages.filter(
-              msg => !msg.id.startsWith('temp-')
+            // Удаляем loading сообщение и добавляем реальный ответ
+            const messagesWithoutLoading = data.messages.filter(
+              msg => !msg.isLoading
             );
-            updated.set(threadId, {
+            // Сохраняем временное сообщение пользователя, добавляем ответ ассистента
+            updated.set(finalThreadId, {
               ...data,
-              messages: [...messagesWithoutTemp, assistantMessage],
+              messages: [...messagesWithoutLoading, assistantMessage],
             });
           }
-      return updated;
-    });
+          return updated;
+        });
 
         setMessages((prev) => {
-          const withoutTemp = prev.filter(msg => !msg.id.startsWith('temp-'));
-          return [...withoutTemp, assistantMessage];
+          // Удаляем loading сообщение, сохраняем пользовательское, добавляем ответ
+          const withoutLoading = prev.filter(msg => !msg.isLoading);
+          return [...withoutLoading, assistantMessage];
         });
+
+        // Перезагружаем сообщения с сервера для получения реальных ID
+        // Небольшая задержка, чтобы сервер успел сохранить оба сообщения
+        if (response.chat_id) {
+          setTimeout(async () => {
+            try {
+              const messagesData = await chatAPI.getMessages(response.chat_id);
+              const chatMessages: ChatMessage[] = messagesData.messages.map((msg: MessageItem) => ({
+                id: msg.id.toString(),
+                content: msg.content,
+                role: msg.role as 'user' | 'assistant',
+                timestamp: new Date(msg.created_at),
+              }));
+              
+              setThreads((prev) => {
+                const updated = new Map(prev);
+                const data = updated.get(finalThreadId);
+                if (data) {
+                  updated.set(finalThreadId, {
+                    ...data,
+                    messages: chatMessages,
+                  });
+                }
+                return updated;
+              });
+
+              // Обновляем только если это все еще активный чат
+              if (activeThreadId === finalThreadId || activeThreadId === threadId) {
+                setMessages(chatMessages);
+              }
+            } catch (reloadError) {
+              console.error('Ошибка перезагрузки сообщений:', reloadError);
+              // Продолжаем с временными сообщениями
+            }
+          }, 100);
+        }
       } else {
         throw new Error(response.error || 'Ошибка отправки сообщения');
       }
     } catch (error: any) {
       console.error('Ошибка отправки сообщения:', error);
       
-      // Удаляем временное сообщение при ошибке
+      // Удаляем временное сообщение пользователя и loading при ошибке
       setThreads((prev) => {
         const updated = new Map(prev);
         const data = updated.get(threadId);
         if (data) {
           updated.set(threadId, {
             ...data,
-            messages: data.messages.filter(msg => !msg.id.startsWith('temp-')),
+            messages: data.messages.filter(
+              msg => !msg.id.startsWith('temp-') && !msg.isLoading
+            ),
           });
         }
         return updated;
       });
 
-      setMessages((prev) => prev.filter(msg => !msg.id.startsWith('temp-')));
+      setMessages((prev) => prev.filter(
+        msg => !msg.id.startsWith('temp-') && !msg.isLoading
+      ));
       
       // Показываем сообщение об ошибке
       const errorMessage: ChatMessage = {
