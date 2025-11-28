@@ -1,19 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Icon } from '../../ui/Icon';
 import { ICONS } from '../../../utils/icons';
-<<<<<<< HEAD
-import { spacesAPI } from '../../../utils/api';
-import { NotificationSettings, Space } from '../../../types';
-=======
-
-import { spacesAPI } from '../../../utils/api';
-import { NotificationSettings, Space } from '../../../types';
-
->>>>>>> efb64d2df32fe329d7552f0f9e3546042ccd9af9
+import { spacesAPI, notificationAPI } from '../../../utils/api';
+import { NotificationSettings, Space, Notification } from '../../../types';
 import { useLanguage } from '../../../contexts/LanguageContext';
 import { getTranslation } from '../../../utils/i18n';
-import { notificationAPI } from '../../../utils/api';
-import type { Notification } from '../../../types';
 import './NotificationPanel.css';
 
 interface NotificationPanelProps {
@@ -21,7 +12,6 @@ interface NotificationPanelProps {
 }
 
 export const NotificationPanel: React.FC<NotificationPanelProps> = ({ onClose }) => {
-<<<<<<< HEAD
   const [spaces, setSpaces] = useState<Space[]>([]);
   const [selectedSpaceId, setSelectedSpaceId] = useState<number | null>(null);
   const [settings, setSettings] = useState<NotificationSettings>({
@@ -34,6 +24,9 @@ export const NotificationPanel: React.FC<NotificationPanelProps> = ({ onClose })
   const [error, setError] = useState<string | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const { language } = useLanguage();
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   // Загрузка пространств
   useEffect(() => {
@@ -116,14 +109,6 @@ export const NotificationPanel: React.FC<NotificationPanelProps> = ({ onClose })
     return () => window.removeEventListener('keydown', handleEscape);
   }, [onClose]);
 
-  // Закрытие при клике вне панели
-=======
-  const panelRef = useRef<HTMLDivElement>(null);
-  const { language } = useLanguage();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [unreadCount, setUnreadCount] = useState(0);
-
   // Загрузка уведомлений
   const loadNotifications = async () => {
     try {
@@ -200,7 +185,6 @@ export const NotificationPanel: React.FC<NotificationPanelProps> = ({ onClose })
   };
 
   // Закрытие панели при клике вне её
->>>>>>> efb64d2df32fe329d7552f0f9e3546042ccd9af9
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (panelRef.current && !panelRef.current.contains(event.target as Node)) {
@@ -215,7 +199,6 @@ export const NotificationPanel: React.FC<NotificationPanelProps> = ({ onClose })
   }, [onClose]);
 
   return (
-<<<<<<< HEAD
     <div className="notification-panel-overlay" onClick={() => onClose?.()}>
       <div className="notification-panel" ref={panelRef} onClick={(e) => e.stopPropagation()}>
         <div className="notification-panel-header">
@@ -332,84 +315,6 @@ export const NotificationPanel: React.FC<NotificationPanelProps> = ({ onClose })
             </>
           )}
         </div>
-=======
-    <div className="notification-panel" ref={panelRef}>
-      <div className="notification-panel-header">
-        <div className="notification-panel-header-left">
-          <h3 className="notification-panel-title">Уведомления</h3>
-          {unreadCount > 0 && (
-            <span className="notification-panel-badge">{unreadCount}</span>
-          )}
-        </div>
-        <div className="notification-panel-header-actions">
-          {unreadCount > 0 && (
-            <button
-              className="notification-panel-mark-all-btn"
-              onClick={handleMarkAllAsRead}
-              title="Отметить все как прочитанные"
-            >
-              Прочитать все
-            </button>
-          )}
-          {onClose && (
-            <button
-              className="notification-panel-close-btn"
-              onClick={onClose}
-              title="Закрыть"
-            >
-              <Icon src={ICONS.close} size="sm" />
-            </button>
-          )}
-        </div>
-      </div>
-
-      <div className="notification-panel-content">
-        {loading ? (
-          <div className="notification-panel-loading">
-            <p>Загрузка...</p>
-          </div>
-        ) : notifications.length === 0 ? (
-          <div className="notification-panel-empty">
-            <Icon src={ICONS.bell} size="lg" />
-            <p>Нет уведомлений</p>
-          </div>
-        ) : (
-          <div className="notification-panel-list">
-            {notifications.map(notification => (
-              <div
-                key={notification.id}
-                className={`notification-item ${!notification.is_read ? 'notification-item-unread' : ''}`}
-                onClick={() => !notification.is_read && handleMarkAsRead(notification.id)}
-              >
-                <div className="notification-item-content">
-                  <div className="notification-item-header">
-                    <h4 className="notification-item-title">{notification.title}</h4>
-                    {!notification.is_read && (
-                      <span className="notification-item-dot"></span>
-                    )}
-                  </div>
-                  {notification.message && (
-                    <p className="notification-item-message">{notification.message}</p>
-                  )}
-                  <span className="notification-item-time">
-                    {formatDate(notification.created_at)}
-                  </span>
-                </div>
-                <button
-                  className="notification-item-delete-btn"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDelete(notification.id);
-                  }}
-                  title="Удалить"
-                >
-                  <Icon src={ICONS.close} size="xs" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
->>>>>>> efb64d2df32fe329d7552f0f9e3546042ccd9af9
       </div>
     </div>
   );
