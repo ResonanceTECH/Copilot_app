@@ -127,6 +127,11 @@ export const Header: React.FC<HeaderProps> = ({
     setIsModelSelectorVisible(false);
   };
 
+  const handleProfileClick = () => {
+    setShowProfileDropdown(false);
+    window.location.href = '/profile';
+  };
+
   const handleLogout = async () => {
     try {
       await logout();
@@ -203,7 +208,7 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="header-right">
         <button 
           className="header-notification-btn" 
-          title="Notifications"
+          title={getTranslation('notifications', language)}
           onClick={() => setShowNotificationPanel(true)}
         >
           <Icon src={ICONS.bell} size="md" />
@@ -240,6 +245,10 @@ export const Header: React.FC<HeaderProps> = ({
         </button>
           {showProfileDropdown && (
             <div className="header-profile-dropdown">
+              <button onClick={handleProfileClick}>
+                {getTranslation('personalCabinet', language)}
+              </button>
+              <div className="header-profile-dropdown-divider"></div>
               <button onClick={handleLogout}>
                 {getTranslation('logout', language)}
               </button>

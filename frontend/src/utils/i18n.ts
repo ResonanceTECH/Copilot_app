@@ -35,6 +35,28 @@ export interface Translations {
   signUp: string;
   saveChatHistory: string;
   noChats: string;
+
+  // Profile
+  profile: string;
+  editProfile: string;
+  save: string;
+  cancel: string;
+  name: string;
+  phone: string;
+  company: string;
+  email: string;
+  registrationDate: string;
+  profileUpdated: string;
+  profileUpdateError: string;
+  personalCabinet: string;
+  logout: string;
+  saving: string;
+  loading: string;
+  profileNotFound: string;
+  fieldRequired: string;
+  backToChat: string;
+  notifications: string;
+  support: string;
 }
 
 const translations: Record<Language, Translations> = {
@@ -62,6 +84,26 @@ const translations: Record<Language, Translations> = {
     signUp: 'Зарегистрироваться',
     saveChatHistory: 'Сохранить историю чатов',
     noChats: 'Нет чатов. Создайте новый чат, чтобы начать общение.',
+    profile: 'Профиль',
+    editProfile: 'Редактировать',
+    save: 'Сохранить',
+    cancel: 'Отмена',
+    name: 'Имя',
+    phone: 'Телефон',
+    company: 'Компания',
+    email: 'Email',
+    registrationDate: 'Дата регистрации',
+    profileUpdated: 'Профиль успешно обновлен',
+    profileUpdateError: 'Ошибка при обновлении профиля',
+    personalCabinet: 'Личный кабинет',
+    logout: 'Выйти',
+    saving: 'Сохранение...',
+    loading: 'Загрузка...',
+    profileNotFound: 'Профиль не найден',
+    fieldRequired: 'обязательно для заполнения',
+    backToChat: 'Вернуться к чату',
+    notifications: 'Уведомления',
+    support: 'Поддержка',
   },
   en: {
     thread: 'Thread',
@@ -87,6 +129,26 @@ const translations: Record<Language, Translations> = {
     signUp: 'Sign up',
     saveChatHistory: 'Save chat history',
     noChats: 'No chats. Create a new chat to start a conversation.',
+    profile: 'Profile',
+    editProfile: 'Edit',
+    save: 'Save',
+    cancel: 'Cancel',
+    name: 'Name',
+    phone: 'Phone',
+    company: 'Company',
+    email: 'Email',
+    registrationDate: 'Registration Date',
+    profileUpdated: 'Profile updated successfully',
+    profileUpdateError: 'Error updating profile',
+    personalCabinet: 'Personal Cabinet',
+    logout: 'Logout',
+    saving: 'Saving...',
+    loading: 'Loading...',
+    profileNotFound: 'Profile not found',
+    fieldRequired: 'is required',
+    backToChat: 'Back to chat',
+    notifications: 'Notifications',
+    support: 'Support',
   },
 };
 

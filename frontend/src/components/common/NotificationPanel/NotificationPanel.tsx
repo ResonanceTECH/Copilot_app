@@ -12,6 +12,7 @@ interface NotificationPanelProps {
 }
 
 export const NotificationPanel: React.FC<NotificationPanelProps> = ({ onClose }) => {
+  const [activeTab, setActiveTab] = useState<'notifications' | 'settings'>('notifications');
   const [spaces, setSpaces] = useState<Space[]>([]);
   const [selectedSpaceId, setSelectedSpaceId] = useState<number | null>(null);
   const [settings, setSettings] = useState<NotificationSettings>({
@@ -202,114 +203,202 @@ export const NotificationPanel: React.FC<NotificationPanelProps> = ({ onClose })
     <div className="notification-panel-overlay" onClick={() => onClose?.()}>
       <div className="notification-panel" ref={panelRef} onClick={(e) => e.stopPropagation()}>
         <div className="notification-panel-header">
-          <h3 className="notification-panel-title">Настройки уведомлений</h3>
+          <h3 className="notification-panel-title">Уведомления</h3>
           <button className="notification-panel-close" onClick={() => onClose?.()}>
             <Icon src={ICONS.close} size="md" />
           </button>
         </div>
 
-        <div className="notification-panel-content">
-          {spaces.length === 0 ? (
-            <div className="notification-panel-empty">
-              <p>Нет доступных пространств</p>
-            </div>
-          ) : (
-            <>
-              <div className="notification-panel-space-selector">
-                <label className="notification-panel-label">Пространство:</label>
-                <select
-                  className="notification-panel-select"
-                  value={selectedSpaceId || ''}
-                  onChange={(e) => setSelectedSpaceId(Number(e.target.value))}
-                >
-                  {spaces.map((space) => (
-                    <option key={space.id} value={space.id}>
-                      {space.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+        <div className="notification-panel-tabs">
+          <button
+            className={activeTab === 'notifications' ? 'active' : ''}
+            onClick={() => setActiveTab('notifications')}
+          >
+            Уведомления
+            {unreadCount > 0 && (
+              <span className="notification-tab-badge">{unreadCount}</span>
+            )}
+          </button>
+          <button
+            className={activeTab === 'settings' ? 'active' : ''}
+            onClick={() => setActiveTab('settings')}
+          >
+            Настройки
+          </button>
+        </div>
 
-              {isLoading ? (
+        <div className="notification-panel-content">
+          {activeTab === 'notifications' ? (
+            <>
+              {loading ? (
                 <div className="notification-panel-loading">
-                  <p>Загрузка настроек...</p>
+                  <p>Загрузка уведомлений...</p>
+                </div>
+              ) : notifications.length === 0 ? (
+                <div className="notification-panel-empty">
+                  <p>Нет уведомлений</p>
                 </div>
               ) : (
                 <>
-                  {error && (
-                    <div className="notification-panel-error">
-                      <p>{error}</p>
+                  {unreadCount > 0 && (
+                    <div className="notification-panel-actions-top">
+                      <button
+                        className="notification-panel-btn notification-panel-btn--secondary"
+                        onClick={handleMarkAllAsRead}
+                      >
+                        Отметить все как прочитанные
+                      </button>
                     </div>
                   )}
-
-                  <div className="notification-panel-settings">
-                    <div className="notification-setting-item">
-                      <div className="notification-setting-info">
-                        <span className="notification-setting-label">Новые сообщения</span>
-                        <span className="notification-setting-description">
-                          Уведомления о новых сообщениях в чатах
-                        </span>
+                  <div className="notification-list">
+                    {notifications.map((notification) => (
+                      <div
+                        key={notification.id}
+                        className={`notification-item ${!notification.is_read ? 'unread' : ''}`}
+                      >
+                        <div className="notification-item-content">
+                          <div className="notification-item-header">
+                            <span className="notification-item-title">{notification.title}</span>
+                            <span className="notification-item-date">{formatDate(notification.created_at)}</span>
+                          </div>
+                          {notification.message && (
+                            <p className="notification-item-message">{notification.message}</p>
+                          )}
+                          <div className="notification-item-footer">
+                            {notification.space_id && (
+                              <span className="notification-item-space">Пространство: {notification.space_id}</span>
+                            )}
+                            <div className="notification-item-actions">
+                              {!notification.is_read && (
+                                <button
+                                  className="notification-item-btn"
+                                  onClick={() => handleMarkAsRead(notification.id)}
+                                  title="Отметить как прочитанное"
+                                >
+                                  ✓
+                                </button>
+                              )}
+                              <button
+                                className="notification-item-btn"
+                                onClick={() => handleDelete(notification.id)}
+                                title="Удалить"
+                              >
+                                <Icon src={ICONS.trash} size="sm" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                      <label className="notification-toggle">
-                        <input
-                          type="checkbox"
-                          checked={settings.new_message}
-                          onChange={() => handleToggle('new_message')}
-                        />
-                        <span className="notification-toggle-slider"></span>
-                      </label>
-                    </div>
-
-                    <div className="notification-setting-item">
-                      <div className="notification-setting-info">
-                        <span className="notification-setting-label">Новые заметки</span>
-                        <span className="notification-setting-description">
-                          Уведомления о создании новых заметок
-                        </span>
-                      </div>
-                      <label className="notification-toggle">
-                        <input
-                          type="checkbox"
-                          checked={settings.new_note}
-                          onChange={() => handleToggle('new_note')}
-                        />
-                        <span className="notification-toggle-slider"></span>
-                      </label>
-                    </div>
-
-                    <div className="notification-setting-item">
-                      <div className="notification-setting-info">
-                        <span className="notification-setting-label">Новые файлы</span>
-                        <span className="notification-setting-description">
-                          Уведомления о загрузке новых файлов
-                        </span>
-                      </div>
-                      <label className="notification-toggle">
-                        <input
-                          type="checkbox"
-                          checked={settings.new_file}
-                          onChange={() => handleToggle('new_file')}
-                        />
-                        <span className="notification-toggle-slider"></span>
-                      </label>
-                    </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              {spaces.length === 0 ? (
+                <div className="notification-panel-empty">
+                  <p>Нет доступных пространств</p>
+                </div>
+              ) : (
+                <>
+                  <div className="notification-panel-space-selector">
+                    <label className="notification-panel-label">Пространство:</label>
+                    <select
+                      className="notification-panel-select"
+                      value={selectedSpaceId || ''}
+                      onChange={(e) => setSelectedSpaceId(Number(e.target.value))}
+                    >
+                      {spaces.map((space) => (
+                        <option key={space.id} value={space.id}>
+                          {space.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
-                  <div className="notification-panel-actions">
-                    <button
-                      className="notification-panel-btn notification-panel-btn--secondary"
-                      onClick={() => onClose?.()}
-                    >
-                      Отмена
-                    </button>
-                    <button
-                      className="notification-panel-btn notification-panel-btn--primary"
-                      onClick={handleSave}
-                      disabled={isSaving}
-                    >
-                      {isSaving ? 'Сохранение...' : 'Сохранить'}
-                    </button>
-                  </div>
+                  {isLoading ? (
+                    <div className="notification-panel-loading">
+                      <p>Загрузка настроек...</p>
+                    </div>
+                  ) : (
+                    <>
+                      {error && (
+                        <div className="notification-panel-error">
+                          <p>{error}</p>
+                        </div>
+                      )}
+
+                      <div className="notification-panel-settings">
+                        <div className="notification-setting-item">
+                          <div className="notification-setting-info">
+                            <span className="notification-setting-label">Новые сообщения</span>
+                            <span className="notification-setting-description">
+                              Уведомления о новых сообщениях в чатах
+                            </span>
+                          </div>
+                          <label className="notification-toggle">
+                            <input
+                              type="checkbox"
+                              checked={settings.new_message}
+                              onChange={() => handleToggle('new_message')}
+                            />
+                            <span className="notification-toggle-slider"></span>
+                          </label>
+                        </div>
+
+                        <div className="notification-setting-item">
+                          <div className="notification-setting-info">
+                            <span className="notification-setting-label">Новые заметки</span>
+                            <span className="notification-setting-description">
+                              Уведомления о создании новых заметок
+                            </span>
+                          </div>
+                          <label className="notification-toggle">
+                            <input
+                              type="checkbox"
+                              checked={settings.new_note}
+                              onChange={() => handleToggle('new_note')}
+                            />
+                            <span className="notification-toggle-slider"></span>
+                          </label>
+                        </div>
+
+                        <div className="notification-setting-item">
+                          <div className="notification-setting-info">
+                            <span className="notification-setting-label">Новые файлы</span>
+                            <span className="notification-setting-description">
+                              Уведомления о загрузке новых файлов
+                            </span>
+                          </div>
+                          <label className="notification-toggle">
+                            <input
+                              type="checkbox"
+                              checked={settings.new_file}
+                              onChange={() => handleToggle('new_file')}
+                            />
+                            <span className="notification-toggle-slider"></span>
+                          </label>
+                        </div>
+                      </div>
+
+                      <div className="notification-panel-actions">
+                        <button
+                          className="notification-panel-btn notification-panel-btn--secondary"
+                          onClick={() => onClose?.()}
+                        >
+                          Отмена
+                        </button>
+                        <button
+                          className="notification-panel-btn notification-panel-btn--primary"
+                          onClick={handleSave}
+                          disabled={isSaving}
+                        >
+                          {isSaving ? 'Сохранение...' : 'Сохранить'}
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </>
               )}
             </>

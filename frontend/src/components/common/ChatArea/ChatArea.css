@@ -337,7 +337,6 @@
 }
 
 .chat-input-section {
-  border-top: 1px solid var(--color-border);
   position: relative;
   z-index: 1;
 }

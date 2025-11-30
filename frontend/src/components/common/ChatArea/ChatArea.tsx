@@ -27,11 +27,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 }) => {
   const [inputValue, setInputValue] = useState('');
   const [internalActiveTool, setInternalActiveTool] = useState<string>('assistant');
-  const [isModelSelectorVisible, setIsModelSelectorVisible] = useState(false);
   const [isNotesPanelVisible, setIsNotesPanelVisible] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const modelSelectorRef = useRef<HTMLDivElement>(null);
   const { language } = useLanguage();
   
   const activeTool = externalActiveTool !== undefined ? externalActiveTool : internalActiveTool;
@@ -79,21 +77,6 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Закрытие меню выбора модели при клике вне его
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (modelSelectorRef.current && !modelSelectorRef.current.contains(event.target as Node)) {
-        setIsModelSelectorVisible(false);
-      }
-    };
-
-    if (isModelSelectorVisible) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => {
-        document.removeEventListener('mousedown', handleClickOutside);
-      };
-    }
-  }, [isModelSelectorVisible]);
 
   return (
     <div className="chat-area">
@@ -142,37 +125,6 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       )}
 
       <div className="chat-input-section">
-        <div className="chat-model-selector" ref={modelSelectorRef}>
-            <button
-              className="chat-model-toggle-btn"
-              onClick={() => setIsModelSelectorVisible(!isModelSelectorVisible)}
-              title={activeTool === 'assistant' ? getTranslation('assistant', language) : getTranslation('deepseekChimera', language)}
-            >
-              <Icon src={ICONS.brain} size="md" />
-            </button>
-            {isModelSelectorVisible && (
-              <div className="chat-actions">
-                <button
-                  className={`chat-action-btn ${activeTool === 'assistant' ? 'chat-action-btn--active' : ''}`}
-                  onClick={() => {
-                    handleToolSelect('assistant');
-                    setIsModelSelectorVisible(false);
-                  }}
-                >
-                  {getTranslation('assistant', language)}
-                </button>
-                <button
-                  className={`chat-action-btn ${activeTool === 'deepseek-chimera' ? 'chat-action-btn--active' : ''}`}
-                  onClick={() => {
-                    handleToolSelect('deepseek-chimera');
-                    setIsModelSelectorVisible(false);
-                  }}
-                >
-                  {getTranslation('deepseekChimera', language)}
-                </button>
-              </div>
-            )}
-        </div>
         <div className="chat-input-wrapper">
         <div className="chat-input-container">
           <textarea
