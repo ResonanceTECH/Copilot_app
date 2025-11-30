@@ -139,6 +139,15 @@ export const UserProfilePage: React.FC = () => {
       <Header />
       <div className="user-profile-content">
         <div className="user-profile-container">
+          <button
+            className="user-profile-back-btn"
+            onClick={() => {
+              window.location.href = '/';
+            }}
+          >
+            <Icon src={ICONS.arrowLeft} size="sm" />
+            {getTranslation('backToChat', language)}
+          </button>
           <h1 className="user-profile-title">{getTranslation('profile', language)}</h1>
           
           <div className="user-profile-section">

@@ -54,6 +54,7 @@ export interface Translations {
   loading: string;
   profileNotFound: string;
   fieldRequired: string;
+  backToChat: string;
 }
 
 const translations: Record<Language, Translations> = {
@@ -98,6 +99,7 @@ const translations: Record<Language, Translations> = {
     loading: 'Загрузка...',
     profileNotFound: 'Профиль не найден',
     fieldRequired: 'обязательно для заполнения',
+    backToChat: 'Вернуться к чату',
   },
   en: {
     thread: 'Thread',
@@ -140,6 +142,7 @@ const translations: Record<Language, Translations> = {
     loading: 'Loading...',
     profileNotFound: 'Profile not found',
     fieldRequired: 'is required',
+    backToChat: 'Back to chat',
   },
 };
 
