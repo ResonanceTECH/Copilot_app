@@ -208,7 +208,7 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="header-right">
         <button 
           className="header-notification-btn" 
-          title="Notifications"
+          title={getTranslation('notifications', language)}
           onClick={() => setShowNotificationPanel(true)}
         >
           <Icon src={ICONS.bell} size="md" />

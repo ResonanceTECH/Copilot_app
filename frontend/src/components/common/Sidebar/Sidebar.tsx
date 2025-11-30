@@ -206,6 +206,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   key={thread.id}
                   className={`sidebar-thread-item ${activeThreadId === thread.id ? 'sidebar-thread-item--active' : ''}`}
                   onClick={() => !editingThreadId && onThreadSelect?.(thread.id)}
+                  title={thread.title}
                 >
                 {editingThreadId === thread.id ? (
                   <input
