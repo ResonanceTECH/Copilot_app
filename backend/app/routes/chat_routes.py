@@ -87,6 +87,7 @@ class ChatMessagesResponse(BaseModel):
 
 class ChatUpdateRequest(BaseModel):
     title: Optional[str] = None
+    space_id: Optional[int] = None
 
 
 class ChatCreateRequest(BaseModel):
@@ -508,7 +509,7 @@ async def update_chat(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Обновить чат (переименовать)"""
+    """Обновить чат (переименовать или изменить пространство)"""
     chat = db.query(Chat).filter(
         Chat.id == chat_id,
         Chat.user_id == current_user.id
@@ -520,14 +521,35 @@ async def update_chat(
             detail="Чат не найден"
         )
 
+    update_data = {}
+    
     if chat_data.title is not None:
         if not chat_data.title.strip():
             raise HTTPException(
                 status_code=400,
                 detail="Название чата не может быть пустым"
             )
-        chat.title = chat_data.title.strip()
-        chat.updated_at = datetime.now(timezone.utc)
+        update_data["title"] = chat_data.title.strip()
+
+    # Обновление пространства
+    if chat_data.space_id is not None:
+        if chat_data.space_id != chat.space_id:
+            space = db.query(Space).filter(
+                Space.id == chat_data.space_id,
+                Space.user_id == current_user.id,
+                Space.is_archived == False
+            ).first()
+            if not space:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Пространство не найдено или недоступно"
+                )
+            update_data["space_id"] = chat_data.space_id
+
+    # Применяем обновления
+    if update_data:
+        update_data["updated_at"] = datetime.now(timezone.utc)
+        db.query(Chat).filter(Chat.id == chat_id).update(update_data)
         db.commit()
         db.refresh(chat)
 
