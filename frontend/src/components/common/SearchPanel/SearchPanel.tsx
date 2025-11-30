@@ -122,9 +122,6 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
               </button>
             )}
           </div>
-          <button className="search-panel-close" onClick={() => onClose?.()}>
-            <Icon src={ICONS.close} size="md" />
-          </button>
         </div>
 
         <div className="search-panel-filters">
