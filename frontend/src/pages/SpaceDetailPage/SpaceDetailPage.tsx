@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { spacesAPI, chatAPI, notesAPI, supportAPI, type ChatHistoryItem } from '../../utils/api';
-import type { Space, NotePreview, SpaceTag, SupportArticle } from '../../types';
+import { spacesAPI, chatAPI, notesAPI, type ChatHistoryItem } from '../../utils/api';
+import type { Space, NotePreview, SpaceTag } from '../../types';
 import { Header } from '../../components/common/Header';
 import { Icon } from '../../components/ui/Icon';
 import { ICONS } from '../../utils/icons';
@@ -26,16 +26,6 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
   const [tagName, setTagName] = useState('');
   const [tagColor, setTagColor] = useState('#6366f1');
   const [tagType, setTagType] = useState('');
-  // Состояния для поддержки
-  const [supportArticles, setSupportArticles] = useState<SupportArticle[]>([]);
-  const [selectedArticle, setSelectedArticle] = useState<SupportArticle | null>(null);
-  const [feedbackSubject, setFeedbackSubject] = useState('');
-  const [feedbackMessage, setFeedbackMessage] = useState('');
-  const [feedbackType, setFeedbackType] = useState<'bug' | 'feature' | 'question' | 'other'>('question');
-  const [feedbackEmail, setFeedbackEmail] = useState('');
-  const [feedbackName, setFeedbackName] = useState('');
-  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
-  const [feedbackSuccess, setFeedbackSuccess] = useState(false);
   // Состояния для добавления чатов
   const [showAddChatsModal, setShowAddChatsModal] = useState(false);
   const [allChats, setAllChats] = useState<ChatHistoryItem[]>([]);
@@ -63,11 +53,6 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
     }
   }, [isAuthenticated, spaceId, activeTab]);
 
-  useEffect(() => {
-    if (activeTab === 'settings') {
-      loadSupportArticles();
-    }
-  }, [activeTab]);
 
   const loadSpace = async () => {
     setIsLoading(true);
@@ -423,57 +408,6 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
     setTagType('');
   };
 
-  const loadSupportArticles = async () => {
-    try {
-      const response = await supportAPI.getArticles({ limit: 100 });
-      setSupportArticles(response.articles);
-    } catch (error) {
-      console.error('Ошибка загрузки справочных статей:', error);
-    }
-  };
-
-  const handleViewArticle = async (articleId: number) => {
-    try {
-      const article = await supportAPI.getArticle(articleId);
-      setSelectedArticle(article);
-    } catch (error) {
-      console.error('Ошибка загрузки статьи:', error);
-    }
-  };
-
-  const handleSubmitFeedback = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!feedbackSubject.trim() || !feedbackMessage.trim()) return;
-    if (!isAuthenticated && (!feedbackEmail.trim() || !feedbackName.trim())) {
-      alert('Для неавторизованных пользователей обязательны email и имя');
-      return;
-    }
-
-    setIsSubmittingFeedback(true);
-    setFeedbackSuccess(false);
-
-    try {
-      await supportAPI.sendFeedback({
-        subject: feedbackSubject.trim(),
-        message: feedbackMessage.trim(),
-        feedback_type: feedbackType,
-        email: isAuthenticated ? undefined : feedbackEmail.trim(),
-        name: isAuthenticated ? undefined : feedbackName.trim(),
-      });
-      setFeedbackSuccess(true);
-      setFeedbackSubject('');
-      setFeedbackMessage('');
-      setFeedbackType('question');
-      setFeedbackEmail('');
-      setFeedbackName('');
-      setTimeout(() => setFeedbackSuccess(false), 5000);
-    } catch (error) {
-      console.error('Ошибка отправки обратной связи:', error);
-      alert('Ошибка отправки обратной связи. Попробуйте позже.');
-    } finally {
-      setIsSubmittingFeedback(false);
-    }
-  };
 
   if (!isAuthenticated) {
     return <div>Пожалуйста, войдите в систему</div>;
@@ -876,105 +810,6 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
                   </div>
                 </form>
               </div>
-
-              <div className="space-detail-settings-section">
-                <h3>Поддержка</h3>
-                <form onSubmit={handleSubmitFeedback} className="space-detail-support-form">
-                  {feedbackSuccess && (
-                    <div className="space-detail-feedback-success">
-                      Спасибо за ваш отзыв! Мы свяжемся с вами в ближайшее время.
-                    </div>
-                  )}
-                  {!isAuthenticated && (
-                    <>
-                      <div className="space-detail-settings-field">
-                        <label>Имя *</label>
-                        <input
-                          type="text"
-                          value={feedbackName}
-                          onChange={(e) => setFeedbackName(e.target.value)}
-                          required
-                          placeholder="Введите ваше имя"
-                        />
-                      </div>
-                      <div className="space-detail-settings-field">
-                        <label>Email *</label>
-                        <input
-                          type="email"
-                          value={feedbackEmail}
-                          onChange={(e) => setFeedbackEmail(e.target.value)}
-                          required
-                          placeholder="your@email.com"
-                        />
-                      </div>
-                    </>
-                  )}
-                  <div className="space-detail-settings-field">
-                    <label>Тип обращения</label>
-                    <select
-                      value={feedbackType}
-                      onChange={(e) => setFeedbackType(e.target.value as 'bug' | 'feature' | 'question' | 'other')}
-                    >
-                      <option value="question">Вопрос</option>
-                      <option value="bug">Ошибка</option>
-                      <option value="feature">Предложение</option>
-                      <option value="other">Другое</option>
-                    </select>
-                  </div>
-                  <div className="space-detail-settings-field">
-                    <label>Тема *</label>
-                    <input
-                      type="text"
-                      value={feedbackSubject}
-                      onChange={(e) => setFeedbackSubject(e.target.value)}
-                      required
-                      placeholder="Краткое описание проблемы или вопроса"
-                    />
-                  </div>
-                  <div className="space-detail-settings-field">
-                    <label>Сообщение *</label>
-                    <textarea
-                      value={feedbackMessage}
-                      onChange={(e) => setFeedbackMessage(e.target.value)}
-                      required
-                      rows={6}
-                      placeholder="Опишите вашу проблему или вопрос подробнее"
-                    />
-                  </div>
-                  <div className="space-detail-settings-actions">
-                    <button
-                      type="submit"
-                      className="space-detail-settings-save-btn"
-                      disabled={isSubmittingFeedback}
-                    >
-                      {isSubmittingFeedback ? 'Отправка...' : 'Отправить'}
-                    </button>
-                  </div>
-                </form>
-              </div>
-
-              <div className="space-detail-settings-section">
-                <h3>Справочные статьи</h3>
-                {supportArticles.length === 0 ? (
-                  <div className="space-detail-empty">Нет доступных статей</div>
-                ) : (
-                  <div className="space-detail-articles-list">
-                    {supportArticles.map(article => (
-                      <div
-                        key={article.id}
-                        className="space-detail-article-item"
-                        onClick={() => handleViewArticle(article.id)}
-                      >
-                        <div className="space-detail-article-content">
-                          <div className="space-detail-article-title">{article.title}</div>
-                          <div className="space-detail-article-category">{article.category}</div>
-                        </div>
-                        <Icon src={ICONS.arrowLeft} size="sm" className="space-detail-article-arrow" />
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
             </div>
           )}
         </div>
@@ -1031,30 +866,6 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {selectedArticle && (
-        <div
-          className="space-detail-article-modal-overlay"
-          onClick={() => setSelectedArticle(null)}
-        >
-          <div className="space-detail-article-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="space-detail-article-modal-header">
-              <div>
-                <h3>{selectedArticle.title}</h3>
-                <div className="space-detail-article-modal-category">{selectedArticle.category}</div>
-              </div>
-              <button
-                className="space-detail-article-modal-close"
-                onClick={() => setSelectedArticle(null)}
-                title="Закрыть"
-              >
-                ×
-              </button>
-            </div>
-            <div className="space-detail-article-modal-content">{selectedArticle.content}</div>
           </div>
         </div>
       )}
