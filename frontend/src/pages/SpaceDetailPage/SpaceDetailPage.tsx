@@ -47,6 +47,14 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
   const [newNoteTitle, setNewNoteTitle] = useState('');
   const [newNoteContent, setNewNoteContent] = useState('');
   const [isCreatingNote, setIsCreatingNote] = useState(false);
+  // Состояния для редактирования чата
+  const [editingChatId, setEditingChatId] = useState<number | null>(null);
+  const [editChatTitle, setEditChatTitle] = useState('');
+  const [isUpdatingChat, setIsUpdatingChat] = useState(false);
+  // Состояния для редактирования заметки
+  const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
+  const [editNoteTitle, setEditNoteTitle] = useState('');
+  const [isUpdatingNote, setIsUpdatingNote] = useState(false);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -196,6 +204,98 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
       window.location.href = '/spaces';
     } catch (error) {
       console.error('Ошибка удаления пространства:', error);
+    }
+  };
+
+  const handleDeleteChat = async (chatId: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm('Вы уверены, что хотите удалить этот чат из пространства?')) return;
+
+    try {
+      await chatAPI.deleteChat(chatId);
+      loadData(); // Перезагружаем список чатов
+    } catch (error: any) {
+      console.error('Ошибка удаления чата:', error);
+      alert(error.message || 'Ошибка при удалении чата. Попробуйте позже.');
+    }
+  };
+
+  const handleStartEditChat = (chat: ChatHistoryItem, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingChatId(chat.id);
+    setEditChatTitle(chat.title || '');
+  };
+
+  const handleCancelEditChat = () => {
+    setEditingChatId(null);
+    setEditChatTitle('');
+  };
+
+  const handleSaveChatTitle = async (chatId: number, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    
+    if (!editChatTitle.trim()) {
+      alert('Название чата не может быть пустым');
+      return;
+    }
+
+    setIsUpdatingChat(true);
+    try {
+      await chatAPI.updateChat(chatId, { title: editChatTitle.trim() });
+      setEditingChatId(null);
+      setEditChatTitle('');
+      loadData(); // Перезагружаем список чатов
+    } catch (error: any) {
+      console.error('Ошибка обновления чата:', error);
+      alert(error.message || 'Ошибка при обновлении названия чата. Попробуйте позже.');
+    } finally {
+      setIsUpdatingChat(false);
+    }
+  };
+
+  const handleDeleteNote = async (noteId: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm('Вы уверены, что хотите удалить эту заметку из пространства?')) return;
+
+    try {
+      await notesAPI.deleteNote(noteId);
+      loadData(); // Перезагружаем список заметок
+    } catch (error: any) {
+      console.error('Ошибка удаления заметки:', error);
+      alert(error.message || 'Ошибка при удалении заметки. Попробуйте позже.');
+    }
+  };
+
+  const handleStartEditNote = (note: NotePreview, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingNoteId(note.id);
+    setEditNoteTitle(note.title);
+  };
+
+  const handleCancelEditNote = () => {
+    setEditingNoteId(null);
+    setEditNoteTitle('');
+  };
+
+  const handleSaveNoteTitle = async (noteId: number, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    
+    if (!editNoteTitle.trim()) {
+      alert('Название заметки не может быть пустым');
+      return;
+    }
+
+    setIsUpdatingNote(true);
+    try {
+      await notesAPI.updateNote(noteId, { title: editNoteTitle.trim() });
+      setEditingNoteId(null);
+      setEditNoteTitle('');
+      loadData(); // Перезагружаем список заметок
+    } catch (error: any) {
+      console.error('Ошибка обновления заметки:', error);
+      alert(error.message || 'Ошибка при обновлении названия заметки. Попробуйте позже.');
+    } finally {
+      setIsUpdatingNote(false);
     }
   };
 
@@ -501,18 +601,81 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
                       key={chat.id}
                       className="space-detail-chat-item"
                       onClick={() => {
-                        window.location.href = `/assistant?chat=${chat.id}`;
+                        if (editingChatId !== chat.id) {
+                          window.location.href = `/assistant?chat=${chat.id}`;
+                        }
                       }}
                     >
                       <div className="space-detail-chat-icon">
                         <Icon src={ICONS.rocket} size="md" />
                       </div>
                       <div className="space-detail-chat-content">
-                        <div className="space-detail-chat-title">{chat.title || 'Без названия'}</div>
+                        {editingChatId === chat.id ? (
+                          <input
+                            type="text"
+                            value={editChatTitle}
+                            onChange={(e) => setEditChatTitle(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                handleSaveChatTitle(chat.id);
+                              } else if (e.key === 'Escape') {
+                                handleCancelEditChat();
+                              }
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="space-detail-chat-title-input"
+                            autoFocus
+                            disabled={isUpdatingChat}
+                          />
+                        ) : (
+                          <div className="space-detail-chat-title">{chat.title || 'Без названия'}</div>
+                        )}
                         <div className="space-detail-chat-preview">{chat.last_message || 'Нет сообщений'}</div>
                         <div className="space-detail-chat-date">
                           {chat.last_message_at ? new Date(chat.last_message_at).toLocaleDateString('ru-RU') : ''}
                         </div>
+                      </div>
+                      <div className="space-detail-chat-actions">
+                        {editingChatId === chat.id ? (
+                          <>
+                            <button
+                              className="space-detail-chat-action-btn"
+                              onClick={(e) => handleSaveChatTitle(chat.id, e)}
+                              disabled={isUpdatingChat}
+                              title="Сохранить"
+                            >
+                              <Icon src={ICONS.send} size="sm" />
+                            </button>
+                            <button
+                              className="space-detail-chat-action-btn"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCancelEditChat();
+                              }}
+                              disabled={isUpdatingChat}
+                              title="Отмена"
+                            >
+                              <Icon src={ICONS.close} size="sm" />
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              className="space-detail-chat-action-btn"
+                              onClick={(e) => handleStartEditChat(chat, e)}
+                              title="Переименовать чат"
+                            >
+                              <Icon src={ICONS.edit} size="sm" />
+                            </button>
+                            <button
+                              className="space-detail-chat-action-btn danger"
+                              onClick={(e) => handleDeleteChat(chat.id, e)}
+                              title="Удалить чат"
+                            >
+                              <Icon src={ICONS.trash} size="sm" />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -542,12 +705,14 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
                       key={note.id}
                       className="space-detail-note-item"
                       onClick={async () => {
-                        try {
-                          const fullNote = await notesAPI.getNote(note.id);
-                          // TODO: Открыть модальное окно с заметкой
-                          alert(`Заметка: ${fullNote.title}\n\n${fullNote.content}`);
-                        } catch (error) {
-                          console.error('Ошибка загрузки заметки:', error);
+                        if (editingNoteId !== note.id) {
+                          try {
+                            const fullNote = await notesAPI.getNote(note.id);
+                            // TODO: Открыть модальное окно с заметкой
+                            alert(`Заметка: ${fullNote.title}\n\n${fullNote.content}`);
+                          } catch (error) {
+                            console.error('Ошибка загрузки заметки:', error);
+                          }
                         }
                       }}
                     >
@@ -555,11 +720,72 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
                         <Icon src={ICONS.note} size="md" />
                       </div>
                       <div className="space-detail-note-content">
-                        <div className="space-detail-note-title">{note.title}</div>
+                        {editingNoteId === note.id ? (
+                          <input
+                            type="text"
+                            value={editNoteTitle}
+                            onChange={(e) => setEditNoteTitle(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                handleSaveNoteTitle(note.id);
+                              } else if (e.key === 'Escape') {
+                                handleCancelEditNote();
+                              }
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="space-detail-note-title-input"
+                            autoFocus
+                            disabled={isUpdatingNote}
+                          />
+                        ) : (
+                          <div className="space-detail-note-title">{note.title}</div>
+                        )}
                         <div className="space-detail-note-preview">{note.content_preview}</div>
                         <div className="space-detail-note-date">
                           {new Date(note.updated_at).toLocaleDateString('ru-RU')}
                         </div>
+                      </div>
+                      <div className="space-detail-note-actions">
+                        {editingNoteId === note.id ? (
+                          <>
+                            <button
+                              className="space-detail-note-action-btn"
+                              onClick={(e) => handleSaveNoteTitle(note.id, e)}
+                              disabled={isUpdatingNote}
+                              title="Сохранить"
+                            >
+                              <Icon src={ICONS.send} size="sm" />
+                            </button>
+                            <button
+                              className="space-detail-note-action-btn"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCancelEditNote();
+                              }}
+                              disabled={isUpdatingNote}
+                              title="Отмена"
+                            >
+                              <Icon src={ICONS.close} size="sm" />
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              className="space-detail-note-action-btn"
+                              onClick={(e) => handleStartEditNote(note, e)}
+                              title="Переименовать заметку"
+                            >
+                              <Icon src={ICONS.edit} size="sm" />
+                            </button>
+                            <button
+                              className="space-detail-note-action-btn danger"
+                              onClick={(e) => handleDeleteNote(note.id, e)}
+                              title="Удалить заметку"
+                            >
+                              <Icon src={ICONS.trash} size="sm" />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
                   ))}
