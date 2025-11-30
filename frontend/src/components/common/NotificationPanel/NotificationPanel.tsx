@@ -264,27 +264,29 @@ export const NotificationPanel: React.FC<NotificationPanelProps> = ({ onClose })
                           {notification.message && (
                             <p className="notification-item-message">{notification.message}</p>
                           )}
-                          {notification.space_id && (
-                            <span className="notification-item-space">Пространство: {notification.space_id}</span>
-                          )}
-                        </div>
-                        <div className="notification-item-actions">
-                          {!notification.is_read && (
-                            <button
-                              className="notification-item-btn"
-                              onClick={() => handleMarkAsRead(notification.id)}
-                              title="Отметить как прочитанное"
-                            >
-                              ✓
-                            </button>
-                          )}
-                          <button
-                            className="notification-item-btn"
-                            onClick={() => handleDelete(notification.id)}
-                            title="Удалить"
-                          >
-                            <Icon src={ICONS.trash} size="sm" />
-                          </button>
+                          <div className="notification-item-footer">
+                            {notification.space_id && (
+                              <span className="notification-item-space">Пространство: {notification.space_id}</span>
+                            )}
+                            <div className="notification-item-actions">
+                              {!notification.is_read && (
+                                <button
+                                  className="notification-item-btn"
+                                  onClick={() => handleMarkAsRead(notification.id)}
+                                  title="Отметить как прочитанное"
+                                >
+                                  ✓
+                                </button>
+                              )}
+                              <button
+                                className="notification-item-btn"
+                                onClick={() => handleDelete(notification.id)}
+                                title="Удалить"
+                              >
+                                <Icon src={ICONS.trash} size="sm" />
+                              </button>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     ))}
