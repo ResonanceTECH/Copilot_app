@@ -315,10 +315,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <Icon src={ICONS.support} size="md" />
               <span>{getTranslation('support', language)}</span>
             </button>
-            <button className="sidebar-nav-item">
-              <Icon src={ICONS.more} size="md" />
-              <span>{getTranslation('more', language)}</span>
-            </button>
           </div>
         </div>
       )}
