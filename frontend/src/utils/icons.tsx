@@ -21,6 +21,7 @@ import {
   Edit01Icon as Note01Icon,
   EyeIcon as Open01Icon,
   ArchiveIcon as Archive01Icon,
+  HelpCircleIcon,
 } from '@hugeicons/core-free-icons';
 
 export type IconSvgObject = typeof Search01Icon;
@@ -49,6 +50,7 @@ export const ICON_COMPONENTS: Record<string, IconSvgObject> = {
   open: Open01Icon,
   archive: Archive01Icon,
   close: Delete01Icon,
+  support: HelpCircleIcon,
 };
 
 // Старые URL для обратной совместимости (если нужно)
@@ -76,6 +78,7 @@ export const ICONS = {
   open: 'open',
   archive: 'archive',
   close: 'close',
+  support: 'support',
 } as const;
 
 export type IconName = keyof typeof ICONS;

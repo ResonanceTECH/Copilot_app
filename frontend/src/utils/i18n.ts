@@ -55,6 +55,8 @@ export interface Translations {
   profileNotFound: string;
   fieldRequired: string;
   backToChat: string;
+  notifications: string;
+  support: string;
 }
 
 const translations: Record<Language, Translations> = {
@@ -100,6 +102,8 @@ const translations: Record<Language, Translations> = {
     profileNotFound: 'Профиль не найден',
     fieldRequired: 'обязательно для заполнения',
     backToChat: 'Вернуться к чату',
+    notifications: 'Уведомления',
+    support: 'Поддержка',
   },
   en: {
     thread: 'Thread',
@@ -143,6 +147,8 @@ const translations: Record<Language, Translations> = {
     profileNotFound: 'Profile not found',
     fieldRequired: 'is required',
     backToChat: 'Back to chat',
+    notifications: 'Notifications',
+    support: 'Support',
   },
 };
 
