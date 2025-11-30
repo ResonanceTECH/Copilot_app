@@ -206,6 +206,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   key={thread.id}
                   className={`sidebar-thread-item ${activeThreadId === thread.id ? 'sidebar-thread-item--active' : ''}`}
                   onClick={() => !editingThreadId && onThreadSelect?.(thread.id)}
+                  title={thread.title}
                 >
                 {editingThreadId === thread.id ? (
                   <input
@@ -311,12 +312,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onSettingsClick?.();
               }}
             >
-              <Icon src={ICONS.settings} size="md" />
-              <span>{getTranslation('settings', language)}</span>
-            </button>
-            <button className="sidebar-nav-item">
-              <Icon src={ICONS.more} size="md" />
-              <span>{getTranslation('more', language)}</span>
+              <Icon src={ICONS.support} size="md" />
+              <span>{getTranslation('support', language)}</span>
             </button>
           </div>
         </div>

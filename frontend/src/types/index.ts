@@ -259,3 +259,22 @@ export interface NotificationListResponse {
   unread_count: number;
 }
 
+// Типы для профиля пользователя
+export interface UserProfile {
+  id: number;
+  email: string;
+  name: string;
+  avatar_url: string | null;
+  phone: string | null;
+  company_name: string | null;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface UserProfileUpdate {
+  name?: string;
+  avatar_url?: string | null;
+  phone?: string | null;
+  company_name?: string | null;
+}
+
