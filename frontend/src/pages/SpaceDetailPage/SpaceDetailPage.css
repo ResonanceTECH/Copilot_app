@@ -339,12 +339,6 @@
 .space-detail-tag-actions {
   display: flex;
   gap: 4px;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-}
-
-.space-detail-tag-item:hover .space-detail-tag-actions {
-  opacity: 1;
 }
 
 .space-detail-tag-action-btn {

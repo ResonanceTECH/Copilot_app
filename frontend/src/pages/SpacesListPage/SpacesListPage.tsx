@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { spacesAPI } from '../../utils/api';
-import type { Space } from '../../types';
+import type { Space, SpaceTag } from '../../types';
 import { Header } from '../../components/common/Header';
 import { Icon } from '../../components/ui/Icon';
 import { ICONS } from '../../utils/icons';
@@ -20,6 +20,7 @@ export const SpacesListPage: React.FC = () => {
   const [newSpaceDescription, setNewSpaceDescription] = useState('');
   const [editSpaceName, setEditSpaceName] = useState('');
   const [editSpaceDescription, setEditSpaceDescription] = useState('');
+  const [spaceTags, setSpaceTags] = useState<Map<number, SpaceTag[]>>(new Map());
   const itemsPerPage = 12;
 
   useEffect(() => {
@@ -35,6 +36,21 @@ export const SpacesListPage: React.FC = () => {
       const response = await spacesAPI.getSpaces(showArchived, itemsPerPage, offset);
       setSpaces(response.spaces);
       setTotal(response.total);
+      
+      // Загружаем теги для каждого пространства
+      const tagsMap = new Map<number, SpaceTag[]>();
+      await Promise.all(
+        response.spaces.map(async (space) => {
+          try {
+            const tags = await spacesAPI.getSpaceTags(space.id);
+            tagsMap.set(space.id, tags);
+          } catch (error) {
+            console.error(`Ошибка загрузки тегов для пространства ${space.id}:`, error);
+            tagsMap.set(space.id, []);
+          }
+        })
+      );
+      setSpaceTags(tagsMap);
     } catch (error) {
       console.error('Ошибка загрузки пространств:', error);
     } finally {
@@ -250,6 +266,19 @@ export const SpacesListPage: React.FC = () => {
                       <span className="spaces-grid-card-stat-label">тегов</span>
                     </div>
                   </div>
+                  {spaceTags.get(space.id) && spaceTags.get(space.id)!.length > 0 && (
+                    <div className="spaces-grid-card-tags">
+                      {spaceTags.get(space.id)!.map(tag => (
+                        <span
+                          key={tag.id}
+                          className="spaces-grid-card-tag"
+                          style={{ backgroundColor: tag.color || '#6366f1' }}
+                        >
+                          {tag.name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                   <div className="spaces-grid-card-footer">
                     <span className="spaces-grid-card-date">
                       Обновлено: {new Date(space.updated_at).toLocaleDateString('ru-RU')}
@@ -258,28 +287,17 @@ export const SpacesListPage: React.FC = () => {
                       {space.is_archived && (
                         <span className="spaces-grid-card-status">Архивировано</span>
                       )}
-                      <div className="spaces-grid-card-actions">
-                        <button
-                          className="spaces-grid-card-action-btn"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            startEdit(space);
-                          }}
-                        >
-                          <Icon src={ICONS.edit} size="sm" />
-                        </button>
-                        {space.is_archived ? (
+                      {!space.is_archived && (
+                        <div className="spaces-grid-card-actions">
                           <button
                             className="spaces-grid-card-action-btn"
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleUnarchiveSpace(space.id);
+                              startEdit(space);
                             }}
-                            title="Разархивировать"
                           >
-                            <Icon src={ICONS.archive} size="sm" />
+                            <Icon src={ICONS.edit} size="sm" />
                           </button>
-                        ) : (
                           <button
                             className="spaces-grid-card-action-btn"
                             onClick={(e) => {
@@ -290,17 +308,17 @@ export const SpacesListPage: React.FC = () => {
                           >
                             <Icon src={ICONS.archive} size="sm" />
                           </button>
-                        )}
-                        <button
-                          className="spaces-grid-card-action-btn danger"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteSpace(space.id);
-                          }}
-                        >
-                          <Icon src={ICONS.trash} size="sm" />
-                        </button>
-                      </div>
+                          <button
+                            className="spaces-grid-card-action-btn danger"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteSpace(space.id);
+                            }}
+                          >
+                            <Icon src={ICONS.trash} size="sm" />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
