@@ -175,7 +175,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
                 </div>
               ) : (
                 <>
-                  {results.chats.length > 0 && (
+                  {(searchType === 'all' || searchType === 'chats') && results.chats.length > 0 && (
                     <div className="search-panel-section">
                       <h3 className="search-panel-section-title">
                         Чаты ({results.results.chats_count})
@@ -206,7 +206,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
                     </div>
                   )}
 
-                  {results.notes.length > 0 && (
+                  {(searchType === 'all' || searchType === 'notes') && results.notes.length > 0 && (
                     <div className="search-panel-section">
                       <h3 className="search-panel-section-title">
                         Заметки ({results.results.notes_count})
@@ -237,7 +237,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
                     </div>
                   )}
 
-                  {results.messages.length > 0 && (
+                  {(searchType === 'all' || searchType === 'messages') && results.messages.length > 0 && (
                     <div className="search-panel-section">
                       <h3 className="search-panel-section-title">
                         Сообщения ({results.results.messages_count})
