@@ -567,56 +567,29 @@ export const notesAPI = {
 
   // Обновление заметки
   updateNote: async (noteId: number, data: NoteUpdateRequest): Promise<Note> => {
-    await delay(400);
-
-    const savedNotes = localStorage.getItem('notes');
-    const notes: Note[] = savedNotes ? JSON.parse(savedNotes) : [];
-    const noteIndex = notes.findIndex(n => n.id === noteId);
-
-    if (noteIndex === -1) {
-      throw new Error('Заметка не найдена');
+    const requestBody: { title?: string; content?: string; space_id?: number } = {};
+    
+    if (data.title !== undefined) {
+      requestBody.title = data.title.trim();
     }
-
-    if (data.title !== undefined && !data.title.trim()) {
-      throw new Error('Название заметки не может быть пустым');
+    if (data.content !== undefined) {
+      requestBody.content = data.content.trim();
     }
-
-    // Проверка пространства, если указано
     if (data.space_id !== undefined) {
-      const savedSpaces = localStorage.getItem('spaces');
-      const spaces: Space[] = savedSpaces ? JSON.parse(savedSpaces) : [];
-      const space = spaces.find(s => s.id === data.space_id);
-      if (!space) {
-        throw new Error('Пространство не найдено');
-      }
-      notes[noteIndex].space_id = data.space_id;
-      notes[noteIndex].space_name = space.name;
+      requestBody.space_id = data.space_id;
     }
-
-    notes[noteIndex] = {
-      ...notes[noteIndex],
-      ...(data.title !== undefined && { title: data.title }),
-      ...(data.content !== undefined && { content: data.content }),
-      updated_at: new Date().toISOString(),
-    };
-
-    localStorage.setItem('notes', JSON.stringify(notes));
-    return notes[noteIndex];
+    
+    return apiRequest<Note>(`/notes/${noteId}`, {
+      method: 'PUT',
+      body: JSON.stringify(requestBody),
+    });
   },
 
   // Удаление заметки
   deleteNote: async (noteId: number): Promise<void> => {
-    await delay(300);
-
-    const savedNotes = localStorage.getItem('notes');
-    const notes: Note[] = savedNotes ? JSON.parse(savedNotes) : [];
-    const filtered = notes.filter(n => n.id !== noteId);
-
-    if (filtered.length === notes.length) {
-      throw new Error('Заметка не найдена');
-    }
-
-    localStorage.setItem('notes', JSON.stringify(filtered));
+    return apiRequest<void>(`/notes/${noteId}`, {
+      method: 'DELETE',
+    });
   },
 };
 
