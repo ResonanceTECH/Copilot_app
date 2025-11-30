@@ -6,10 +6,11 @@ import { RegisterPage } from './pages/RegisterPage';
 import { SpacesListPage } from './pages/SpacesListPage';
 import { SpaceDetailPage } from './pages/SpaceDetailPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { UserProfilePage } from './pages/UserProfilePage/UserProfilePage';
 
 export const App: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
-  const [currentPage, setCurrentPage] = React.useState<'login' | 'register' | 'assistant' | 'spaces' | 'space-detail' | 'settings'>('login');
+  const [currentPage, setCurrentPage] = React.useState<'login' | 'register' | 'assistant' | 'spaces' | 'space-detail' | 'settings' | 'profile'>('login');
   const [spaceId, setSpaceId] = React.useState<number | null>(null);
 
   // Определяем текущую страницу из URL
@@ -19,6 +20,8 @@ export const App: React.FC = () => {
       setCurrentPage('register');
     } else if (path === '/settings') {
       setCurrentPage('settings');
+    } else if (path === '/profile') {
+      setCurrentPage('profile');
     } else if (path.startsWith('/spaces/')) {
       const match = path.match(/^\/spaces\/(\d+)$/);
       if (match) {
@@ -66,6 +69,10 @@ export const App: React.FC = () => {
   // Роутинг для авторизованных пользователей
   if (currentPage === 'settings') {
     return <SettingsPage />;
+  }
+
+  if (currentPage === 'profile') {
+    return <UserProfilePage />;
   }
 
   if (currentPage === 'spaces') {

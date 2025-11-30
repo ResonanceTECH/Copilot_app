@@ -332,7 +332,7 @@ export const chatAPI = {
 };
 
 // API методы для пространств (mock версия)
-import type { Space, SpaceCreateRequest, SpaceUpdateRequest, Note, NotePreview, NoteCreateRequest, NoteUpdateRequest, SpaceTag, SpaceTagCreateRequest, SpaceTagUpdateRequest, SpaceChat, SupportFeedback, SupportFeedbackRequest, SupportArticle, SupportArticlesResponse, SearchResults, SearchRequest, NotificationSettingsResponse, NotificationSettingsRequest, Notification, NotificationListResponse } from '../types';
+import type { Space, SpaceCreateRequest, SpaceUpdateRequest, Note, NotePreview, NoteCreateRequest, NoteUpdateRequest, SpaceTag, SpaceTagCreateRequest, SpaceTagUpdateRequest, SpaceChat, SupportFeedback, SupportFeedbackRequest, SupportArticle, SupportArticlesResponse, SearchResults, SearchRequest, NotificationSettingsResponse, NotificationSettingsRequest, Notification, NotificationListResponse, UserProfile, UserProfileUpdate } from '../types';
 
 // Имитация задержки сети для mock методов
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -724,6 +724,24 @@ export const notificationAPI = {
   getUnreadCount: async (): Promise<{ unread_count: number }> => {
     return apiRequest<{ unread_count: number }>('/notifications/unread-count', {
       method: 'GET',
+    });
+  },
+};
+
+// API методы для профиля пользователя
+export const userAPI = {
+  // Получение профиля текущего пользователя
+  getProfile: async (): Promise<UserProfile> => {
+    return apiRequest<UserProfile>('/user/profile', {
+      method: 'GET',
+    });
+  },
+
+  // Обновление профиля пользователя
+  updateProfile: async (data: UserProfileUpdate): Promise<UserProfile> => {
+    return apiRequest<UserProfile>('/user/profile', {
+      method: 'PUT',
+      body: JSON.stringify(data),
     });
   },
 };
