@@ -17,6 +17,11 @@ from backend.app.services.llm_service import LLMService
 from backend.app.services.cache_service import CacheService
 from backend.app.services.formatting_service import FormattingService
 
+# НОВЫЕ ИМПОРТЫ для графиков
+from backend.ml.services.graphic_service import GraphicService
+from backend.ml.core.code_executor import SafeCodeExecutor
+from backend.ml.core.image_storage import ImageStorage
+
 router = APIRouter()
 
 # Инициализация сервисов
@@ -25,13 +30,20 @@ llm_service = LLMService()
 cache_service = CacheService()
 formatting_service = FormattingService()
 
+# НОВЫЕ СЕРВИСЫ для графиков
+graphic_service = GraphicService(llm_client=llm_service)  # Передаем llm_service как клиент
+code_executor = SafeCodeExecutor(timeout=30)
+image_storage = ImageStorage()
+
 CATEGORY_PROMPTS = {
     'marketing': "Ты — эксперт по маркетингу и продвижению бизнеса. Отвечай кратко, практично и с фокусом на измеримые результаты.",
     'finance': "Ты — финансовый консультант для малого и среднего бизнеса. Будь точным в цифрах и расчетах.",
     'legal': "Ты — юридический консультант по бизнес-праву. Будь аккуратен в формулировках и указывай на риски.",
     'management': "Ты — эксперт по управлению бизнесом и командами. Давай практические, реализуемые советы.",
     'sales': "Ты — специалист по продажам и работе с клиентами. Предлагай конкретные техники и скрипты.",
-    'general': "Ты — универсальный бизнес-консультант для малого бизнеса. Отвечай кратко, структурно и по делу."
+    'general': "Ты — универсальный бизнес-консультант для малого бизнеса. Отвечай кратко, структурно и по делу.",
+    # НОВЫЙ ПРОМПТ для графиков
+    'graphic': "Ты — эксперт по визуализации данных. Пользователь просит создать график или диаграмму. Сгенерируй Python код для создания графика с использованием matplotlib/seaborn. Код должен сохранять график в файл как изображение. Не выводи график на экран, только сохраняй в файл."
 }
 
 
@@ -103,7 +115,7 @@ def get_or_create_default_space(user: User, db: Session) -> Space:
         Space.name == "Моё рабочее пространство",
         Space.is_archived == False
     ).first()
-    
+
     if not default_space:
         # Создаем дефолтное пространство
         default_space = Space(
@@ -114,7 +126,7 @@ def get_or_create_default_space(user: User, db: Session) -> Space:
         db.add(default_space)
         db.commit()
         db.refresh(default_space)
-    
+
     return default_space
 
 
@@ -144,6 +156,122 @@ def get_conversation_history(chat_id: int, db: Session, max_messages: int = 10) 
     return list(reversed(messages))
 
 
+# НОВАЯ ФУНКЦИЯ: обработка запроса на график
+async def process_graphic_request(user_query: str, chat_id: int, db: Session, category: str,
+                                  probabilities: dict) -> dict:
+    """Обработка запроса на создание графика"""
+    try:
+        print(f"📊 Обработка запроса на график: {user_query}")
+
+        # Генерация кода для графика
+        code, output_path = graphic_service.generate_graphic_code(user_query)
+        print(f"📝 Сгенерирован код для графика (длина: {len(code)} символов)")
+
+        # Выполнение кода
+        execution_result = code_executor.execute_python_code(code, output_path)
+        print(f"🔧 Результат выполнения кода: {execution_result['success']}")
+
+        if execution_result["success"] and execution_result.get("image_created"):
+            # Сохраняем изображение в хранилище
+            image_url = image_storage.save_image(output_path)
+            print(f"🖼️  График сохранен: {image_url}")
+
+            # Конвертируем в base64 для отправки в ответе
+            image_base64 = image_storage.image_to_base64(
+                image_storage.base_dir + "/" + image_url.split("/")[-1]
+            )
+
+            # Формируем HTML для отображения графика
+            image_html = f'''
+            <div class="graphic-container">
+                <div class="graphic-header">
+                    <h4>📈 Сгенерированный график</h4>
+                    <p>Запрос: "{user_query}"</p>
+                </div>
+                <div class="graphic-image">
+                    <img src="{image_url}" alt="Сгенерированный график" style="max-width:100%; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+                </div>
+                <div class="graphic-actions">
+                    <a href="{image_url}" download="график.png" class="download-btn">💾 Скачать график</a>
+                </div>
+            </div>
+            '''
+
+            # Текстовое сообщение для сохранения в базу
+            ai_response = f"📈 Создан график по запросу: '{user_query}'. График доступен по ссылке: {image_url}"
+            formatted_response = image_html
+
+            response_data = {
+                'raw_text': ai_response,
+                'formatted_html': formatted_response,
+                'timestamp': datetime.now().isoformat(),
+                'category': category,
+                'probabilities': probabilities,
+                'graphic_data': {
+                    'image_url': image_url,
+                    'image_base64': image_base64,
+                    'code_generated': len(code),
+                    'execution_success': True
+                }
+            }
+
+        else:
+            # Ошибка при создании графика
+            error_msg = execution_result.get("error", "Неизвестная ошибка")
+            stderr = execution_result.get("stderr", "")
+            print(f"❌ Ошибка создания графика: {error_msg}, stderr: {stderr}")
+
+            ai_response = f"Не удалось создать график по запросу '{user_query}'. Ошибка: {error_msg}"
+            if stderr:
+                ai_response += f"\nДетали: {stderr[:200]}"
+
+            formatted_response = f'''
+            <div class="error-container">
+                <h4>❌ Ошибка создания графика</h4>
+                <p>{ai_response}</p>
+                <details>
+                    <summary>Подробности ошибки</summary>
+                    <pre>{stderr[:500]}</pre>
+                </details>
+            </div>
+            '''
+
+            response_data = {
+                'raw_text': ai_response,
+                'formatted_html': formatted_response,
+                'timestamp': datetime.now().isoformat(),
+                'category': category,
+                'probabilities': probabilities,
+                'graphic_data': {
+                    'error': error_msg,
+                    'stderr': stderr[:500],
+                    'execution_success': False
+                }
+            }
+
+        return response_data
+
+    except Exception as e:
+        print(f"❌ Исключение при обработке графического запроса: {e}")
+        import traceback
+        traceback.print_exc()
+
+        ai_response = f"Произошла ошибка при обработке запроса на график: {str(e)}"
+        formatted_response = f'<p class="response-text error">{ai_response}</p>'
+
+        return {
+            'raw_text': ai_response,
+            'formatted_html': formatted_response,
+            'timestamp': datetime.now().isoformat(),
+            'category': category,
+            'probabilities': probabilities,
+            'graphic_data': {
+                'error': str(e),
+                'execution_success': False
+            }
+        }
+
+
 @router.get("/")
 async def root():
     return {"message": "Chat API"}
@@ -151,9 +279,9 @@ async def root():
 
 @router.post("/chat", response_model=ChatHistoryItem, status_code=201)
 async def create_chat(
-    chat_data: ChatCreateRequest,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+        chat_data: ChatCreateRequest,
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db)
 ):
     """Создать новый пустой чат"""
     # Определяем пространство
@@ -257,7 +385,7 @@ async def send_message(
             db.add(assistant_msg)
             db.commit()
             db.refresh(assistant_msg)
-            
+
             return ChatSendResponse(
                 success=True,
                 chat_id=chat.id,
@@ -270,12 +398,38 @@ async def send_message(
                 }
             )
 
-        # Проверяем кэш
+        # Получаем усиленный промпт и категорию
+        enhanced_prompt, category, probabilities = get_enhanced_system_prompt(user_message)
+
+        # НОВАЯ ЛОГИКА: Если категория 'graphic', обрабатываем специальным образом
+        if category == 'graphic':
+            # Обрабатываем графический запрос
+            response_data = await process_graphic_request(user_message, chat.id, db, category, probabilities)
+
+            # Сохраняем ответ ассистента в базу
+            assistant_msg = Message(
+                chat_id=chat.id,
+                role="assistant",
+                content=response_data['raw_text']
+            )
+            db.add(assistant_msg)
+            chat.updated_at = datetime.now(timezone.utc)
+            db.commit()
+            db.refresh(assistant_msg)
+
+            return ChatSendResponse(
+                success=True,
+                chat_id=chat.id,
+                message_id=assistant_msg.id,
+                response=response_data
+            )
+
+        # Для остальных категорий - проверяем кэш
         cached_response = cache_service.get(user_message)
         if cached_response:
             print(f"✅ Используем кэшированный ответ для: {user_message[:50]}...")
             assistant_content = cached_response.get('raw_text', '')
-            
+
             assistant_msg = Message(
                 chat_id=chat.id,
                 role="assistant",
@@ -284,7 +438,7 @@ async def send_message(
             db.add(assistant_msg)
             db.commit()
             db.refresh(assistant_msg)
-            
+
             return ChatSendResponse(
                 success=True,
                 chat_id=chat.id,
@@ -298,9 +452,6 @@ async def send_message(
         conversation_history = get_conversation_history(chat.id, db, max_messages=15)
 
         print(f"📚 Используем историю из {len(conversation_history)} сообщений для контекста")
-
-        # Получаем усиленный промпт
-        enhanced_prompt, category, probabilities = get_enhanced_system_prompt(user_message)
 
         # Генерируем ответ с учетом всей истории чата
         try:
@@ -393,21 +544,21 @@ async def get_chat_history(
 ):
     """Получить историю чатов пользователя"""
     query = db.query(Chat).filter(Chat.user_id == current_user.id)
-    
+
     if space_id:
         query = query.filter(Chat.space_id == space_id)
-    
+
     total = query.count()
-    
+
     chats = query.order_by(desc(Chat.updated_at)).offset(offset).limit(limit).all()
-    
+
     chat_items = []
     for chat in chats:
         # Получаем последнее сообщение
         last_message = db.query(Message).filter(
             Message.chat_id == chat.id
         ).order_by(desc(Message.created_at)).first()
-        
+
         chat_items.append(ChatHistoryItem(
             id=chat.id,
             title=chat.title,
@@ -437,17 +588,17 @@ async def get_chat_messages(
         Chat.id == chat_id,
         Chat.user_id == current_user.id
     ).first()
-    
+
     if not chat:
         raise HTTPException(status_code=404, detail="Чат не найден")
-    
+
     # Получаем сообщения
     total = db.query(Message).filter(Message.chat_id == chat_id).count()
-    
+
     messages = db.query(Message).filter(
         Message.chat_id == chat_id
     ).order_by(Message.created_at).offset(offset).limit(limit).all()
-    
+
     message_items = [
         MessageItem(
             id=msg.id,
@@ -457,13 +608,14 @@ async def get_chat_messages(
         )
         for msg in messages
     ]
-    
+
     return ChatMessagesResponse(
         messages=message_items,
         total=total,
         chat_id=chat.id,
         chat_title=chat.title
     )
+
 
 @router.get("/chat/{chat_id}/context")
 async def get_chat_context(
@@ -500,14 +652,12 @@ async def get_chat_context(
     }
 
 
-
-
 @router.put("/chat/{chat_id}", response_model=ChatHistoryItem)
 async def update_chat(
-    chat_id: int,
-    chat_data: ChatUpdateRequest,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+        chat_id: int,
+        chat_data: ChatUpdateRequest,
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db)
 ):
     """Обновить чат (переименовать или изменить пространство)"""
     chat = db.query(Chat).filter(
@@ -522,7 +672,7 @@ async def update_chat(
         )
 
     update_data = {}
-    
+
     if chat_data.title is not None:
         if not chat_data.title.strip():
             raise HTTPException(
@@ -572,9 +722,9 @@ async def update_chat(
 
 @router.delete("/chat/{chat_id}", status_code=204)
 async def delete_chat(
-    chat_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+        chat_id: int,
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db)
 ):
     """Удалить чат"""
     chat = db.query(Chat).filter(
@@ -611,10 +761,10 @@ async def ask_question_legacy(
     question = request.get("question", "")
     if not question:
         raise HTTPException(status_code=400, detail="Вопрос не может быть пустым")
-    
+
     send_request = ChatSendRequest(message=question)
     response = await send_message(send_request, current_user, db)
-    
+
     return {
         "success": response.success,
         "response": response.response,
