@@ -296,24 +296,20 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
     if (!space) return;
 
     try {
-      const { blob, filename } = await spacesAPI.exportSpace(spaceId);
-
-      // Создаем ссылку для скачивания
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = filename;
-
-      // Добавляем ссылку в DOM, кликаем и удаляем
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      // Освобождаем память
-      window.URL.revokeObjectURL(url);
+      const result = await spacesAPI.exportSpace(spaceId);
+      
+      // Формируем полную публичную ссылку
+      const baseUrl = window.location.origin;
+      const fullPublicUrl = `${baseUrl}${result.public_url}`;
+      
+      // Копируем ссылку в буфер обмена
+      await navigator.clipboard.writeText(fullPublicUrl);
+      
+      // Показываем уведомление с ссылкой
+      alert(`Публичная ссылка создана и скопирована в буфер обмена!\n\n${fullPublicUrl}\n\nТеперь любой пользователь может перейти по этой ссылке и писать в чаты этого пространства.`);
     } catch (error: any) {
-      console.error('Ошибка экспорта пространства:', error);
-      alert(error.message || 'Ошибка при экспорте пространства. Попробуйте позже.');
+      console.error('Ошибка создания публичной ссылки:', error);
+      alert(error.message || 'Ошибка при создании публичной ссылки. Попробуйте позже.');
     }
   };
 
