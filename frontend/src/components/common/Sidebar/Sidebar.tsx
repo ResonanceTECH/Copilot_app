@@ -50,6 +50,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [hoveredThreadId, setHoveredThreadId] = useState<string | null>(null);
   const [draggedSpaceId, setDraggedSpaceId] = useState<number | null>(null);
   const [dragOverPinnedArea, setDragOverPinnedArea] = useState(false);
+  const [pinnedSpacesUpdate, setPinnedSpacesUpdate] = useState(0); // Для принудительного обновления
   const contextMenuRef = useRef<HTMLDivElement>(null);
   const pinnedAreaRef = useRef<HTMLDivElement>(null);
   const { language } = useLanguage();
@@ -215,6 +216,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className="sidebar-content">
         {/* Секция закрепленных пространств */}
         {!isCollapsed && (() => {
+          // Используем pinnedSpacesUpdate для принудительного обновления
+          const _ = pinnedSpacesUpdate;
           const pinnedSpaces = loadPinnedSpaces();
           const pinnedSpacesList = spaces.filter(space => pinnedSpaces.has(space.id));
 
@@ -244,6 +247,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   pinnedSpaces.add(draggedSpaceId);
                   savePinnedSpaces(pinnedSpaces);
                   setDraggedSpaceId(null);
+                  // Принудительно обновляем компонент
+                  setPinnedSpacesUpdate(prev => prev + 1);
                 }
               }}
             >
@@ -284,6 +289,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             const pinnedSpaces = loadPinnedSpaces();
                             pinnedSpaces.delete(space.id);
                             savePinnedSpaces(pinnedSpaces);
+                            // Принудительно обновляем компонент
+                            setPinnedSpacesUpdate(prev => prev + 1);
                           }}
                           title="Открепить"
                         >
@@ -424,6 +431,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <div className="sidebar-spaces-list">
                   {spaces.length > 0 ? (
                     spaces.map(space => {
+                      // Используем pinnedSpacesUpdate для принудительного обновления
+                      const _ = pinnedSpacesUpdate;
                       const isPinned = loadPinnedSpaces().has(space.id);
                       return (
                         <button

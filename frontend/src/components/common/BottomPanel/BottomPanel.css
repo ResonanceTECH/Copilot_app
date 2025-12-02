@@ -60,3 +60,43 @@
   background: var(--color-primary-hover);
 }
 
+.bottom-panel-tool-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bottom-panel-delete-btn {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: var(--color-error, #ef4444);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  color: white;
+  z-index: 10;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.bottom-panel-delete-btn:hover {
+  background: var(--color-error-hover, #dc2626);
+  transform: scale(1.1);
+}
+
+.bottom-panel-tool--deleting {
+  background: var(--color-error, #ef4444) !important;
+  color: white !important;
+}
+
+.bottom-panel-tool--deleting:hover {
+  background: var(--color-error-hover, #dc2626) !important;
+}
+

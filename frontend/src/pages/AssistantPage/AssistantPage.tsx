@@ -634,6 +634,7 @@ export const AssistantPage: React.FC = () => {
           threads={getThreadsList()}
           activeThreadId={activeThreadId}
           onThreadSelect={handleThreadSelect}
+          onThreadDelete={handleThreadDelete}
           onNewThread={handleNewThread}
         />
       )}
