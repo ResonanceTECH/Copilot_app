@@ -242,7 +242,6 @@ export const Header: React.FC<HeaderProps> = ({
           ) : (
             <button className="header-title-btn" onClick={handleTitleClick}>
               <span className="header-title">{displayTitle}</span>
-              <Icon src={ICONS.chevronDown} size="sm" />
             </button>
           )}
         </div>
