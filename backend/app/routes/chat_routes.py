@@ -12,7 +12,7 @@ from backend.app.models.user import User
 from backend.app.models.space import Space
 from backend.app.models.chat import Chat
 from backend.app.models.message import Message
-from backend.ml.services.classifier_service import BusinessClassifierService
+from backend.ml.models.business_classifier import EnhancedBusinessClassifier
 from backend.app.services.llm_service import LLMService
 from backend.app.services.cache_service import CacheService
 from backend.app.services.formatting_service import FormattingService
@@ -21,7 +21,8 @@ from backend.ml.services.graphic_service import GraphicService
 router = APIRouter()
 
 # Инициализация сервисов
-classifier_service = BusinessClassifierService()
+classifier_service = EnhancedBusinessClassifier()
+classifier_service.load_model('backend/ml/models/business_classifier.pkl')
 llm_service = LLMService()
 cache_service = CacheService()
 formatting_service = FormattingService()
@@ -143,10 +144,17 @@ def get_conversation_history(chat_id: int, db: Session, max_messages: int = 10) 
     """Получить историю сообщений для контекста LLM"""
     messages = db.query(Message).filter(
         Message.chat_id == chat_id
-    ).order_by(Message.created_at.desc()).limit(max_messages).all()
+    ).order_by(Message.created_at.asc()).limit(max_messages).all()  # Уже в хронологическом порядке
 
-    # Возвращаем в хронологическом порядке (от старых к новым)
-    return list(reversed(messages))
+    # Преобразуем в список словарей
+    formatted_history = []
+    for msg in messages:
+        formatted_history.append({
+            'role': msg.role,
+            'content': msg.content
+        })
+
+    return formatted_history
 
 
 async def process_graphic_request(user_query: str) -> dict:

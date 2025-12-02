@@ -78,6 +78,10 @@ class EnhancedBusinessClassifier:
 
         return embeddings
 
+    def predict_category(self, text: str):
+        """Метод для обратной совместимости с chat_routes.py"""
+        return self.predict(text)
+
     def extract_text_features(self, text):
         """Извлечение дополнительных текстовых фич"""
         words = text.split()
