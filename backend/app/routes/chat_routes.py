@@ -16,11 +16,7 @@ from backend.ml.services.classifier_service import BusinessClassifierService
 from backend.app.services.llm_service import LLMService
 from backend.app.services.cache_service import CacheService
 from backend.app.services.formatting_service import FormattingService
-
-# НОВЫЕ ИМПОРТЫ для графиков
 from backend.ml.services.graphic_service import GraphicService
-from backend.ml.core.code_executor import SafeCodeExecutor
-from backend.ml.core.image_storage import ImageStorage
 
 router = APIRouter()
 
@@ -30,10 +26,8 @@ llm_service = LLMService()
 cache_service = CacheService()
 formatting_service = FormattingService()
 
-# НОВЫЕ СЕРВИСЫ для графиков
-graphic_service = GraphicService(llm_client=llm_service)  # Передаем llm_service как клиент
-code_executor = SafeCodeExecutor(timeout=30)
-image_storage = ImageStorage()
+# Инициализация сервиса для графиков
+graphic_service = GraphicService(llm_service)
 
 CATEGORY_PROMPTS = {
     'marketing': "Ты — эксперт по маркетингу и продвижению бизнеса. Отвечай кратко, практично и с фокусом на измеримые результаты.",
@@ -42,8 +36,7 @@ CATEGORY_PROMPTS = {
     'management': "Ты — эксперт по управлению бизнесом и командами. Давай практические, реализуемые советы.",
     'sales': "Ты — специалист по продажам и работе с клиентами. Предлагай конкретные техники и скрипты.",
     'general': "Ты — универсальный бизнес-консультант для малого бизнеса. Отвечай кратко, структурно и по делу.",
-    # НОВЫЙ ПРОМПТ для графиков
-    'graphic': "Ты — эксперт по визуализации данных. Пользователь просит создать график или диаграмму. Сгенерируй Python код для создания графика с использованием matplotlib/seaborn. Код должен сохранять график в файл как изображение. Не выводи график на экран, только сохраняй в файл."
+    'graphic': "Ты эксперт по визуализации данных. Пользователь просит создать график."
 }
 
 
@@ -156,118 +149,136 @@ def get_conversation_history(chat_id: int, db: Session, max_messages: int = 10) 
     return list(reversed(messages))
 
 
-# НОВАЯ ФУНКЦИЯ: обработка запроса на график
-async def process_graphic_request(user_query: str, chat_id: int, db: Session, category: str,
-                                  probabilities: dict) -> dict:
-    """Обработка запроса на создание графика"""
+async def process_graphic_request(user_query: str) -> dict:
+    """
+    Обработка запроса на график.
+    Возвращает ответ с base64 изображением.
+    """
     try:
-        print(f"📊 Обработка запроса на график: {user_query}")
+        print(f"📊 Обработка графического запроса: {user_query}")
 
-        # Генерация кода для графика
-        code, output_path = graphic_service.generate_graphic_code(user_query)
-        print(f"📝 Сгенерирован код для графика (длина: {len(code)} символов)")
+        # Обрабатываем запрос через GraphicService
+        result = graphic_service.process_graphic_request(user_query)
 
-        # Выполнение кода
-        execution_result = code_executor.execute_python_code(code, output_path)
-        print(f"🔧 Результат выполнения кода: {execution_result['success']}")
-
-        if execution_result["success"] and execution_result.get("image_created"):
-            # Сохраняем изображение в хранилище
-            image_url = image_storage.save_image(output_path)
-            print(f"🖼️  График сохранен: {image_url}")
-
-            # Конвертируем в base64 для отправки в ответе
-            image_base64 = image_storage.image_to_base64(
-                image_storage.base_dir + "/" + image_url.split("/")[-1]
-            )
-
-            # Формируем HTML для отображения графика
+        if result["success"]:
+            # Формируем HTML с base64 изображением
             image_html = f'''
-            <div class="graphic-container">
-                <div class="graphic-header">
-                    <h4>📈 Сгенерированный график</h4>
-                    <p>Запрос: "{user_query}"</p>
+            <div class="graphic-container" style="
+                background: white;
+                border-radius: 10px;
+                padding: 15px;
+                margin: 15px 0;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            ">
+                <div class="graphic-header" style="
+                    margin-bottom: 10px;
+                    padding-bottom: 10px;
+                    border-bottom: 1px solid #eee;
+                ">
+                    <h4 style="margin: 0; color: #333;">📈 Сгенерированный график</h4>
                 </div>
-                <div class="graphic-image">
-                    <img src="{image_url}" alt="Сгенерированный график" style="max-width:100%; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+                <div class="graphic-image" style="text-align: center;">
+                    <img src="data:image/png;base64,{result['image_base64']}" 
+                         alt="Сгенерированный график" 
+                         style="
+                            max-width: 100%;
+                            height: auto;
+                            border-radius: 5px;
+                         ">
                 </div>
-                <div class="graphic-actions">
-                    <a href="{image_url}" download="график.png" class="download-btn">💾 Скачать график</a>
+                <div class="graphic-note" style="
+                    margin-top: 10px;
+                    font-size: 12px;
+                    color: #666;
+                    text-align: center;
+                ">
+                    Запрос: "{user_query}"
                 </div>
             </div>
             '''
 
-            # Текстовое сообщение для сохранения в базу
-            ai_response = f"📈 Создан график по запросу: '{user_query}'. График доступен по ссылке: {image_url}"
-            formatted_response = image_html
-
-            response_data = {
-                'raw_text': ai_response,
-                'formatted_html': formatted_response,
+            return {
+                'raw_text': f"Создан график по запросу: {user_query}",
+                'formatted_html': image_html,
                 'timestamp': datetime.now().isoformat(),
-                'category': category,
-                'probabilities': probabilities,
+                'category': 'graphic',
                 'graphic_data': {
-                    'image_url': image_url,
-                    'image_base64': image_base64,
-                    'code_generated': len(code),
-                    'execution_success': True
+                    'success': True,
+                    'has_image': True,
+                    'mime_type': result.get('mime_type', 'image/png')
                 }
             }
-
         else:
-            # Ошибка при создании графика
-            error_msg = execution_result.get("error", "Неизвестная ошибка")
-            stderr = execution_result.get("stderr", "")
-            print(f"❌ Ошибка создания графика: {error_msg}, stderr: {stderr}")
+            error_msg = result.get('error', 'Неизвестная ошибка')
+            stderr = result.get('stderr', '')
 
-            ai_response = f"Не удалось создать график по запросу '{user_query}'. Ошибка: {error_msg}"
-            if stderr:
-                ai_response += f"\nДетали: {stderr[:200]}"
-
-            formatted_response = f'''
-            <div class="error-container">
-                <h4>❌ Ошибка создания графика</h4>
-                <p>{ai_response}</p>
-                <details>
-                    <summary>Подробности ошибки</summary>
-                    <pre>{stderr[:500]}</pre>
-                </details>
-            </div>
+            error_html = f'''
+            <div class="error-container" style="
+                background: #fff5f5;
+                border-left: 4px solid #f44336;
+                padding: 15px;
+                margin: 15px 0;
+                border-radius: 5px;
+            ">
+                <h4 style="margin: 0 0 10px 0; color: #d32f2f;">❌ Ошибка создания графика</h4>
+                <p style="margin: 0 0 10px 0;">{error_msg}</p>
             '''
 
-            response_data = {
-                'raw_text': ai_response,
-                'formatted_html': formatted_response,
+            if stderr:
+                error_html += f'''
+                <details style="margin-top: 10px;">
+                    <summary style="cursor: pointer; color: #666; font-size: 12px;">Подробности ошибки</summary>
+                    <pre style="
+                        background: #f8f9fa;
+                        padding: 10px;
+                        border-radius: 5px;
+                        font-size: 11px;
+                        overflow-x: auto;
+                        margin-top: 5px;
+                    ">{stderr[:500]}</pre>
+                </details>
+                '''
+
+            error_html += '</div>'
+
+            return {
+                'raw_text': f"Ошибка создания графика: {error_msg}",
+                'formatted_html': error_html,
                 'timestamp': datetime.now().isoformat(),
-                'category': category,
-                'probabilities': probabilities,
+                'category': 'graphic',
                 'graphic_data': {
+                    'success': False,
                     'error': error_msg,
-                    'stderr': stderr[:500],
-                    'execution_success': False
+                    'stderr': stderr[:500] if stderr else ''
                 }
             }
-
-        return response_data
 
     except Exception as e:
         print(f"❌ Исключение при обработке графического запроса: {e}")
         import traceback
         traceback.print_exc()
 
-        ai_response = f"Произошла ошибка при обработке запроса на график: {str(e)}"
-        formatted_response = f'<p class="response-text error">{ai_response}</p>'
+        error_html = f'''
+        <div class="error-container" style="
+            background: #fff5f5;
+            border-left: 4px solid #f44336;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+        ">
+            <h4 style="margin: 0 0 10px 0; color: #d32f2f;">❌ Ошибка обработки запроса</h4>
+            <p style="margin: 0;">{str(e)}</p>
+        </div>
+        '''
 
         return {
-            'raw_text': ai_response,
-            'formatted_html': formatted_response,
+            'raw_text': f"Ошибка обработки запроса на график: {str(e)}",
+            'formatted_html': error_html,
             'timestamp': datetime.now().isoformat(),
-            'category': category,
-            'probabilities': probabilities,
+            'category': 'graphic',
             'graphic_data': {
-                'error': str(e),
-                'execution_success': False
+                'success': False,
+                'error': str(e)
             }
         }
 
@@ -401,10 +412,10 @@ async def send_message(
         # Получаем усиленный промпт и категорию
         enhanced_prompt, category, probabilities = get_enhanced_system_prompt(user_message)
 
-        # НОВАЯ ЛОГИКА: Если категория 'graphic', обрабатываем специальным образом
+        # Если категория 'graphic', обрабатываем специальным образом
         if category == 'graphic':
             # Обрабатываем графический запрос
-            response_data = await process_graphic_request(user_message, chat.id, db, category, probabilities)
+            response_data = await process_graphic_request(user_message)
 
             # Сохраняем ответ ассистента в базу
             assistant_msg = Message(

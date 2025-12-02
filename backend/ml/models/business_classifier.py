@@ -7,13 +7,8 @@ import joblib
 import re
 
 
-# from sentence_transformers import SentenceTransformer
-
-
 class EnhancedBusinessClassifier:
     def __init__(self):
-        # Используем легкую модель для эмбеддингов
-        # self.embedder = SentenceTransformer('sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2')
         self.classifier = RandomForestClassifier(
             n_estimators=100,
             max_depth=30,
@@ -21,10 +16,10 @@ class EnhancedBusinessClassifier:
             min_samples_leaf=1,
             random_state=42
         )
-        # ОБНОВЛЕНО: Добавлена категория 'graphic'
+        # Категории включая 'graphic'
         self.labels = ['marketing', 'finance', 'legal', 'management', 'sales', 'general', 'graphic']
 
-        # Расширенные ключевые слова - ОБНОВЛЕНО: добавлена категория 'graphic'
+        # Ключевые слова для категорий
         self.category_keywords = {
             'marketing': ['маркетинг', 'реклама', 'продвижение', 'бренд', 'smm', 'seo', 'таргетинг',
                           'контент', 'аудитория', 'трафик', 'конверсия', 'воронка'],
@@ -58,32 +53,23 @@ class EnhancedBusinessClassifier:
         return text.strip()
 
     def calculate_keyword_features(self, text):
-        """Расширенные фичи ключевых слов - ОБНОВЛЕНО: теперь 7 категорий"""
+        """Расширенные фичи ключевых слов"""
         text_lower = text.lower()
         features = []
 
         for category, keywords in self.category_keywords.items():
-            # 1. Простое наличие
             presence = sum(1 for keyword in keywords if keyword in text_lower)
-
-            # 2. Взвешенное по TF (частоте в тексте)
             tf_score = sum(text_lower.count(keyword) for keyword in keywords)
-
-            # 3. Нормализованный счет
             normalized_score = tf_score / max(len(text.split()), 1)
-
             features.extend([presence, tf_score, normalized_score])
 
         return np.array(features)
 
     def get_text_embeddings(self, texts):
-        """Получение семантических эмбеддингов"""
+        """Получение семантических эмбеддингов (заглушка)"""
         if isinstance(texts, str):
             texts = [texts]
 
-        # Заглушка для эмбеддингов - возвращаем нулевые векторы фиксированной размерности
-        # (это нужно для сохранения совместимости с существующим кодом)
-        # Обычная размерность для MiniLM-L12-v2: 384
         embedding_dim = 384
         if len(texts) > 0:
             embeddings = np.zeros((len(texts), embedding_dim))
@@ -98,16 +84,17 @@ class EnhancedBusinessClassifier:
         sentences = text.split('.')
 
         features = [
-            len(text),  # длина текста
-            len(words),  # количество слов
-            len(sentences),  # количество предложений
-            np.mean([len(word) for word in words]) if words else 0,  # средняя длина слова
-            len([w for w in words if len(w) > 6]) / max(len(words), 1),  # доля длинных слов
+            len(text),
+            len(words),
+            len(sentences),
+            np.mean([len(word) for word in words]) if words else 0,
+            len([w for w in words if len(w) > 6]) / max(len(words), 1),
         ]
 
         return np.array(features)
 
     def train(self, dataset):
+        """Обучение модели"""
         df = pd.DataFrame(dataset)
         df['processed_text'] = df['text'].apply(self.preprocess_text)
 
