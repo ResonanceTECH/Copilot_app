@@ -117,10 +117,42 @@ export const Header: React.FC<HeaderProps> = ({
     }
   }, [isEditing]);
 
-  const displayTitle = title || getTranslation('thread', language);
-  const currentModelName = activeTool === 'assistant' 
-    ? getTranslation('assistant', language) 
+  // Скрываем селектор модели на страницах пространств и настроек
+  const [currentPath, setCurrentPath] = useState(window.location.pathname);
+
+  useEffect(() => {
+    // Отслеживаем изменения пути
+    const updatePath = () => {
+      setCurrentPath(window.location.pathname);
+    };
+
+    // Обновляем при изменении пути
+    window.addEventListener('popstate', updatePath);
+
+    // Проверяем путь периодически (на случай программной навигации)
+    const interval = setInterval(updatePath, 100);
+
+    return () => {
+      window.removeEventListener('popstate', updatePath);
+      clearInterval(interval);
+    };
+  }, []);
+
+  const isSpacesPage = currentPath === '/spaces' || currentPath.startsWith('/spaces/');
+  const isSettingsPage = currentPath === '/settings' || currentPath.startsWith('/settings');
+  const shouldHideModelSelector = isSpacesPage || isSettingsPage;
+
+  const displayTitle = (title && title.trim()) || (isSettingsPage ? getTranslation('support', language) : getTranslation('thread', language));
+  const currentModelName = activeTool === 'assistant'
+    ? getTranslation('assistant', language)
     : getTranslation('deepseekChimera', language);
+
+  // Закрываем меню модели при переходе на страницы, где оно не нужно
+  useEffect(() => {
+    if (shouldHideModelSelector && isModelSelectorVisible) {
+      setIsModelSelectorVisible(false);
+    }
+  }, [shouldHideModelSelector, isModelSelectorVisible]);
 
   const handleModelSelect = (tool: string) => {
     onToolSelect?.(tool);
@@ -157,35 +189,37 @@ export const Header: React.FC<HeaderProps> = ({
               <Icon src={ICONS.arrowLeft} size="sm" />
             </button>
           )}
-          <div className="header-model-selector" ref={modelSelectorRef}>
-            <button
-              className="header-model-btn"
-              onClick={() => setIsModelSelectorVisible(!isModelSelectorVisible)}
-              onMouseEnter={() => setShowModelTooltip(true)}
-              onMouseLeave={() => setShowModelTooltip(false)}
-            >
-              <Icon src={ICONS.brain} size="md" />
-              {showModelTooltip && !isModelSelectorVisible && (
-                <div className="header-model-tooltip">{currentModelName}</div>
+          {!shouldHideModelSelector && (
+            <div className="header-model-selector" ref={modelSelectorRef}>
+              <button
+                className="header-model-btn"
+                onClick={() => setIsModelSelectorVisible(!isModelSelectorVisible)}
+                onMouseEnter={() => setShowModelTooltip(true)}
+                onMouseLeave={() => setShowModelTooltip(false)}
+              >
+                <Icon src={ICONS.brain} size="md" />
+                {showModelTooltip && !isModelSelectorVisible && (
+                  <div className="header-model-tooltip">{currentModelName}</div>
+                )}
+              </button>
+              {isModelSelectorVisible && (
+                <div className="header-model-dropdown">
+                  <button
+                    className={`header-model-option ${activeTool === 'assistant' ? 'header-model-option--active' : ''}`}
+                    onClick={() => handleModelSelect('assistant')}
+                  >
+                    {getTranslation('assistant', language)}
+                  </button>
+                  <button
+                    className={`header-model-option ${activeTool === 'deepseek-chimera' ? 'header-model-option--active' : ''}`}
+                    onClick={() => handleModelSelect('deepseek-chimera')}
+                  >
+                    {getTranslation('deepseekChimera', language)}
+                  </button>
+                </div>
               )}
-            </button>
-            {isModelSelectorVisible && (
-              <div className="header-model-dropdown">
-                <button
-                  className={`header-model-option ${activeTool === 'assistant' ? 'header-model-option--active' : ''}`}
-                  onClick={() => handleModelSelect('assistant')}
-                >
-                  {getTranslation('assistant', language)}
-                </button>
-                <button
-                  className={`header-model-option ${activeTool === 'deepseek-chimera' ? 'header-model-option--active' : ''}`}
-                  onClick={() => handleModelSelect('deepseek-chimera')}
-                >
-                  {getTranslation('deepseekChimera', language)}
-                </button>
-              </div>
-            )}
-          </div>
+            </div>
+          )}
           {isEditing ? (
             <input
               ref={inputRef}
@@ -206,8 +240,8 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
       <div className="header-right">
-        <button 
-          className="header-notification-btn" 
+        <button
+          className="header-notification-btn"
           title={getTranslation('notifications', language)}
           onClick={() => setShowNotificationPanel(true)}
         >
@@ -241,8 +275,8 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={() => setShowProfileDropdown(!showProfileDropdown)}
             title="User profile"
           >
-          <Icon src={ICONS.user} size="md" />
-        </button>
+            <Icon src={ICONS.user} size="md" />
+          </button>
           {showProfileDropdown && (
             <div className="header-profile-dropdown">
               <button onClick={handleProfileClick}>

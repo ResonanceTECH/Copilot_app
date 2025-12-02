@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { spacesAPI } from '../../utils/api';
 import type { Space, SpaceTag } from '../../types';
@@ -21,6 +21,8 @@ export const SpacesListPage: React.FC = () => {
   const [editSpaceName, setEditSpaceName] = useState('');
   const [editSpaceDescription, setEditSpaceDescription] = useState('');
   const [spaceTags, setSpaceTags] = useState<Map<number, SpaceTag[]>>(new Map());
+  const [openMenuId, setOpenMenuId] = useState<number | null>(null);
+  const menuRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const itemsPerPage = 12;
 
   useEffect(() => {
@@ -29,6 +31,25 @@ export const SpacesListPage: React.FC = () => {
     }
   }, [isAuthenticated, showArchived, currentPage]);
 
+  // Закрытие меню при клике вне его
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (openMenuId !== null) {
+        const menuElement = menuRefs.current.get(openMenuId);
+        if (menuElement && !menuElement.contains(event.target as Node)) {
+          setOpenMenuId(null);
+        }
+      }
+    };
+
+    if (openMenuId !== null) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [openMenuId]);
+
   const loadSpaces = async () => {
     setIsLoading(true);
     try {
@@ -36,7 +57,7 @@ export const SpacesListPage: React.FC = () => {
       const response = await spacesAPI.getSpaces(showArchived, itemsPerPage, offset);
       setSpaces(response.spaces);
       setTotal(response.total);
-      
+
       // Загружаем теги для каждого пространства
       const tagsMap = new Map<number, SpaceTag[]>();
       await Promise.all(
@@ -138,10 +159,10 @@ export const SpacesListPage: React.FC = () => {
 
   return (
     <div className="spaces-list-page">
-      <Header 
+      <Header
         title="Пространства"
         activeTool="assistant"
-        onToolSelect={() => {}}
+        onToolSelect={() => { }}
       />
       <div className="spaces-list-content">
         <div className="spaces-list-header">
@@ -185,8 +206,8 @@ export const SpacesListPage: React.FC = () => {
           <>
             <div className="spaces-grid">
               {spaces.map(space => (
-                <div 
-                  key={space.id} 
+                <div
+                  key={space.id}
                   className={`spaces-grid-card ${space.is_archived ? 'archived' : ''}`}
                   onClick={() => {
                     window.location.href = `/spaces/${space.id}`;
@@ -194,59 +215,75 @@ export const SpacesListPage: React.FC = () => {
                 >
                   <div className="spaces-grid-card-header">
                     <h3 className="spaces-grid-card-title">{space.name}</h3>
-                    <div className="spaces-grid-card-menu">
+                    <div
+                      className="spaces-grid-card-menu"
+                      ref={(el) => {
+                        if (el) {
+                          menuRefs.current.set(space.id, el);
+                        } else {
+                          menuRefs.current.delete(space.id);
+                        }
+                      }}
+                    >
                       <button
                         className="spaces-grid-card-menu-btn"
                         onClick={(e) => {
                           e.stopPropagation();
-                          // Показать меню действий
+                          setOpenMenuId(openMenuId === space.id ? null : space.id);
                         }}
                       >
                         <Icon src={ICONS.more} size="sm" />
                       </button>
-                      <div className="spaces-grid-card-menu-dropdown">
-                    <button onClick={(e) => {
-                      e.stopPropagation();
-                      window.location.href = `/spaces/${space.id}`;
-                    }}>
-                      <Icon src={ICONS.open} size="sm" />
-                      Открыть
-                    </button>
-                        <button onClick={(e) => {
-                          e.stopPropagation();
-                          startEdit(space);
-                        }}>
-                          <Icon src={ICONS.edit} size="sm" />
-                          Редактировать
-                        </button>
-                        {space.is_archived ? (
+                      {openMenuId === space.id && (
+                        <div className="spaces-grid-card-menu-dropdown">
                           <button onClick={(e) => {
                             e.stopPropagation();
-                            handleUnarchiveSpace(space.id);
+                            setOpenMenuId(null);
+                            window.location.href = `/spaces/${space.id}`;
                           }}>
-                            <Icon src={ICONS.archive} size="sm" />
-                            Разархивировать
+                            <Icon src={ICONS.open} size="sm" />
+                            Открыть
                           </button>
-                        ) : (
                           <button onClick={(e) => {
                             e.stopPropagation();
-                            handleArchiveSpace(space.id);
+                            setOpenMenuId(null);
+                            startEdit(space);
                           }}>
-                            <Icon src={ICONS.archive} size="sm" />
-                            Архивировать
+                            <Icon src={ICONS.edit} size="sm" />
+                            Редактировать
                           </button>
-                        )}
-                        <button 
-                          className="danger"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteSpace(space.id);
-                          }}
-                        >
-                          <Icon src={ICONS.trash} size="sm" />
-                          Удалить
-                        </button>
-                      </div>
+                          {space.is_archived ? (
+                            <button onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenMenuId(null);
+                              handleUnarchiveSpace(space.id);
+                            }}>
+                              <Icon src={ICONS.archive} size="sm" />
+                              Разархивировать
+                            </button>
+                          ) : (
+                            <button onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenMenuId(null);
+                              handleArchiveSpace(space.id);
+                            }}>
+                              <Icon src={ICONS.archive} size="sm" />
+                              Архивировать
+                            </button>
+                          )}
+                          <button
+                            className="danger"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenMenuId(null);
+                              handleDeleteSpace(space.id);
+                            }}
+                          >
+                            <Icon src={ICONS.trash} size="sm" />
+                            Удалить
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                   <p className="spaces-grid-card-description">

@@ -156,10 +156,6 @@
   min-width: 180px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   z-index: 1000;
-  display: none;
-}
-
-.spaces-grid-card-menu:hover .spaces-grid-card-menu-dropdown {
   display: block;
 }
 

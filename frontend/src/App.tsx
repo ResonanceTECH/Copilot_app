@@ -7,10 +7,11 @@ import { SpacesListPage } from './pages/SpacesListPage';
 import { SpaceDetailPage } from './pages/SpaceDetailPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { UserProfilePage } from './pages/UserProfilePage/UserProfilePage';
+import { NotFoundPage } from './pages/NotFoundPage';
 
 export const App: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
-  const [currentPage, setCurrentPage] = React.useState<'login' | 'register' | 'assistant' | 'spaces' | 'space-detail' | 'settings' | 'profile'>('login');
+  const [currentPage, setCurrentPage] = React.useState<'login' | 'register' | 'assistant' | 'spaces' | 'space-detail' | 'settings' | 'profile' | 'not-found'>('login');
   const [spaceId, setSpaceId] = React.useState<number | null>(null);
 
   // Определяем текущую страницу из URL
@@ -28,14 +29,16 @@ export const App: React.FC = () => {
         setSpaceId(parseInt(match[1]));
         setCurrentPage('space-detail');
       } else {
-        setCurrentPage('spaces');
+        setCurrentPage('not-found');
       }
     } else if (path === '/spaces') {
       setCurrentPage('spaces');
     } else if (path === '/assistant' || path === '/') {
       setCurrentPage('assistant');
-    } else {
+    } else if (path === '/login') {
       setCurrentPage('login');
+    } else {
+      setCurrentPage('not-found');
     }
   }, []);
 
@@ -57,6 +60,11 @@ export const App: React.FC = () => {
         Загрузка...
       </div>
     );
+  }
+
+  // 404 страница показывается для всех пользователей
+  if (currentPage === 'not-found') {
+    return <NotFoundPage />;
   }
 
   if (!isAuthenticated) {
