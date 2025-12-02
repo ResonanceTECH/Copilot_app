@@ -50,15 +50,15 @@ export const AssistantPage: React.FC = () => {
       const loadChatHistory = async () => {
         // Небольшая задержка, чтобы убедиться, что токен сохранен
         await new Promise(resolve => setTimeout(resolve, 100));
-        
+
         try {
           console.log('[AssistantPage] Загрузка истории чатов...');
           const history = await chatAPI.getHistory();
           console.log('[AssistantPage] Получена история:', history);
           console.log('[AssistantPage] Количество чатов:', history.chats?.length || 0);
-          
+
           const threadsMap = new Map<string, ThreadData>();
-          
+
           if (history.chats && Array.isArray(history.chats)) {
             history.chats.forEach((chat: ChatHistoryItem) => {
               const threadId = `chat-${chat.id}`;
@@ -74,7 +74,7 @@ export const AssistantPage: React.FC = () => {
               });
             });
           }
-          
+
           console.log('[AssistantPage] Создано threads:', threadsMap.size);
           setThreads(threadsMap);
         } catch (error) {
@@ -82,7 +82,7 @@ export const AssistantPage: React.FC = () => {
           // При ошибке 401 не очищаем историю, так как это может быть временная проблема
         }
       };
-      
+
       loadChatHistory();
     } else {
       // Если пользователь не авторизован, очищаем историю
@@ -190,7 +190,7 @@ export const AssistantPage: React.FC = () => {
     setShowSupportPanel(false);
     setActiveThreadId(threadId);
     const threadData = threads.get(threadId);
-    
+
     if (threadData && threadData.chatId) {
       // Загружаем сообщения из API
       try {
@@ -201,10 +201,10 @@ export const AssistantPage: React.FC = () => {
           role: msg.role as 'user' | 'assistant',
           timestamp: new Date(msg.created_at),
         }));
-        
+
         // Обновляем сообщения в состоянии
         setMessages(chatMessages);
-        
+
         // Обновляем сообщения в threads
         setThreads((prev) => {
           const updated = new Map(prev);
@@ -235,16 +235,16 @@ export const AssistantPage: React.FC = () => {
 
     if (!chatId) {
       // Если чат еще не создан на сервере, просто удаляем локально
-    setThreads((prev) => {
-      const updated = new Map(prev);
-      updated.delete(threadId);
-      return updated;
-    });
+      setThreads((prev) => {
+        const updated = new Map(prev);
+        updated.delete(threadId);
+        return updated;
+      });
 
-    if (activeThreadId === threadId) {
-      setActiveThreadId(null);
-      setMessages([]);
-    }
+      if (activeThreadId === threadId) {
+        setActiveThreadId(null);
+        setMessages([]);
+      }
       return;
     }
 
@@ -344,16 +344,16 @@ export const AssistantPage: React.FC = () => {
 
   // Отправить сообщение в конкретный чат
   const handleSendMessageToThread = useCallback(async (
-    threadId: string, 
-    content: string, 
+    threadId: string,
+    content: string,
     isNewThread: boolean
   ) => {
     const threadData = threads.get(threadId);
     const chatId = threadData?.chatId;
-    
+
     // Проверяем, есть ли уже сообщения от ассистента (чтобы не показывать "Поиск..." для первого сообщения)
     const hasAssistantMessages = threadData?.messages.some(msg => msg.role === 'assistant') ?? false;
-    
+
     // Добавляем сообщение пользователя в UI сразу
     const userMessage: ChatMessage = {
       id: `temp-user-${Date.now()}`,
@@ -374,9 +374,9 @@ export const AssistantPage: React.FC = () => {
     setThreads((prev) => {
       const updated = new Map(prev);
       const data = updated.get(threadId);
-      
+
       if (data) {
-        const updatedMessages = loadingMessage 
+        const updatedMessages = loadingMessage
           ? [...data.messages, userMessage, loadingMessage]
           : [...data.messages, userMessage];
         updated.set(threadId, {
@@ -405,26 +405,26 @@ export const AssistantPage: React.FC = () => {
 
       if (response.success && response.response) {
         // Обновляем ID чата если это был новый чат (fallback для старых чатов без chatId)
-        const finalThreadId = (isNewThread && !chatId && response.chat_id) 
+        const finalThreadId = (isNewThread && !chatId && response.chat_id)
           ? (() => {
-              const newThreadId = `chat-${response.chat_id}`;
-              setThreads((prev) => {
-                const updated = new Map(prev);
-                const data = updated.get(threadId);
-                if (data) {
-                  updated.delete(threadId);
-                  updated.set(newThreadId, {
-                    ...data,
-                    chatId: response.chat_id,
-                  });
-                }
-                return updated;
-              });
-              if (activeThreadId === threadId) {
-                setActiveThreadId(newThreadId);
+            const newThreadId = `chat-${response.chat_id}`;
+            setThreads((prev) => {
+              const updated = new Map(prev);
+              const data = updated.get(threadId);
+              if (data) {
+                updated.delete(threadId);
+                updated.set(newThreadId, {
+                  ...data,
+                  chatId: response.chat_id,
+                });
               }
-              return newThreadId;
-            })()
+              return updated;
+            });
+            if (activeThreadId === threadId) {
+              setActiveThreadId(newThreadId);
+            }
+            return newThreadId;
+          })()
           : threadId;
 
         // Добавляем ответ ассистента
@@ -470,7 +470,7 @@ export const AssistantPage: React.FC = () => {
                 role: msg.role as 'user' | 'assistant',
                 timestamp: new Date(msg.created_at),
               }));
-              
+
               setThreads((prev) => {
                 const updated = new Map(prev);
                 const data = updated.get(finalThreadId);
@@ -498,7 +498,7 @@ export const AssistantPage: React.FC = () => {
       }
     } catch (error: any) {
       console.error('Ошибка отправки сообщения:', error);
-      
+
       // Удаляем временное сообщение пользователя и loading при ошибке
       setThreads((prev) => {
         const updated = new Map(prev);
@@ -517,7 +517,7 @@ export const AssistantPage: React.FC = () => {
       setMessages((prev) => prev.filter(
         msg => !msg.id.startsWith('temp-') && !msg.isLoading
       ));
-      
+
       // Показываем сообщение об ошибке
       const errorMessage: ChatMessage = {
         id: `error-${Date.now()}`,
@@ -525,7 +525,7 @@ export const AssistantPage: React.FC = () => {
         role: 'assistant',
         timestamp: new Date(),
       };
-      
+
       setMessages((prev) => [...prev, errorMessage]);
     }
   }, [threads, activeThreadId]);
@@ -610,8 +610,8 @@ export const AssistantPage: React.FC = () => {
         />
       )}
       <div className={`assistant-main ${panelMode === 'bottom' ? 'assistant-main--full-width' : ''} ${isSidebarCollapsed && panelMode === 'sidebar' ? 'assistant-main--sidebar-collapsed' : ''}`}>
-        <Header 
-          title={showSupportPanel ? 'Настройки' : (activeThreadId ? threads.get(activeThreadId)?.thread.title : undefined)}
+        <Header
+          title={showSupportPanel ? 'Поддержка' : (activeThreadId ? threads.get(activeThreadId)?.thread.title : undefined)}
           threadId={activeThreadId}
           onRename={handleThreadRename}
           activeTool={activeTool}
