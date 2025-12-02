@@ -99,8 +99,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const handleRename = (threadId: string) => {
+    const thread = threads.find(t => t.id === threadId);
     setEditingThreadId(threadId);
-    setEditingTitle('');
+    setEditingTitle(thread?.title || '');
   };
 
   const handleRenameSubmit = (e: React.FormEvent, threadId: string) => {
@@ -348,7 +349,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           {thread.is_pinned && (
                             <Icon src={starFilledIcon} size="sm" className="sidebar-thread-pin-icon" />
                           )}
-                          <span className="sidebar-thread-title">{thread.title}</span>
+                          <span
+                            className="sidebar-thread-title"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRename(thread.id);
+                            }}
+                            style={{ cursor: 'pointer' }}
+                          >
+                            {thread.title}
+                          </span>
                           {hoveredThreadId === thread.id && onThreadPin && (
                             <button
                               className="sidebar-thread-star"
