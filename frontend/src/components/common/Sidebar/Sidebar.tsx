@@ -3,6 +3,9 @@ import { Icon } from '../../ui/Icon';
 import { ICONS } from '../../../utils/icons';
 import { ChatThread, Space } from '../../../types';
 import logoIcon from '../../../assets/icons/logo.svg';
+import pinIcon from '../../../assets/icons/pin.svg';
+import starIcon from '../../../assets/icons/star.svg';
+import starFilledIcon from '../../../assets/icons/star-filled.svg';
 import { ThreadContextMenu } from './ThreadContextMenu';
 import { SearchPanel } from '../SearchPanel';
 import { useLanguage } from '../../../contexts/LanguageContext';
@@ -19,6 +22,7 @@ interface SidebarProps {
   onThreadSelect?: (threadId: string) => void;
   onThreadDelete?: (threadId: string) => void;
   onThreadRename?: (threadId: string, newTitle: string) => void;
+  onThreadPin?: (threadId: string) => void;
   onSettingsClick?: () => void;
 }
 
@@ -31,6 +35,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onThreadSelect,
   onThreadDelete,
   onThreadRename,
+  onThreadPin,
   onSettingsClick,
 }) => {
   const [contextMenu, setContextMenu] = useState<{
@@ -42,8 +47,31 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [spaces, setSpaces] = useState<Space[]>([]);
   const [showSpaces, setShowSpaces] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
+  const [hoveredThreadId, setHoveredThreadId] = useState<string | null>(null);
+  const [draggedSpaceId, setDraggedSpaceId] = useState<number | null>(null);
+  const [dragOverPinnedArea, setDragOverPinnedArea] = useState(false);
   const contextMenuRef = useRef<HTMLDivElement>(null);
+  const pinnedAreaRef = useRef<HTMLDivElement>(null);
   const { language } = useLanguage();
+
+  // Загрузить закрепленные пространства из localStorage
+  const loadPinnedSpaces = (): Set<number> => {
+    try {
+      const saved = localStorage.getItem('pinnedSpaces');
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch {
+      return new Set();
+    }
+  };
+
+  // Сохранить закрепленные пространства в localStorage
+  const savePinnedSpaces = (pinnedSet: Set<number>) => {
+    try {
+      localStorage.setItem('pinnedSpaces', JSON.stringify(Array.from(pinnedSet)));
+    } catch (error) {
+      console.error('Ошибка сохранения закрепленных пространств:', error);
+    }
+  };
 
   // Загрузка пространств
   useEffect(() => {
@@ -184,10 +212,100 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       <div className="sidebar-content">
+        {/* Секция закрепленных пространств */}
+        {!isCollapsed && (() => {
+          const pinnedSpaces = loadPinnedSpaces();
+          const pinnedSpacesList = spaces.filter(space => pinnedSpaces.has(space.id));
+
+          // Показываем секцию только если есть закрепленные пространства или идет перетаскивание
+          if (pinnedSpacesList.length === 0 && !dragOverPinnedArea) {
+            return null;
+          }
+
+          return (
+            <div
+              ref={pinnedAreaRef}
+              className={`sidebar-pinned-section ${dragOverPinnedArea ? 'sidebar-pinned-section--drag-over' : ''}`}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragOverPinnedArea(true);
+              }}
+              onDragLeave={(e) => {
+                if (!pinnedAreaRef.current?.contains(e.relatedTarget as Node)) {
+                  setDragOverPinnedArea(false);
+                }
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragOverPinnedArea(false);
+                if (draggedSpaceId !== null) {
+                  const pinnedSpaces = loadPinnedSpaces();
+                  pinnedSpaces.add(draggedSpaceId);
+                  savePinnedSpaces(pinnedSpaces);
+                  setDraggedSpaceId(null);
+                }
+              }}
+            >
+              {pinnedSpacesList.length > 0 && (
+                <div className="sidebar-section">
+                  <div className="sidebar-section-header">
+                    <span className="sidebar-section-title">Закрепленные</span>
+                  </div>
+                  <div className="sidebar-pinned-spaces">
+                    {pinnedSpacesList.map(space => (
+                      <button
+                        key={space.id}
+                        className="sidebar-space-item sidebar-space-item--pinned"
+                        onClick={() => {
+                          window.location.href = `/spaces/${space.id}`;
+                        }}
+                        draggable
+                        onDragStart={(e) => {
+                          setDraggedSpaceId(space.id);
+                          e.dataTransfer.effectAllowed = 'move';
+                        }}
+                        onDragEnd={() => {
+                          setDraggedSpaceId(null);
+                          setDragOverPinnedArea(false);
+                        }}
+                      >
+                        <Icon src={ICONS.flame} size="sm" />
+                        <div className="sidebar-space-content">
+                          <div className="sidebar-space-name">{space.name}</div>
+                          <div className="sidebar-space-meta">
+                            {space.chats_count} чатов • {space.notes_count} файлов
+                          </div>
+                        </div>
+                        <button
+                          className="sidebar-space-unpin-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const pinnedSpaces = loadPinnedSpaces();
+                            pinnedSpaces.delete(space.id);
+                            savePinnedSpaces(pinnedSpaces);
+                          }}
+                          title="Открепить"
+                        >
+                          <Icon src={starFilledIcon} size="sm" className="sidebar-star-icon" />
+                        </button>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {pinnedSpacesList.length === 0 && dragOverPinnedArea && (
+                <div className="sidebar-pinned-drop-zone">
+                  <span>Перетащите пространство сюда</span>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
         <div className="sidebar-section">
           <div className="sidebar-section-header">
             <span className="sidebar-section-title">{getTranslation('chats', language)}</span>
-            <button 
+            <button
               className="sidebar-search-btn"
               onClick={() => setShowSearch(true)}
               title="Поиск"
@@ -206,36 +324,53 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   key={thread.id}
                   className={`sidebar-thread-item ${activeThreadId === thread.id ? 'sidebar-thread-item--active' : ''}`}
                   onClick={() => !editingThreadId && onThreadSelect?.(thread.id)}
+                  onMouseEnter={() => setHoveredThreadId(thread.id)}
+                  onMouseLeave={() => setHoveredThreadId(null)}
                   title={thread.title}
                 >
-                {editingThreadId === thread.id ? (
-                  <input
-                    type="text"
-                    className="sidebar-thread-edit"
-                    value={editingTitle}
-                    onChange={(e) => setEditingTitle(e.target.value)}
-                    onBlur={(e) => handleRenameSubmit(e, thread.id)}
-                    onKeyDown={(e) => handleKeyDown(e, thread.id)}
-                    onClick={(e) => e.stopPropagation()}
-                    autoFocus
-                  />
-                ) : (
-                  <>
-                    {isCollapsed ? (
-                      <Icon src={ICONS.rocket} size="md" />
-                    ) : (
-                      <>
-                        <span className="sidebar-thread-title">{thread.title}</span>
-                        <button
-                          className="sidebar-thread-menu"
-                          onClick={(e) => handleMenuClick(e, thread.id)}
-                        >
-                          <Icon src={ICONS.more} size="sm" />
-                        </button>
-                      </>
-                    )}
-                  </>
-                )}
+                  {editingThreadId === thread.id ? (
+                    <input
+                      type="text"
+                      className="sidebar-thread-edit"
+                      value={editingTitle}
+                      onChange={(e) => setEditingTitle(e.target.value)}
+                      onBlur={(e) => handleRenameSubmit(e, thread.id)}
+                      onKeyDown={(e) => handleKeyDown(e, thread.id)}
+                      onClick={(e) => e.stopPropagation()}
+                      autoFocus
+                    />
+                  ) : (
+                    <>
+                      {isCollapsed ? (
+                        <Icon src={ICONS.rocket} size="md" />
+                      ) : (
+                        <>
+                          {thread.is_pinned && (
+                            <Icon src={starFilledIcon} size="sm" className="sidebar-thread-pin-icon" />
+                          )}
+                          <span className="sidebar-thread-title">{thread.title}</span>
+                          {hoveredThreadId === thread.id && onThreadPin && (
+                            <button
+                              className="sidebar-thread-star"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onThreadPin(thread.id);
+                              }}
+                              title={thread.is_pinned ? getTranslation('unpinThread', language) : getTranslation('pinThread', language)}
+                            >
+                              <Icon src={thread.is_pinned ? starFilledIcon : starIcon} size="sm" className="sidebar-star-icon" />
+                            </button>
+                          )}
+                          <button
+                            className="sidebar-thread-menu"
+                            onClick={(e) => handleMenuClick(e, thread.id)}
+                          >
+                            <Icon src={ICONS.more} size="sm" />
+                          </button>
+                        </>
+                      )}
+                    </>
+                  )}
                 </div>
               ))
             )}
@@ -251,6 +386,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   setContextMenu(null);
                 }}
                 onRename={handleRename}
+                onPin={onThreadPin}
+                isPinned={threads.find(t => t.id === contextMenu.threadId)?.is_pinned || false}
               />
             </div>
           )}
@@ -261,35 +398,53 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="sidebar-footer">
           <div className="sidebar-navigation">
             <div className="sidebar-spaces-section">
-              <button 
+              <button
                 className="sidebar-nav-item"
                 onClick={() => setShowSpaces(!showSpaces)}
               >
                 <Icon src={ICONS.flame} size="md" />
                 <span>{getTranslation('explore', language)}</span>
-                <Icon 
-                  src={ICONS.chevronDown} 
-                  size="sm" 
+                <Icon
+                  src={ICONS.chevronDown}
+                  size="sm"
                   className={showSpaces ? 'sidebar-chevron-open' : 'sidebar-chevron-closed'}
                 />
               </button>
               {showSpaces && (
                 <div className="sidebar-spaces-list">
                   {spaces.length > 0 ? (
-                    spaces.map(space => (
-                      <button
-                        key={space.id}
-                        className="sidebar-space-item"
-                        onClick={() => {
-                          window.location.href = `/spaces`;
-                        }}
-                      >
-                        <div className="sidebar-space-name">{space.name}</div>
-                        <div className="sidebar-space-meta">
-                          {space.chats_count} чатов • {space.notes_count} файлов
-                        </div>
-                      </button>
-                    ))
+                    spaces.map(space => {
+                      const isPinned = loadPinnedSpaces().has(space.id);
+                      return (
+                        <button
+                          key={space.id}
+                          className={`sidebar-space-item ${isPinned ? 'sidebar-space-item--has-pinned' : ''}`}
+                          onClick={() => {
+                            window.location.href = `/spaces/${space.id}`;
+                          }}
+                          draggable
+                          onDragStart={(e) => {
+                            setDraggedSpaceId(space.id);
+                            e.dataTransfer.effectAllowed = 'move';
+                          }}
+                          onDragEnd={() => {
+                            setDraggedSpaceId(null);
+                            setDragOverPinnedArea(false);
+                          }}
+                        >
+                          <Icon src={ICONS.flame} size="sm" />
+                          <div className="sidebar-space-content">
+                            <div className="sidebar-space-name">{space.name}</div>
+                            <div className="sidebar-space-meta">
+                              {space.chats_count} чатов • {space.notes_count} файлов
+                            </div>
+                          </div>
+                          {isPinned && (
+                            <Icon src={starFilledIcon} size="sm" className="sidebar-star-icon" />
+                          )}
+                        </button>
+                      );
+                    })
                   ) : (
                     <div className="sidebar-empty-spaces">
                       <p>Нет пространств</p>
@@ -306,7 +461,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </div>
               )}
             </div>
-            <button 
+            <button
               className="sidebar-nav-item"
               onClick={() => {
                 onSettingsClick?.();

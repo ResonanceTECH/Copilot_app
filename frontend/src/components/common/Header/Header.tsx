@@ -118,31 +118,37 @@ export const Header: React.FC<HeaderProps> = ({
   }, [isEditing]);
 
   // Скрываем селектор модели на страницах пространств и настроек
-  const [currentPath, setCurrentPath] = useState(window.location.pathname);
-
+  const [currentPath, setCurrentPath] = useState(() => window.location.pathname);
+  
   useEffect(() => {
     // Отслеживаем изменения пути
     const updatePath = () => {
       setCurrentPath(window.location.pathname);
     };
-
-    // Обновляем при изменении пути
+    
+    // Обновляем сразу при монтировании
+    updatePath();
+    
+    // Обновляем при изменении пути через popstate
     window.addEventListener('popstate', updatePath);
-
+    
     // Проверяем путь периодически (на случай программной навигации)
     const interval = setInterval(updatePath, 100);
-
+    
     return () => {
       window.removeEventListener('popstate', updatePath);
       clearInterval(interval);
     };
   }, []);
 
-  const isSpacesPage = currentPath === '/spaces' || currentPath.startsWith('/spaces/');
-  const isSettingsPage = currentPath === '/settings' || currentPath.startsWith('/settings');
+  // Проверяем путь напрямую для надежности
+  const path = currentPath || window.location.pathname;
+  const isSpacesPage = path === '/spaces' || path.startsWith('/spaces/');
+  const isSettingsPage = path === '/settings' || path.startsWith('/settings');
   const shouldHideModelSelector = isSpacesPage || isSettingsPage;
 
-  const displayTitle = (title && title.trim()) || (isSettingsPage ? getTranslation('support', language) : getTranslation('thread', language));
+  // Используем переданный title, если он есть, иначе fallback
+  const displayTitle = title || (isSettingsPage ? getTranslation('support', language) : getTranslation('thread', language));
   const currentModelName = activeTool === 'assistant'
     ? getTranslation('assistant', language)
     : getTranslation('deepseekChimera', language);
@@ -178,7 +184,7 @@ export const Header: React.FC<HeaderProps> = ({
     <header className="header">
       <div className="header-left">
         <div className="header-logo-group">
-          {window.location.pathname === '/spaces' && (
+          {path === '/spaces' && (
             <button
               className="header-back-btn"
               onClick={() => {

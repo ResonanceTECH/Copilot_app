@@ -94,14 +94,43 @@ export const AssistantPage: React.FC = () => {
 
   // Удаляем сохранение в localStorage, так как теперь используем API
 
+  // Загрузить состояние закрепления из localStorage
+  const loadPinnedThreads = useCallback((): Set<string> => {
+    try {
+      const saved = localStorage.getItem('pinnedThreads');
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch {
+      return new Set();
+    }
+  }, []);
+
+  // Сохранить состояние закрепления в localStorage
+  const savePinnedThreads = useCallback((pinnedSet: Set<string>) => {
+    try {
+      localStorage.setItem('pinnedThreads', JSON.stringify(Array.from(pinnedSet)));
+    } catch (error) {
+      console.error('Ошибка сохранения закрепленных чатов:', error);
+    }
+  }, []);
+
   // Получить список чатов для отображения
   const getThreadsList = useCallback((): ChatThread[] => {
+    const pinnedThreads = loadPinnedThreads();
     const threadsList = Array.from(threads.values())
-      .map((data) => data.thread)
-      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+      .map((data) => ({
+        ...data.thread,
+        is_pinned: pinnedThreads.has(data.thread.id),
+      }))
+      .sort((a, b) => {
+        // Сначала закрепленные, потом обычные
+        if (a.is_pinned && !b.is_pinned) return -1;
+        if (!a.is_pinned && b.is_pinned) return 1;
+        // Внутри каждой группы сортируем по времени
+        return b.timestamp.getTime() - a.timestamp.getTime();
+      });
     console.log('[AssistantPage] getThreadsList вызван, threads.size:', threads.size, 'threadsList.length:', threadsList.length);
     return threadsList;
-  }, [threads]);
+  }, [threads, loadPinnedThreads]);
 
   // Создать новый чат
   const handleNewThread = useCallback(async () => {
@@ -296,6 +325,22 @@ export const AssistantPage: React.FC = () => {
       });
     }
   }, [language, threads]);
+
+  // Закрепить/открепить чат
+  const handleThreadPin = useCallback((threadId: string) => {
+    const pinnedThreads = loadPinnedThreads();
+    if (pinnedThreads.has(threadId)) {
+      pinnedThreads.delete(threadId);
+    } else {
+      pinnedThreads.add(threadId);
+    }
+    savePinnedThreads(pinnedThreads);
+    // Принудительно обновляем состояние для перерисовки
+    setThreads((prev) => {
+      const updated = new Map(prev);
+      return updated;
+    });
+  }, [loadPinnedThreads, savePinnedThreads]);
 
   // Отправить сообщение в конкретный чат
   const handleSendMessageToThread = useCallback(async (
@@ -560,6 +605,7 @@ export const AssistantPage: React.FC = () => {
           onThreadSelect={handleThreadSelect}
           onThreadDelete={handleThreadDelete}
           onThreadRename={handleThreadRename}
+          onThreadPin={handleThreadPin}
           onSettingsClick={() => setShowSupportPanel(true)}
         />
       )}
