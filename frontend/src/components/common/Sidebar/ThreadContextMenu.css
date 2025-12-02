@@ -33,3 +33,15 @@
   flex: 1;
 }
 
+.thread-context-menu-item--pin {
+  color: var(--color-text);
+}
+
+.thread-context-menu-item--pin:hover {
+  color: var(--color-text);
+}
+
+.thread-context-menu-star-icon {
+  filter: brightness(0) saturate(100%) invert(64%) sepia(94%) saturate(1352%) hue-rotate(100deg) brightness(96%) contrast(87%);
+}
+
