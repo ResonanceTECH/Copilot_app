@@ -415,18 +415,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="sidebar-footer">
           <div className="sidebar-navigation">
             <div className="sidebar-spaces-section">
-              <button
-                className="sidebar-nav-item"
-                onClick={() => setShowSpaces(!showSpaces)}
-              >
-                <Icon src={ICONS.flame} size="md" />
-                <span>{getTranslation('explore', language)}</span>
-                <Icon
-                  src={ICONS.chevronDown}
-                  size="sm"
-                  className={showSpaces ? 'sidebar-chevron-open' : 'sidebar-chevron-closed'}
-                />
-              </button>
+              <div className="sidebar-nav-item">
+                <button
+                  className="sidebar-nav-item-main"
+                  onClick={() => {
+                    // Клик на кнопку - открываем /spaces
+                    window.location.href = '/spaces';
+                  }}
+                >
+                  <Icon src={ICONS.flame} size="md" />
+                  <span>{getTranslation('explore', language)}</span>
+                </button>
+                <button
+                  className="sidebar-chevron-btn"
+                  onClick={() => {
+                    setShowSpaces(!showSpaces);
+                  }}
+                >
+                  <Icon
+                    src={showSpaces ? ICONS.arrowLeft : ICONS.chevronDown}
+                    size="sm"
+                    className="sidebar-chevron-icon"
+                  />
+                </button>
+              </div>
               {showSpaces && (
                 <div className="sidebar-spaces-list">
                   {spaces.length > 0 ? (

@@ -83,15 +83,16 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
 
   const loadData = async () => {
     try {
+      // Всегда загружаем теги для отображения в заголовке
+      const tagsData = await spacesAPI.getSpaceTags(spaceId);
+      setTags(tagsData);
+
       if (activeTab === 'chats') {
         const response = await chatAPI.getHistory(spaceId);
         setChats(response.chats);
       } else if (activeTab === 'notes') {
         const response = await notesAPI.getNotes(spaceId);
         setNotes(response.notes);
-      } else if (activeTab === 'tags') {
-        const tagsData = await spacesAPI.getSpaceTags(spaceId);
-        setTags(tagsData);
       }
     } catch (error) {
       console.error('Ошибка загрузки данных:', error);
@@ -467,6 +468,19 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
               <p className="space-detail-description">
                 {space.description || 'Описание отсутствует'}
               </p>
+              {tags.length > 0 && (
+                <div className="space-detail-header-tags">
+                  {tags.map(tag => (
+                    <span
+                      key={tag.id}
+                      className="space-detail-header-tag"
+                      style={{ backgroundColor: tag.color || '#6366f1' }}
+                    >
+                      {tag.name}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="space-detail-header-actions">
               <button
