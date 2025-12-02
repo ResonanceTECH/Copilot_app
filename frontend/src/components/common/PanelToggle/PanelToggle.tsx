@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Icon } from '../../ui/Icon';
 import { ICONS } from '../../../utils/icons';
+import bottomBarIcon from '../../../assets/icons/bottom-bar.svg';
 import './PanelToggle.css';
 
 interface PanelToggleProps {
@@ -187,7 +188,7 @@ export const PanelToggle: React.FC<PanelToggleProps> = ({
         }}
         title="Нижняя панель"
       >
-        <Icon src={ICONS.settings} size="sm" />
+        <Icon src={bottomBarIcon} size="sm" />
       </button>
     </div>
   );

@@ -31,7 +31,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { language } = useLanguage();
-  
+
   const activeTool = externalActiveTool !== undefined ? externalActiveTool : internalActiveTool;
   const handleToolSelect = (tool: string) => {
     if (onToolSelect) {
@@ -117,6 +117,20 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 ) : (
                   message.content
                 )}
+                {!message.isLoading && message.timestamp && (
+                  <div className="chat-message-timestamp">
+                    {message.timestamp instanceof Date
+                      ? message.timestamp.toLocaleTimeString('ru-RU', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })
+                      : new Date(message.timestamp).toLocaleTimeString('ru-RU', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })
+                    }
+                  </div>
+                )}
               </div>
             </div>
           ))}
@@ -126,41 +140,41 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
       <div className="chat-input-section">
         <div className="chat-input-wrapper">
-        <div className="chat-input-container">
-          <textarea
-            ref={inputRef}
-            className="chat-input"
-            placeholder={getTranslation('startNewThread', language)}
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            rows={1}
-          />
-          <div className="chat-input-actions">
-            <button 
-              className="chat-input-icon-btn" 
-              type="button"
-              onClick={() => setIsNotesPanelVisible(!isNotesPanelVisible)}
-              title="Заметки"
-            >
-              <Icon src={ICONS.note} size="md" />
-            </button>
-            <button className="chat-input-icon-btn" type="button">
-              <Icon src={ICONS.paperclip} size="md" />
-            </button>
-            <button className="chat-input-icon-btn" type="button">
-              <Icon src={ICONS.microphone} size="md" />
-            </button>
-            <button
-              className="chat-input-icon-btn chat-input-send-btn"
-              type="button"
-              onClick={handleSend}
-            >
-              <Icon src={ICONS.send} size="md" />
-            </button>
+          <div className="chat-input-container">
+            <textarea
+              ref={inputRef}
+              className="chat-input"
+              placeholder={getTranslation('startNewThread', language)}
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              rows={1}
+            />
+            <div className="chat-input-actions">
+              <button
+                className="chat-input-icon-btn"
+                type="button"
+                onClick={() => setIsNotesPanelVisible(!isNotesPanelVisible)}
+                title="Заметки"
+              >
+                <Icon src={ICONS.note} size="md" />
+              </button>
+              <button className="chat-input-icon-btn" type="button">
+                <Icon src={ICONS.paperclip} size="md" />
+              </button>
+              <button className="chat-input-icon-btn" type="button">
+                <Icon src={ICONS.microphone} size="md" />
+              </button>
+              <button
+                className="chat-input-icon-btn chat-input-send-btn"
+                type="button"
+                onClick={handleSend}
+              >
+                <Icon src={ICONS.send} size="md" />
+              </button>
+            </div>
           </div>
         </div>
-      </div>
       </div>
       {isNotesPanelVisible && (
         <NotesPanel onClose={() => setIsNotesPanelVisible(false)} />

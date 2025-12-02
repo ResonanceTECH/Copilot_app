@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { spacesAPI, chatAPI } from '../../utils/api';
 import { Header } from '../../components/common/Header';
 import { Icon } from '../../components/ui/Icon';
@@ -61,6 +61,7 @@ export const PublicSpacePage: React.FC<PublicSpacePageProps> = ({ publicToken })
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     loadSpace();
@@ -171,19 +172,19 @@ export const PublicSpacePage: React.FC<PublicSpacePageProps> = ({ publicToken })
       }
 
       const data = await response.json();
-      
+
       if (data.success) {
         setNewMessage('');
-        
+
         // Если был создан новый чат, обновляем список чатов
         if (!selectedChatId) {
           setSelectedChatId(data.chat_id);
           await loadChats();
         }
-        
+
         // Обновляем сообщения
         await loadMessages(data.chat_id);
-        
+
         // Прокручиваем вниз
         setTimeout(() => {
           const messagesContainer = document.querySelector('.public-messages-container');
@@ -205,6 +206,21 @@ export const PublicSpacePage: React.FC<PublicSpacePageProps> = ({ publicToken })
       handleSendMessage();
     }
   };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
+
+  // Автоматическое изменение размера textarea
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.style.height = 'auto';
+      inputRef.current.style.height = `${Math.min(inputRef.current.scrollHeight, 200)}px`;
+    }
+  }, [newMessage]);
 
   if (isLoading) {
     return (
@@ -230,17 +246,23 @@ export const PublicSpacePage: React.FC<PublicSpacePageProps> = ({ publicToken })
       <Header
         title={space.name}
         activeTool="assistant"
-        onToolSelect={() => {}}
+        onToolSelect={() => { }}
       />
-      
+
       <div className="public-space-content">
         <div className="public-space-sidebar">
           <div className="public-space-info">
             <h3>{space.name}</h3>
             {space.description && <p className="public-space-description">{space.description}</p>}
             <div className="public-space-stats">
-              <span>{space.chats_count} чатов</span>
-              <span>{space.notes_count} заметок</span>
+              <div className="public-space-stat-item">
+                <span className="public-space-stat-number">{space.chats_count}</span>
+                <span className="public-space-stat-label">чатов</span>
+              </div>
+              <div className="public-space-stat-item">
+                <span className="public-space-stat-number">{space.notes_count}</span>
+                <span className="public-space-stat-label">заметок</span>
+              </div>
             </div>
           </div>
 
@@ -360,56 +382,90 @@ export const PublicSpacePage: React.FC<PublicSpacePageProps> = ({ publicToken })
                 <div className="public-messages-container">
                   {messages.map((msg) => (
                     <div key={msg.id} className={`public-message ${msg.role}`}>
-                      <div className="message-role">
-                        {msg.role === 'user' ? 'Вы' : 'Ассистент'}
-                      </div>
-                      <div className="message-content">{msg.content}</div>
-                      <div className="message-time">
-                        {new Date(msg.created_at).toLocaleString('ru-RU')}
+                      <div className="public-message-content">
+                        <div>{msg.content}</div>
+                        {msg.created_at && (
+                          <div className="public-message-timestamp">
+                            {new Date(msg.created_at).toLocaleTimeString('ru-RU', {
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
                 </div>
 
-                <div className="public-message-input">
-                  <textarea
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    placeholder="Введите сообщение..."
-                    rows={3}
-                    disabled={isSending}
-                  />
-                  <button
-                    onClick={handleSendMessage}
-                    disabled={!newMessage.trim() || isSending}
-                    className="send-button"
-                  >
-                    {isSending ? 'Отправка...' : 'Отправить'}
-                  </button>
+                <div className="chat-input-section">
+                  <div className="chat-input-wrapper">
+                    <div className="chat-input-container">
+                      <textarea
+                        ref={inputRef}
+                        className="chat-input"
+                        placeholder="Введите сообщение..."
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        rows={1}
+                        disabled={isSending}
+                      />
+                      <div className="chat-input-actions">
+                        <button className="chat-input-icon-btn" type="button">
+                          <Icon src={ICONS.paperclip} size="md" />
+                        </button>
+                        <button className="chat-input-icon-btn" type="button">
+                          <Icon src={ICONS.microphone} size="md" />
+                        </button>
+                        <button
+                          className="chat-input-icon-btn chat-input-send-btn"
+                          type="button"
+                          onClick={handleSendMessage}
+                          disabled={!newMessage.trim() || isSending}
+                        >
+                          <Icon src={ICONS.send} size="md" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </>
             ) : (
               <div className="public-space-welcome">
                 <h2>Добро пожаловать в публичное пространство</h2>
                 <p>Выберите чат из списка слева или начните новый, отправив сообщение ниже.</p>
-                
-                <div className="public-message-input">
-                  <textarea
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    placeholder="Введите сообщение, чтобы начать новый чат..."
-                    rows={3}
-                    disabled={isSending}
-                  />
-                  <button
-                    onClick={handleSendMessage}
-                    disabled={!newMessage.trim() || isSending}
-                    className="send-button"
-                  >
-                    {isSending ? 'Отправка...' : 'Начать чат'}
-                  </button>
+
+                <div className="chat-input-section">
+                  <div className="chat-input-wrapper">
+                    <div className="chat-input-container">
+                      <textarea
+                        ref={inputRef}
+                        className="chat-input"
+                        placeholder="Введите сообщение, чтобы начать новый чат..."
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        rows={1}
+                        disabled={isSending}
+                      />
+                      <div className="chat-input-actions">
+                        <button className="chat-input-icon-btn" type="button">
+                          <Icon src={ICONS.paperclip} size="md" />
+                        </button>
+                        <button className="chat-input-icon-btn" type="button">
+                          <Icon src={ICONS.microphone} size="md" />
+                        </button>
+                        <button
+                          className="chat-input-icon-btn chat-input-send-btn"
+                          type="button"
+                          onClick={handleSendMessage}
+                          disabled={!newMessage.trim() || isSending}
+                        >
+                          <Icon src={ICONS.send} size="md" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             )

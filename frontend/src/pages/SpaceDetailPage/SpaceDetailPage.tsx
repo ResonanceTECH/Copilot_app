@@ -6,6 +6,7 @@ import { Header } from '../../components/common/Header';
 import { Icon } from '../../components/ui/Icon';
 import { ICONS } from '../../utils/icons';
 import { NotFoundPage } from '../NotFoundPage';
+import copyIcon from '../../assets/icons/copy.svg';
 import './SpaceDetailPage.css';
 
 interface SpaceDetailPageProps {
@@ -46,6 +47,9 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
   const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
   const [editNoteTitle, setEditNoteTitle] = useState('');
   const [isUpdatingNote, setIsUpdatingNote] = useState(false);
+  // Состояние для модального окна экспорта
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportUrl, setExportUrl] = useState<string>('');
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -79,15 +83,16 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
 
   const loadData = async () => {
     try {
+      // Всегда загружаем теги для отображения в заголовке
+      const tagsData = await spacesAPI.getSpaceTags(spaceId);
+      setTags(tagsData);
+
       if (activeTab === 'chats') {
         const response = await chatAPI.getHistory(spaceId);
         setChats(response.chats);
       } else if (activeTab === 'notes') {
         const response = await notesAPI.getNotes(spaceId);
         setNotes(response.notes);
-      } else if (activeTab === 'tags') {
-        const tagsData = await spacesAPI.getSpaceTags(spaceId);
-        setTags(tagsData);
       }
     } catch (error) {
       console.error('Ошибка загрузки данных:', error);
@@ -297,19 +302,29 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
 
     try {
       const result = await spacesAPI.exportSpace(spaceId);
-      
+
       // Формируем полную публичную ссылку
       const baseUrl = window.location.origin;
       const fullPublicUrl = `${baseUrl}${result.public_url}`;
-      
+
       // Копируем ссылку в буфер обмена
       await navigator.clipboard.writeText(fullPublicUrl);
-      
-      // Показываем уведомление с ссылкой
-      alert(`Публичная ссылка создана и скопирована в буфер обмена!\n\n${fullPublicUrl}\n\nТеперь любой пользователь может перейти по этой ссылке и писать в чаты этого пространства.`);
+
+      // Показываем модальное окно с ссылкой
+      setExportUrl(fullPublicUrl);
+      setShowExportModal(true);
     } catch (error: any) {
       console.error('Ошибка создания публичной ссылки:', error);
       alert(error.message || 'Ошибка при создании публичной ссылки. Попробуйте позже.');
+    }
+  };
+
+  const handleCopyUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(exportUrl);
+      // Можно показать уведомление об успешном копировании
+    } catch (error) {
+      console.error('Ошибка копирования:', error);
     }
   };
 
@@ -453,6 +468,19 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
               <p className="space-detail-description">
                 {space.description || 'Описание отсутствует'}
               </p>
+              {tags.length > 0 && (
+                <div className="space-detail-header-tags">
+                  {tags.map(tag => (
+                    <span
+                      key={tag.id}
+                      className="space-detail-header-tag"
+                      style={{ backgroundColor: tag.color || '#6366f1' }}
+                    >
+                      {tag.name}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="space-detail-header-actions">
               <button
@@ -1013,6 +1041,49 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Модальное окно экспорта */}
+      {showExportModal && (
+        <div className="export-modal-overlay" onClick={() => setShowExportModal(false)}>
+          <div className="export-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="export-modal-header">
+              <div className="export-modal-icon">
+                <Icon src={ICONS.cloud} size="lg" />
+              </div>
+              <h2 className="export-modal-title">Публичная ссылка создана</h2>
+              <p className="export-modal-subtitle">Ссылка скопирована в буфер обмена</p>
+            </div>
+
+            <div className="export-modal-content">
+              <p className="export-modal-description">
+                Теперь любой пользователь может перейти по этой ссылке и писать в чаты этого пространства.
+              </p>
+
+              <div className="export-modal-url-container">
+                <div className="export-modal-url">
+                  <span className="export-modal-url-text">{exportUrl}</span>
+                </div>
+                <button
+                  className="export-modal-copy-btn"
+                  onClick={handleCopyUrl}
+                  title="Скопировать ссылку"
+                >
+                  <Icon src={copyIcon} size="sm" />
+                </button>
+              </div>
+            </div>
+
+            <div className="export-modal-actions">
+              <button
+                className="export-modal-ok-btn"
+                onClick={() => setShowExportModal(false)}
+              >
+                OK
+              </button>
+            </div>
           </div>
         </div>
       )}

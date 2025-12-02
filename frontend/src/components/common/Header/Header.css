@@ -152,7 +152,7 @@
 }
 
 .header-title-btn:hover {
-  background: var(--color-hover);
+  background: transparent;
 }
 
 .header-title {

@@ -119,22 +119,22 @@ export const Header: React.FC<HeaderProps> = ({
 
   // Скрываем селектор модели на страницах пространств и настроек
   const [currentPath, setCurrentPath] = useState(() => window.location.pathname);
-  
+
   useEffect(() => {
     // Отслеживаем изменения пути
     const updatePath = () => {
       setCurrentPath(window.location.pathname);
     };
-    
+
     // Обновляем сразу при монтировании
     updatePath();
-    
+
     // Обновляем при изменении пути через popstate
     window.addEventListener('popstate', updatePath);
-    
+
     // Проверяем путь периодически (на случай программной навигации)
     const interval = setInterval(updatePath, 100);
-    
+
     return () => {
       window.removeEventListener('popstate', updatePath);
       clearInterval(interval);
@@ -145,7 +145,9 @@ export const Header: React.FC<HeaderProps> = ({
   const path = currentPath || window.location.pathname;
   const isSpacesPage = path === '/spaces' || path.startsWith('/spaces/');
   const isSettingsPage = path === '/settings' || path.startsWith('/settings');
-  const shouldHideModelSelector = isSpacesPage || isSettingsPage;
+  // Скрываем селектор модели на страницах пространств, настроек и в панели поддержки
+  const isSupportPanel = title === 'Поддержка' || title === getTranslation('support', language);
+  const shouldHideModelSelector = isSpacesPage || isSettingsPage || isSupportPanel;
 
   // Используем переданный title, если он есть, иначе fallback
   const displayTitle = title || (isSettingsPage ? getTranslation('support', language) : getTranslation('thread', language));
@@ -240,7 +242,6 @@ export const Header: React.FC<HeaderProps> = ({
           ) : (
             <button className="header-title-btn" onClick={handleTitleClick}>
               <span className="header-title">{displayTitle}</span>
-              <Icon src={ICONS.chevronDown} size="sm" />
             </button>
           )}
         </div>
