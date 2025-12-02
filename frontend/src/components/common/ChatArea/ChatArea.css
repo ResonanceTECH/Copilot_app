@@ -200,6 +200,21 @@
   color: var(--color-text-secondary);
 }
 
+.chat-message-timestamp {
+  font-size: 11px;
+  margin-top: 8px;
+  opacity: 0.7;
+  text-align: right;
+}
+
+.chat-message--user .chat-message-timestamp {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.chat-message--assistant .chat-message-timestamp {
+  color: var(--color-text-secondary);
+}
+
 /* Стили для Markdown в сообщениях ассистента */
 .chat-message--assistant .chat-message-content {
   word-wrap: break-word;
