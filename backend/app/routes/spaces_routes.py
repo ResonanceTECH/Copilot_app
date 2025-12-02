@@ -6,6 +6,7 @@ from sqlalchemy import desc
 import json
 import zipfile
 import io
+import secrets
 from datetime import datetime
 
 from backend.app.database.connection import get_db
@@ -655,10 +656,77 @@ async def delete_tag(
     return None
 
 
-# ========== Экспорт/импорт пространств ==========
+# ========== Публичные ссылки на пространства ==========
 
-@router.post("/{space_id}/export")
-async def export_space(
+class PublicLinkResponse(BaseModel):
+    public_token: str
+    public_url: str
+    is_public: bool
+
+@router.post("/{space_id}/export", response_model=PublicLinkResponse)
+async def create_public_link(
+    space_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Создать публичную ссылку на пространство"""
+    space = db.query(Space).filter(
+        Space.id == space_id,
+        Space.user_id == current_user.id
+    ).first()
+    
+    if not space:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Пространство не найдено"
+        )
+    
+    # Генерируем токен, если его еще нет
+    if not space.public_token:
+        space.public_token = secrets.token_urlsafe(32)
+    
+    space.is_public = True
+    db.commit()
+    db.refresh(space)
+    
+    # Формируем публичную ссылку (относительный путь, фронтенд добавит домен)
+    public_url = f"/public/spaces/{space.public_token}"
+    
+    return PublicLinkResponse(
+        public_token=space.public_token,
+        public_url=public_url,
+        is_public=space.is_public
+    )
+
+@router.delete("/{space_id}/export", status_code=status.HTTP_204_NO_CONTENT)
+async def revoke_public_link(
+    space_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Отозвать публичную ссылку на пространство"""
+    space = db.query(Space).filter(
+        Space.id == space_id,
+        Space.user_id == current_user.id
+    ).first()
+    
+    if not space:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Пространство не найдено"
+        )
+    
+    space.is_public = False
+    space.public_token = None
+    db.commit()
+    
+    return None
+
+
+# ========== Экспорт/импорт пространств (старый функционал) ==========
+
+@router.post("/{space_id}/export/download")
+async def export_space_download(
     space_id: int,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
