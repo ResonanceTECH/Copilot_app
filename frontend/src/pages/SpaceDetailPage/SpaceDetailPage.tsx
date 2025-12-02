@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { spacesAPI, chatAPI, notesAPI, type ChatHistoryItem } from '../../utils/api';
+import { spacesAPI, chatAPI, notesAPI, type ChatHistoryItem, ApiErrorWithStatus } from '../../utils/api';
 import type { Space, NotePreview, SpaceTag } from '../../types';
 import { Header } from '../../components/common/Header';
 import { Icon } from '../../components/ui/Icon';
 import { ICONS } from '../../utils/icons';
+import { NotFoundPage } from '../NotFoundPage';
 import './SpaceDetailPage.css';
 
 interface SpaceDetailPageProps {
@@ -54,8 +55,11 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
   }, [isAuthenticated, spaceId, activeTab]);
 
 
+  const [isNotFound, setIsNotFound] = useState(false);
+
   const loadSpace = async () => {
     setIsLoading(true);
+    setIsNotFound(false);
     try {
       const spaceData = await spacesAPI.getSpace(spaceId);
       setSpace(spaceData);
@@ -63,8 +67,11 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
       setEditDescription(spaceData.description || '');
     } catch (error: any) {
       console.error('Ошибка загрузки пространства:', error);
-      // Ошибка уже обработана в компоненте через проверку !space
-      setSpace(null);
+      if (error instanceof ApiErrorWithStatus && error.status === 404) {
+        setIsNotFound(true);
+      } else {
+        setSpace(null);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -218,7 +225,7 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
 
   const handleSaveChatTitle = async (chatId: number, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    
+
     if (!editChatTitle.trim()) {
       alert('Название чата не может быть пустым');
       return;
@@ -264,7 +271,7 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
 
   const handleSaveNoteTitle = async (noteId: number, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    
+
     if (!editNoteTitle.trim()) {
       alert('Название заметки не может быть пустым');
       return;
@@ -411,6 +418,10 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
 
   if (!isAuthenticated) {
     return <div>Пожалуйста, войдите в систему</div>;
+  }
+
+  if (isNotFound) {
+    return <NotFoundPage />;
   }
 
   if (isLoading && !space) {
