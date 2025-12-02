@@ -140,8 +140,9 @@ export const SpacesListPage: React.FC = () => {
     try {
       await spacesAPI.deleteSpace(spaceId);
       loadSpaces();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Ошибка удаления пространства:', error);
+      alert(error.message || 'Ошибка при удалении пространства. Попробуйте позже.');
     }
   };
 
