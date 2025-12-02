@@ -194,8 +194,9 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
     try {
       await spacesAPI.deleteSpace(space.id);
       window.location.href = '/spaces';
-    } catch (error) {
+    } catch (error: any) {
       console.error('Ошибка удаления пространства:', error);
+      alert(error.message || 'Ошибка при удалении пространства. Попробуйте позже.');
     }
   };
 

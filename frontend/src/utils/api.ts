@@ -345,8 +345,6 @@ export const chatAPI = {
 import type { Space, SpaceCreateRequest, SpaceUpdateRequest, Note, NotePreview, NoteCreateRequest, NoteUpdateRequest, SpaceTag, SpaceTagCreateRequest, SpaceTagUpdateRequest, SpaceChat, SupportFeedback, SupportFeedbackRequest, SupportArticle, SupportArticlesResponse, SearchResults, SearchRequest, NotificationSettingsResponse, NotificationSettingsRequest, Notification, NotificationListResponse, UserProfile, UserProfileUpdate } from '../types';
 
 // Имитация задержки сети для mock методов
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
 export const spacesAPI = {
   // Получить список пространств
   getSpaces: async (includeArchived = false, limit = 50, offset = 0): Promise<{ spaces: Space[]; total: number }> => {
@@ -398,29 +396,9 @@ export const spacesAPI = {
 
   // Удалить пространство
   deleteSpace: async (spaceId: number): Promise<void> => {
-    await delay(300);
-
-    const savedSpaces = localStorage.getItem('spaces');
-    const spaces: Space[] = savedSpaces ? JSON.parse(savedSpaces) : [];
-    const filtered = spaces.filter(s => s.id !== spaceId);
-
-    localStorage.setItem('spaces', JSON.stringify(filtered));
-
-    // Также удаляем связанные чаты и файлы
-    const savedChats = localStorage.getItem('space_chats');
-    const savedFiles = localStorage.getItem('space_files');
-
-    if (savedChats) {
-      const chats: Record<number, any[]> = JSON.parse(savedChats);
-      delete chats[spaceId];
-      localStorage.setItem('space_chats', JSON.stringify(chats));
-    }
-
-    if (savedFiles) {
-      const files: Record<number, any[]> = JSON.parse(savedFiles);
-      delete files[spaceId];
-      localStorage.setItem('space_files', JSON.stringify(files));
-    }
+    return apiRequest<void>(`/spaces/${spaceId}`, {
+      method: 'DELETE',
+    });
   },
 
   // Архивировать пространство
