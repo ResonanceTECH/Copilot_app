@@ -468,45 +468,11 @@ export const spacesAPI = {
     });
   },
 
-  // Экспорт пространства в ZIP архив
-  exportSpace: async (spaceId: number): Promise<{ blob: Blob; filename: string }> => {
-    const token = getAccessToken();
-    const headers: Record<string, string> = {};
-
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    const response = await fetch(`${API_BASE_URL}/spaces/${spaceId}/export`, {
+  // Создать публичную ссылку на пространство
+  exportSpace: async (spaceId: number): Promise<{ public_token: string; public_url: string; is_public: boolean }> => {
+    return apiRequest<{ public_token: string; public_url: string; is_public: boolean }>(`/spaces/${spaceId}/export`, {
       method: 'POST',
-      headers,
     });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      let errorMessage = 'Ошибка при экспорте пространства';
-      try {
-        const errorData = JSON.parse(errorText);
-        errorMessage = errorData.detail || errorData.message || errorMessage;
-      } catch {
-        errorMessage = response.statusText || errorMessage;
-      }
-      throw new Error(errorMessage);
-    }
-
-    // Получаем имя файла из заголовка Content-Disposition
-    const contentDisposition = response.headers.get('Content-Disposition');
-    let filename = `space_${spaceId}_export.zip`;
-
-    if (contentDisposition) {
-      const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
-      if (filenameMatch && filenameMatch[1]) {
-        filename = filenameMatch[1].replace(/['"]/g, '');
-      }
-    }
-
-    const blob = await response.blob();
-    return { blob, filename };
   },
 };
 

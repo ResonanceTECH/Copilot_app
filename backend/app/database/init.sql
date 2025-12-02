@@ -25,6 +25,8 @@ CREATE TABLE IF NOT EXISTS spaces (
     name VARCHAR(255) NOT NULL,
     description TEXT,
     is_archived BOOLEAN DEFAULT FALSE,
+    is_public BOOLEAN DEFAULT FALSE,
+    public_token VARCHAR(64) UNIQUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_spaces_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -33,6 +35,8 @@ CREATE TABLE IF NOT EXISTS spaces (
 -- Создание индексов для spaces
 CREATE INDEX IF NOT EXISTS idx_spaces_user_id ON spaces(user_id);
 CREATE INDEX IF NOT EXISTS idx_spaces_is_archived ON spaces(is_archived);
+CREATE INDEX IF NOT EXISTS idx_spaces_is_public ON spaces(is_public);
+CREATE INDEX IF NOT EXISTS idx_spaces_public_token ON spaces(public_token);
 
 -- Создание таблицы chats (чаты)
 CREATE TABLE IF NOT EXISTS chats (
@@ -214,4 +218,40 @@ CREATE TRIGGER update_support_articles_updated_at
     BEFORE UPDATE ON support_articles
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
+
+-- Миграция: добавление полей для публичного доступа к пространствам
+-- Безопасное добавление колонок (игнорирует ошибки если колонки уже существуют)
+DO $$
+BEGIN
+    -- Добавляем is_public если не существует
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'spaces' AND column_name = 'is_public'
+    ) THEN
+        ALTER TABLE spaces ADD COLUMN is_public BOOLEAN DEFAULT FALSE;
+    END IF;
+    
+    -- Добавляем public_token если не существует
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'spaces' AND column_name = 'public_token'
+    ) THEN
+        ALTER TABLE spaces ADD COLUMN public_token VARCHAR(64) UNIQUE;
+    END IF;
+    
+    -- Создаем индексы если не существуют
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_indexes 
+        WHERE tablename = 'spaces' AND indexname = 'idx_spaces_is_public'
+    ) THEN
+        CREATE INDEX idx_spaces_is_public ON spaces(is_public);
+    END IF;
+    
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_indexes 
+        WHERE tablename = 'spaces' AND indexname = 'idx_spaces_public_token'
+    ) THEN
+        CREATE INDEX idx_spaces_public_token ON spaces(public_token);
+    END IF;
+END $$;
 

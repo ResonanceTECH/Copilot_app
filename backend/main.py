@@ -41,6 +41,7 @@ try:
     from backend.app.routes.spaces_routes import router as spaces_router
     from backend.app.routes.search_routes import router as search_router
     from backend.app.routes.notification_routes import router as notification_router
+    from backend.app.routes.public_routes import router as public_router
     
     app.include_router(chat_router, prefix="/api", tags=["chat"])
     app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
@@ -50,6 +51,7 @@ try:
     app.include_router(spaces_router, prefix="/api/spaces", tags=["spaces"])
     app.include_router(search_router, prefix="/api/search", tags=["search"])
     app.include_router(notification_router, prefix="/api/notifications", tags=["notifications"])
+    app.include_router(public_router, prefix="/api/public", tags=["public"])
     
     print("✅ Роуты успешно подключены с префиксом /api")
 except Exception as e:

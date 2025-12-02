@@ -8,16 +8,26 @@ import { SpaceDetailPage } from './pages/SpaceDetailPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { UserProfilePage } from './pages/UserProfilePage/UserProfilePage';
 import { NotFoundPage } from './pages/NotFoundPage';
+import { PublicSpacePage } from './pages/PublicSpacePage';
 
 export const App: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
-  const [currentPage, setCurrentPage] = React.useState<'login' | 'register' | 'assistant' | 'spaces' | 'space-detail' | 'settings' | 'profile' | 'not-found'>('login');
+  const [currentPage, setCurrentPage] = React.useState<'login' | 'register' | 'assistant' | 'spaces' | 'space-detail' | 'settings' | 'profile' | 'public-space' | 'not-found'>('login');
   const [spaceId, setSpaceId] = React.useState<number | null>(null);
+  const [publicToken, setPublicToken] = React.useState<string | null>(null);
 
   // Определяем текущую страницу из URL
   React.useEffect(() => {
     const path = window.location.pathname;
-    if (path === '/register') {
+    if (path.startsWith('/public/spaces/')) {
+      const match = path.match(/^\/public\/spaces\/(.+)$/);
+      if (match) {
+        setPublicToken(match[1]);
+        setCurrentPage('public-space');
+      } else {
+        setCurrentPage('not-found');
+      }
+    } else if (path === '/register') {
       setCurrentPage('register');
     } else if (path === '/settings') {
       setCurrentPage('settings');
@@ -60,6 +70,11 @@ export const App: React.FC = () => {
         Загрузка...
       </div>
     );
+  }
+
+  // Публичное пространство доступно без авторизации
+  if (currentPage === 'public-space' && publicToken) {
+    return <PublicSpacePage publicToken={publicToken} />;
   }
 
   // 404 страница показывается для всех пользователей
