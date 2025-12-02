@@ -275,6 +275,13 @@ async def delete_space(
             detail="Пространство не найдено"
         )
     
+    # Проверяем, что это не главное пространство
+    if space.name == "Моё рабочее пространство":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Невозможно удалить главное пространство"
+        )
+    
     db.delete(space)
     db.commit()
     
