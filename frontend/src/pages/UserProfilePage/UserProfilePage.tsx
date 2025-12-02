@@ -16,6 +16,7 @@ export const UserProfilePage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [activeSection, setActiveSection] = useState<'account' | 'settings'>('account');
   
   // Форма редактирования
   const [formData, setFormData] = useState<UserProfileUpdate>({
@@ -23,6 +24,14 @@ export const UserProfilePage: React.FC = () => {
     phone: '',
     company_name: '',
     avatar_url: null,
+  });
+  
+  // Настройки
+  const [settings, setSettings] = useState({
+    notifications: true,
+    emailNotifications: true,
+    language: language,
+    theme: 'dark',
   });
 
   useEffect(() => {
@@ -148,128 +157,223 @@ export const UserProfilePage: React.FC = () => {
             <Icon src={ICONS.arrowLeft} size="sm" />
             {getTranslation('backToChat', language)}
           </button>
-          <h1 className="user-profile-title">{getTranslation('profile', language)}</h1>
           
-          <div className="user-profile-section">
-            <div className="user-profile-avatar-section">
-              {profile.avatar_url ? (
-                <img 
-                  src={profile.avatar_url} 
-                  alt={profile.name}
-                  className="user-profile-avatar"
-                />
-              ) : (
-                <div className="user-profile-avatar-placeholder">
-                  <Icon src={ICONS.user} size="lg" />
-                </div>
-              )}
-            </div>
-
-            <div className="user-profile-info">
-              <div className="user-profile-field">
-                <label className="user-profile-label">
-                  {getTranslation('email', language)}
-                </label>
-                <div className="user-profile-value user-profile-value-readonly">
-                  {profile.email}
-                </div>
-              </div>
-
-              <div className="user-profile-field">
-                <label className="user-profile-label">
-                  {getTranslation('name', language)}
-                </label>
-                {isEditing ? (
-                  <input
-                    type="text"
-                    className="user-profile-input"
-                    value={formData.name || ''}
-                    onChange={(e) => handleInputChange('name', e.target.value)}
-                    placeholder={getTranslation('name', language)}
-                  />
-                ) : (
-                  <div className="user-profile-value">
-                    {profile.name}
-                  </div>
-                )}
-              </div>
-
-              <div className="user-profile-field">
-                <label className="user-profile-label">
-                  {getTranslation('phone', language)}
-                </label>
-                {isEditing ? (
-                  <input
-                    type="tel"
-                    className="user-profile-input"
-                    value={formData.phone || ''}
-                    onChange={(e) => handleInputChange('phone', e.target.value)}
-                    placeholder={getTranslation('phone', language)}
-                  />
-                ) : (
-                  <div className="user-profile-value">
-                    {profile.phone || '-'}
-                  </div>
-                )}
-              </div>
-
-              <div className="user-profile-field">
-                <label className="user-profile-label">
-                  {getTranslation('company', language)}
-                </label>
-                {isEditing ? (
-                  <input
-                    type="text"
-                    className="user-profile-input"
-                    value={formData.company_name || ''}
-                    onChange={(e) => handleInputChange('company_name', e.target.value)}
-                    placeholder={getTranslation('company', language)}
-                  />
-                ) : (
-                  <div className="user-profile-value">
-                    {profile.company_name || '-'}
-                  </div>
-                )}
-              </div>
-
-              <div className="user-profile-field">
-                <label className="user-profile-label">
-                  {getTranslation('registrationDate', language)}
-                </label>
-                <div className="user-profile-value user-profile-value-readonly">
-                  {formatDate(profile.created_at)}
-                </div>
-              </div>
-            </div>
-
-            <div className="user-profile-actions">
-              {isEditing ? (
-                <>
-                  <button
-                    className="user-profile-btn user-profile-btn-secondary"
-                    onClick={handleCancel}
-                    disabled={isSaving}
-                  >
-                    {getTranslation('cancel', language)}
-                  </button>
-                  <button
-                    className="user-profile-btn user-profile-btn-primary"
-                    onClick={handleSave}
-                    disabled={isSaving}
-                  >
-                    {isSaving ? getTranslation('saving', language) : getTranslation('save', language)}
-                  </button>
-                </>
-              ) : (
-                <button
-                  className="user-profile-btn user-profile-btn-primary"
-                  onClick={handleEdit}
-                >
-                  {getTranslation('editProfile', language)}
-                </button>
-              )}
-            </div>
+          <div className="user-profile-tabs">
+            <button
+              className={`user-profile-tab ${activeSection === 'account' ? 'active' : ''}`}
+              onClick={() => setActiveSection('account')}
+            >
+              Аккаунт
+            </button>
+            <button
+              className={`user-profile-tab ${activeSection === 'settings' ? 'active' : ''}`}
+              onClick={() => setActiveSection('settings')}
+            >
+              Настройки
+            </button>
           </div>
+
+          {activeSection === 'account' && (
+            <div className="user-profile-section">
+              <h2 className="user-profile-section-title">Аккаунт</h2>
+              
+              <div className="user-profile-account-header">
+                <div className="user-profile-avatar-section">
+                  {profile.avatar_url ? (
+                    <img 
+                      src={profile.avatar_url} 
+                      alt={profile.name}
+                      className="user-profile-avatar"
+                    />
+                  ) : (
+                    <div className="user-profile-avatar-placeholder">
+                      <Icon src={ICONS.user} size="lg" />
+                    </div>
+                  )}
+                </div>
+                <div className="user-profile-account-info">
+                  <div className="user-profile-account-name">{profile.name}</div>
+                  <div className="user-profile-account-email">{profile.email}</div>
+                </div>
+              </div>
+
+              <div className="user-profile-account-details">
+                <div className="user-profile-account-item">
+                  <div className="user-profile-account-item-label">Полное имя</div>
+                  <div className="user-profile-account-item-value">
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        className="user-profile-inline-input"
+                        value={formData.name || ''}
+                        onChange={(e) => handleInputChange('name', e.target.value)}
+                        placeholder={getTranslation('name', language)}
+                      />
+                    ) : (
+                      <span>{profile.name}</span>
+                    )}
+                  </div>
+                  {!isEditing && (
+                    <button
+                      className="user-profile-account-item-btn"
+                      onClick={handleEdit}
+                    >
+                      Изменить полное имя
+                    </button>
+                  )}
+                </div>
+
+                <div className="user-profile-account-item">
+                  <div className="user-profile-account-item-label">Имя пользователя</div>
+                  <div className="user-profile-account-item-value">
+                    <span>{profile.email.split('@')[0]}</span>
+                  </div>
+                  <button
+                    className="user-profile-account-item-btn"
+                    disabled
+                    title="Изменение имени пользователя недоступно"
+                  >
+                    Изменить имя пользователя
+                  </button>
+                </div>
+
+                <div className="user-profile-account-item">
+                  <div className="user-profile-account-item-label">Электронная почта</div>
+                  <div className="user-profile-account-item-value">
+                    <span>{profile.email}</span>
+                  </div>
+                </div>
+
+                {isEditing && (
+                  <>
+                    <div className="user-profile-account-item">
+                      <div className="user-profile-account-item-label">
+                        {getTranslation('phone', language)}
+                      </div>
+                      <div className="user-profile-account-item-value">
+                        <input
+                          type="tel"
+                          className="user-profile-inline-input"
+                          value={formData.phone || ''}
+                          onChange={(e) => handleInputChange('phone', e.target.value)}
+                          placeholder={getTranslation('phone', language)}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="user-profile-account-item">
+                      <div className="user-profile-account-item-label">
+                        {getTranslation('company', language)}
+                      </div>
+                      <div className="user-profile-account-item-value">
+                        <input
+                          type="text"
+                          className="user-profile-inline-input"
+                          value={formData.company_name || ''}
+                          onChange={(e) => handleInputChange('company_name', e.target.value)}
+                          placeholder={getTranslation('company', language)}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="user-profile-account-actions">
+                      <button
+                        className="user-profile-btn user-profile-btn-secondary"
+                        onClick={handleCancel}
+                        disabled={isSaving}
+                      >
+                        {getTranslation('cancel', language)}
+                      </button>
+                      <button
+                        className="user-profile-btn user-profile-btn-primary"
+                        onClick={handleSave}
+                        disabled={isSaving}
+                      >
+                        {isSaving ? getTranslation('saving', language) : getTranslation('save', language)}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+          {activeSection === 'settings' && (
+            <div className="user-profile-section">
+              <h2 className="user-profile-section-title">Настройки</h2>
+              
+              <div className="user-profile-settings-list">
+                <div className="user-profile-setting-item">
+                  <div className="user-profile-setting-info">
+                    <div className="user-profile-setting-label">Уведомления</div>
+                    <div className="user-profile-setting-description">
+                      Получать уведомления о новых сообщениях и событиях
+                    </div>
+                  </div>
+                  <label className="user-profile-setting-toggle">
+                    <input
+                      type="checkbox"
+                      checked={settings.notifications}
+                      onChange={(e) => setSettings(prev => ({ ...prev, notifications: e.target.checked }))}
+                    />
+                    <span className="user-profile-setting-toggle-slider"></span>
+                  </label>
+                </div>
+
+                <div className="user-profile-setting-item">
+                  <div className="user-profile-setting-info">
+                    <div className="user-profile-setting-label">Email уведомления</div>
+                    <div className="user-profile-setting-description">
+                      Получать уведомления на электронную почту
+                    </div>
+                  </div>
+                  <label className="user-profile-setting-toggle">
+                    <input
+                      type="checkbox"
+                      checked={settings.emailNotifications}
+                      onChange={(e) => setSettings(prev => ({ ...prev, emailNotifications: e.target.checked }))}
+                      disabled={!settings.notifications}
+                    />
+                    <span className="user-profile-setting-toggle-slider"></span>
+                  </label>
+                </div>
+
+                <div className="user-profile-setting-item">
+                  <div className="user-profile-setting-info">
+                    <div className="user-profile-setting-label">Язык интерфейса</div>
+                    <div className="user-profile-setting-description">
+                      Выберите язык интерфейса приложения
+                    </div>
+                  </div>
+                  <select
+                    className="user-profile-setting-select"
+                    value={settings.language}
+                    onChange={(e) => setSettings(prev => ({ ...prev, language: e.target.value }))}
+                  >
+                    <option value="ru">Русский</option>
+                    <option value="en">English</option>
+                  </select>
+                </div>
+
+                <div className="user-profile-setting-item">
+                  <div className="user-profile-setting-info">
+                    <div className="user-profile-setting-label">Тема оформления</div>
+                    <div className="user-profile-setting-description">
+                      Выберите тему оформления интерфейса
+                    </div>
+                  </div>
+                  <select
+                    className="user-profile-setting-select"
+                    value={settings.theme}
+                    onChange={(e) => setSettings(prev => ({ ...prev, theme: e.target.value }))}
+                  >
+                    <option value="dark">Темная</option>
+                    <option value="light">Светлая</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

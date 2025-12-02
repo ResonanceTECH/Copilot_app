@@ -77,10 +77,10 @@ export const SettingsPage: React.FC = () => {
 
   return (
     <div className="settings-page">
-      <Header 
-        title="Настройки"
+      <Header
+        title="Поддержка"
         activeTool="assistant"
-        onToolSelect={() => {}}
+        onToolSelect={() => { }}
       />
       <div className="settings-content">
         <div className="settings-section">

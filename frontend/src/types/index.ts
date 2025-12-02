@@ -46,6 +46,7 @@ export interface ChatThread {
   title: string;
   lastMessage?: string;
   timestamp: Date;
+  is_pinned?: boolean;
 }
 
 export interface Space {

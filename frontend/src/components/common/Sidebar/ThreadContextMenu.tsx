@@ -3,6 +3,8 @@ import { Icon } from '../../ui/Icon';
 import { ICONS } from '../../../utils/icons';
 import { useLanguage } from '../../../contexts/LanguageContext';
 import { getTranslation } from '../../../utils/i18n';
+import starIcon from '../../../assets/icons/star.svg';
+import starFilledIcon from '../../../assets/icons/star-filled.svg';
 import './ThreadContextMenu.css';
 
 interface ThreadContextMenuProps {
@@ -11,6 +13,8 @@ interface ThreadContextMenuProps {
   onClose: () => void;
   onDelete: (threadId: string) => void;
   onRename: (threadId: string) => void;
+  onPin?: (threadId: string) => void;
+  isPinned?: boolean;
 }
 
 export const ThreadContextMenu: React.FC<ThreadContextMenuProps> = ({
@@ -19,6 +23,8 @@ export const ThreadContextMenu: React.FC<ThreadContextMenuProps> = ({
   onClose,
   onDelete,
   onRename,
+  onPin,
+  isPinned = false,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
   const { language } = useLanguage();
@@ -57,6 +63,14 @@ export const ThreadContextMenu: React.FC<ThreadContextMenuProps> = ({
     onClose();
   };
 
+  const handlePin = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onPin) {
+      onPin(threadId);
+    }
+    onClose();
+  };
+
   return (
     <div
       ref={menuRef}
@@ -67,13 +81,19 @@ export const ThreadContextMenu: React.FC<ThreadContextMenuProps> = ({
         top: `${position.y}px`,
       }}
     >
-      <button className="thread-context-menu-item" onClick={handleDelete}>
-        <Icon src={ICONS.trash} size="sm" />
-        <span>{getTranslation('deleteThread', language)}</span>
-      </button>
+      {onPin && (
+        <button className="thread-context-menu-item thread-context-menu-item--pin" onClick={handlePin}>
+          <Icon src={isPinned ? starFilledIcon : starIcon} size="sm" className="thread-context-menu-star-icon" />
+          <span>{getTranslation(isPinned ? 'unpinThread' : 'pinThread', language)}</span>
+        </button>
+      )}
       <button className="thread-context-menu-item" onClick={handleRename}>
         <Icon src={ICONS.edit} size="sm" />
         <span>{getTranslation('rename', language)}</span>
+      </button>
+      <button className="thread-context-menu-item" onClick={handleDelete}>
+        <Icon src={ICONS.trash} size="sm" />
+        <span>{getTranslation('deleteThread', language)}</span>
       </button>
     </div>
   );

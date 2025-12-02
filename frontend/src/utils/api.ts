@@ -48,6 +48,16 @@ interface ApiError {
   message?: string;
 }
 
+export class ApiErrorWithStatus extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+    this.name = 'ApiErrorWithStatus';
+  }
+}
+
 const handleApiError = async (response: Response): Promise<never> => {
   let errorMessage = 'Произошла ошибка при выполнении запроса';
 
@@ -58,7 +68,7 @@ const handleApiError = async (response: Response): Promise<never> => {
     errorMessage = response.statusText || errorMessage;
   }
 
-  throw new Error(errorMessage);
+  throw new ApiErrorWithStatus(errorMessage, response.status);
 };
 
 // Флаг для предотвращения циклических refresh запросов
@@ -335,8 +345,6 @@ export const chatAPI = {
 import type { Space, SpaceCreateRequest, SpaceUpdateRequest, Note, NotePreview, NoteCreateRequest, NoteUpdateRequest, SpaceTag, SpaceTagCreateRequest, SpaceTagUpdateRequest, SpaceChat, SupportFeedback, SupportFeedbackRequest, SupportArticle, SupportArticlesResponse, SearchResults, SearchRequest, NotificationSettingsResponse, NotificationSettingsRequest, Notification, NotificationListResponse, UserProfile, UserProfileUpdate } from '../types';
 
 // Имитация задержки сети для mock методов
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
 export const spacesAPI = {
   // Получить список пространств
   getSpaces: async (includeArchived = false, limit = 50, offset = 0): Promise<{ spaces: Space[]; total: number }> => {
@@ -357,11 +365,11 @@ export const spacesAPI = {
     const requestBody: { name: string; description?: string } = {
       name: data.name,
     };
-    
+
     if (data.description && data.description.trim()) {
       requestBody.description = data.description.trim();
     }
-    
+
     return apiRequest<Space>('/spaces', {
       method: 'POST',
       body: JSON.stringify(requestBody),
@@ -371,15 +379,15 @@ export const spacesAPI = {
   // Обновить пространство
   updateSpace: async (spaceId: number, data: SpaceUpdateRequest): Promise<Space> => {
     const requestBody: { name?: string; description?: string } = {};
-    
+
     if (data.name !== undefined) {
       requestBody.name = data.name;
     }
-    
+
     if (data.description !== undefined) {
       requestBody.description = data.description;
     }
-    
+
     return apiRequest<Space>(`/spaces/${spaceId}`, {
       method: 'PUT',
       body: JSON.stringify(requestBody),
@@ -388,29 +396,9 @@ export const spacesAPI = {
 
   // Удалить пространство
   deleteSpace: async (spaceId: number): Promise<void> => {
-    await delay(300);
-
-    const savedSpaces = localStorage.getItem('spaces');
-    const spaces: Space[] = savedSpaces ? JSON.parse(savedSpaces) : [];
-    const filtered = spaces.filter(s => s.id !== spaceId);
-
-    localStorage.setItem('spaces', JSON.stringify(filtered));
-
-    // Также удаляем связанные чаты и файлы
-    const savedChats = localStorage.getItem('space_chats');
-    const savedFiles = localStorage.getItem('space_files');
-
-    if (savedChats) {
-      const chats: Record<number, any[]> = JSON.parse(savedChats);
-      delete chats[spaceId];
-      localStorage.setItem('space_chats', JSON.stringify(chats));
-    }
-
-    if (savedFiles) {
-      const files: Record<number, any[]> = JSON.parse(savedFiles);
-      delete files[spaceId];
-      localStorage.setItem('space_files', JSON.stringify(files));
-    }
+    return apiRequest<void>(`/spaces/${spaceId}`, {
+      method: 'DELETE',
+    });
   },
 
   // Архивировать пространство
@@ -484,7 +472,7 @@ export const spacesAPI = {
   exportSpace: async (spaceId: number): Promise<{ blob: Blob; filename: string }> => {
     const token = getAccessToken();
     const headers: Record<string, string> = {};
-    
+
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
@@ -509,7 +497,7 @@ export const spacesAPI = {
     // Получаем имя файла из заголовка Content-Disposition
     const contentDisposition = response.headers.get('Content-Disposition');
     let filename = `space_${spaceId}_export.zip`;
-    
+
     if (contentDisposition) {
       const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
       if (filenameMatch && filenameMatch[1]) {
@@ -529,15 +517,15 @@ export const notesAPI = {
     const requestBody: { title: string; content?: string; space_id?: number } = {
       title: data.title.trim(),
     };
-    
+
     if (data.content && data.content.trim()) {
       requestBody.content = data.content.trim();
-      }
-    
+    }
+
     if (data.space_id) {
       requestBody.space_id = data.space_id;
     }
-    
+
     return apiRequest<Note>('/notes/create', {
       method: 'POST',
       body: JSON.stringify(requestBody),
@@ -552,7 +540,7 @@ export const notesAPI = {
     }
     params.append('limit', limit.toString());
     params.append('offset', offset.toString());
-    
+
     return apiRequest<{ notes: NotePreview[]; total: number }>(`/notes/list?${params.toString()}`, {
       method: 'GET',
     });
@@ -567,56 +555,29 @@ export const notesAPI = {
 
   // Обновление заметки
   updateNote: async (noteId: number, data: NoteUpdateRequest): Promise<Note> => {
-    await delay(400);
+    const requestBody: { title?: string; content?: string; space_id?: number } = {};
 
-    const savedNotes = localStorage.getItem('notes');
-    const notes: Note[] = savedNotes ? JSON.parse(savedNotes) : [];
-    const noteIndex = notes.findIndex(n => n.id === noteId);
-
-    if (noteIndex === -1) {
-      throw new Error('Заметка не найдена');
+    if (data.title !== undefined) {
+      requestBody.title = data.title.trim();
     }
-
-    if (data.title !== undefined && !data.title.trim()) {
-      throw new Error('Название заметки не может быть пустым');
+    if (data.content !== undefined) {
+      requestBody.content = data.content.trim();
     }
-
-    // Проверка пространства, если указано
     if (data.space_id !== undefined) {
-      const savedSpaces = localStorage.getItem('spaces');
-      const spaces: Space[] = savedSpaces ? JSON.parse(savedSpaces) : [];
-      const space = spaces.find(s => s.id === data.space_id);
-      if (!space) {
-        throw new Error('Пространство не найдено');
-      }
-      notes[noteIndex].space_id = data.space_id;
-      notes[noteIndex].space_name = space.name;
+      requestBody.space_id = data.space_id;
     }
 
-    notes[noteIndex] = {
-      ...notes[noteIndex],
-      ...(data.title !== undefined && { title: data.title }),
-      ...(data.content !== undefined && { content: data.content }),
-      updated_at: new Date().toISOString(),
-    };
-
-    localStorage.setItem('notes', JSON.stringify(notes));
-    return notes[noteIndex];
+    return apiRequest<Note>(`/notes/${noteId}`, {
+      method: 'PUT',
+      body: JSON.stringify(requestBody),
+    });
   },
 
   // Удаление заметки
   deleteNote: async (noteId: number): Promise<void> => {
-    await delay(300);
-
-    const savedNotes = localStorage.getItem('notes');
-    const notes: Note[] = savedNotes ? JSON.parse(savedNotes) : [];
-    const filtered = notes.filter(n => n.id !== noteId);
-
-    if (filtered.length === notes.length) {
-      throw new Error('Заметка не найдена');
-    }
-
-    localStorage.setItem('notes', JSON.stringify(filtered));
+    return apiRequest<void>(`/notes/${noteId}`, {
+      method: 'DELETE',
+    });
   },
 };
 
@@ -661,19 +622,19 @@ export const searchAPI = {
   search: async (params: SearchRequest): Promise<SearchResults> => {
     const queryParams = new URLSearchParams();
     queryParams.append('q', params.q);
-    
+
     if (params.type && params.type !== 'all') {
       queryParams.append('type', params.type);
     }
-    
+
     if (params.space_id) {
       queryParams.append('space_id', params.space_id.toString());
     }
-    
+
     if (params.limit) {
       queryParams.append('limit', params.limit.toString());
     }
-    
+
     return apiRequest<SearchResults>(`/search?${queryParams.toString()}`, {
       method: 'GET',
     });
@@ -692,7 +653,7 @@ export const notificationAPI = {
     if (params?.limit) queryParams.append('limit', params.limit.toString());
     if (params?.offset) queryParams.append('offset', params.offset.toString());
     if (params?.unread_only) queryParams.append('unread_only', 'true');
-    
+
     const url = `/notifications${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
     return apiRequest<NotificationListResponse>(url, {
       method: 'GET',

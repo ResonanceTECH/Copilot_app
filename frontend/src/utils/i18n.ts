@@ -26,6 +26,8 @@ export interface Translations {
   newChat: string;
   deleteThread: string;
   rename: string;
+  pinThread: string;
+  unpinThread: string;
 
   // BottomPanel
   createNewChat: string;
@@ -79,6 +81,8 @@ const translations: Record<Language, Translations> = {
     newChat: 'Новый чат',
     deleteThread: 'Удалить Thread',
     rename: 'Переименовать',
+    pinThread: 'Закрепить',
+    unpinThread: 'Открепить',
     createNewChat: 'Создать новый чат',
     signUpForFree: 'Зарегистрируйтесь бесплатно, чтобы сохранить историю чатов',
     signUp: 'Зарегистрироваться',
@@ -124,6 +128,8 @@ const translations: Record<Language, Translations> = {
     newChat: 'New Chat',
     deleteThread: 'Delete Thread',
     rename: 'Rename',
+    pinThread: 'Pin',
+    unpinThread: 'Unpin',
     createNewChat: 'Create New Chat',
     signUpForFree: 'Sign up for free to save your chat history',
     signUp: 'Sign up',

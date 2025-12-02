@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { spacesAPI, chatAPI, notesAPI, supportAPI, type ChatHistoryItem } from '../../utils/api';
-import type { Space, NotePreview, SpaceTag, SupportArticle } from '../../types';
+import { spacesAPI, chatAPI, notesAPI, type ChatHistoryItem, ApiErrorWithStatus } from '../../utils/api';
+import type { Space, NotePreview, SpaceTag } from '../../types';
 import { Header } from '../../components/common/Header';
 import { Icon } from '../../components/ui/Icon';
 import { ICONS } from '../../utils/icons';
+import { NotFoundPage } from '../NotFoundPage';
 import './SpaceDetailPage.css';
 
 interface SpaceDetailPageProps {
@@ -26,16 +27,6 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
   const [tagName, setTagName] = useState('');
   const [tagColor, setTagColor] = useState('#6366f1');
   const [tagType, setTagType] = useState('');
-  // Состояния для поддержки
-  const [supportArticles, setSupportArticles] = useState<SupportArticle[]>([]);
-  const [selectedArticle, setSelectedArticle] = useState<SupportArticle | null>(null);
-  const [feedbackSubject, setFeedbackSubject] = useState('');
-  const [feedbackMessage, setFeedbackMessage] = useState('');
-  const [feedbackType, setFeedbackType] = useState<'bug' | 'feature' | 'question' | 'other'>('question');
-  const [feedbackEmail, setFeedbackEmail] = useState('');
-  const [feedbackName, setFeedbackName] = useState('');
-  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
-  const [feedbackSuccess, setFeedbackSuccess] = useState(false);
   // Состояния для добавления чатов
   const [showAddChatsModal, setShowAddChatsModal] = useState(false);
   const [allChats, setAllChats] = useState<ChatHistoryItem[]>([]);
@@ -47,6 +38,14 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
   const [newNoteTitle, setNewNoteTitle] = useState('');
   const [newNoteContent, setNewNoteContent] = useState('');
   const [isCreatingNote, setIsCreatingNote] = useState(false);
+  // Состояния для редактирования чата
+  const [editingChatId, setEditingChatId] = useState<number | null>(null);
+  const [editChatTitle, setEditChatTitle] = useState('');
+  const [isUpdatingChat, setIsUpdatingChat] = useState(false);
+  // Состояния для редактирования заметки
+  const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
+  const [editNoteTitle, setEditNoteTitle] = useState('');
+  const [isUpdatingNote, setIsUpdatingNote] = useState(false);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -55,14 +54,12 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
     }
   }, [isAuthenticated, spaceId, activeTab]);
 
-  useEffect(() => {
-    if (activeTab === 'settings') {
-      loadSupportArticles();
-    }
-  }, [activeTab]);
+
+  const [isNotFound, setIsNotFound] = useState(false);
 
   const loadSpace = async () => {
     setIsLoading(true);
+    setIsNotFound(false);
     try {
       const spaceData = await spacesAPI.getSpace(spaceId);
       setSpace(spaceData);
@@ -70,8 +67,11 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
       setEditDescription(spaceData.description || '');
     } catch (error: any) {
       console.error('Ошибка загрузки пространства:', error);
-      // Ошибка уже обработана в компоненте через проверку !space
-      setSpace(null);
+      if (error instanceof ApiErrorWithStatus && error.status === 404) {
+        setIsNotFound(true);
+      } else {
+        setSpace(null);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -194,8 +194,101 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
     try {
       await spacesAPI.deleteSpace(space.id);
       window.location.href = '/spaces';
-    } catch (error) {
+    } catch (error: any) {
       console.error('Ошибка удаления пространства:', error);
+      alert(error.message || 'Ошибка при удалении пространства. Попробуйте позже.');
+    }
+  };
+
+  const handleDeleteChat = async (chatId: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm('Вы уверены, что хотите удалить этот чат из пространства?')) return;
+
+    try {
+      await chatAPI.deleteChat(chatId);
+      loadData(); // Перезагружаем список чатов
+    } catch (error: any) {
+      console.error('Ошибка удаления чата:', error);
+      alert(error.message || 'Ошибка при удалении чата. Попробуйте позже.');
+    }
+  };
+
+  const handleStartEditChat = (chat: ChatHistoryItem, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingChatId(chat.id);
+    setEditChatTitle(chat.title || '');
+  };
+
+  const handleCancelEditChat = () => {
+    setEditingChatId(null);
+    setEditChatTitle('');
+  };
+
+  const handleSaveChatTitle = async (chatId: number, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+
+    if (!editChatTitle.trim()) {
+      alert('Название чата не может быть пустым');
+      return;
+    }
+
+    setIsUpdatingChat(true);
+    try {
+      await chatAPI.updateChat(chatId, { title: editChatTitle.trim() });
+      setEditingChatId(null);
+      setEditChatTitle('');
+      loadData(); // Перезагружаем список чатов
+    } catch (error: any) {
+      console.error('Ошибка обновления чата:', error);
+      alert(error.message || 'Ошибка при обновлении названия чата. Попробуйте позже.');
+    } finally {
+      setIsUpdatingChat(false);
+    }
+  };
+
+  const handleDeleteNote = async (noteId: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm('Вы уверены, что хотите удалить эту заметку из пространства?')) return;
+
+    try {
+      await notesAPI.deleteNote(noteId);
+      loadData(); // Перезагружаем список заметок
+    } catch (error: any) {
+      console.error('Ошибка удаления заметки:', error);
+      alert(error.message || 'Ошибка при удалении заметки. Попробуйте позже.');
+    }
+  };
+
+  const handleStartEditNote = (note: NotePreview, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingNoteId(note.id);
+    setEditNoteTitle(note.title);
+  };
+
+  const handleCancelEditNote = () => {
+    setEditingNoteId(null);
+    setEditNoteTitle('');
+  };
+
+  const handleSaveNoteTitle = async (noteId: number, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+
+    if (!editNoteTitle.trim()) {
+      alert('Название заметки не может быть пустым');
+      return;
+    }
+
+    setIsUpdatingNote(true);
+    try {
+      await notesAPI.updateNote(noteId, { title: editNoteTitle.trim() });
+      setEditingNoteId(null);
+      setEditNoteTitle('');
+      loadData(); // Перезагружаем список заметок
+    } catch (error: any) {
+      console.error('Ошибка обновления заметки:', error);
+      alert(error.message || 'Ошибка при обновлении названия заметки. Попробуйте позже.');
+    } finally {
+      setIsUpdatingNote(false);
     }
   };
 
@@ -323,60 +416,13 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
     setTagType('');
   };
 
-  const loadSupportArticles = async () => {
-    try {
-      const response = await supportAPI.getArticles({ limit: 100 });
-      setSupportArticles(response.articles);
-    } catch (error) {
-      console.error('Ошибка загрузки справочных статей:', error);
-    }
-  };
-
-  const handleViewArticle = async (articleId: number) => {
-    try {
-      const article = await supportAPI.getArticle(articleId);
-      setSelectedArticle(article);
-    } catch (error) {
-      console.error('Ошибка загрузки статьи:', error);
-    }
-  };
-
-  const handleSubmitFeedback = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!feedbackSubject.trim() || !feedbackMessage.trim()) return;
-    if (!isAuthenticated && (!feedbackEmail.trim() || !feedbackName.trim())) {
-      alert('Для неавторизованных пользователей обязательны email и имя');
-      return;
-    }
-
-    setIsSubmittingFeedback(true);
-    setFeedbackSuccess(false);
-
-    try {
-      await supportAPI.sendFeedback({
-        subject: feedbackSubject.trim(),
-        message: feedbackMessage.trim(),
-        feedback_type: feedbackType,
-        email: isAuthenticated ? undefined : feedbackEmail.trim(),
-        name: isAuthenticated ? undefined : feedbackName.trim(),
-      });
-      setFeedbackSuccess(true);
-      setFeedbackSubject('');
-      setFeedbackMessage('');
-      setFeedbackType('question');
-      setFeedbackEmail('');
-      setFeedbackName('');
-      setTimeout(() => setFeedbackSuccess(false), 5000);
-    } catch (error) {
-      console.error('Ошибка отправки обратной связи:', error);
-      alert('Ошибка отправки обратной связи. Попробуйте позже.');
-    } finally {
-      setIsSubmittingFeedback(false);
-    }
-  };
 
   if (!isAuthenticated) {
     return <div>Пожалуйста, войдите в систему</div>;
+  }
+
+  if (isNotFound) {
+    return <NotFoundPage />;
   }
 
   if (isLoading && !space) {
@@ -501,18 +547,81 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
                       key={chat.id}
                       className="space-detail-chat-item"
                       onClick={() => {
-                        window.location.href = `/assistant?chat=${chat.id}`;
+                        if (editingChatId !== chat.id) {
+                          window.location.href = `/assistant?chat=${chat.id}`;
+                        }
                       }}
                     >
                       <div className="space-detail-chat-icon">
                         <Icon src={ICONS.rocket} size="md" />
                       </div>
                       <div className="space-detail-chat-content">
-                        <div className="space-detail-chat-title">{chat.title || 'Без названия'}</div>
+                        {editingChatId === chat.id ? (
+                          <input
+                            type="text"
+                            value={editChatTitle}
+                            onChange={(e) => setEditChatTitle(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                handleSaveChatTitle(chat.id);
+                              } else if (e.key === 'Escape') {
+                                handleCancelEditChat();
+                              }
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="space-detail-chat-title-input"
+                            autoFocus
+                            disabled={isUpdatingChat}
+                          />
+                        ) : (
+                          <div className="space-detail-chat-title">{chat.title || 'Без названия'}</div>
+                        )}
                         <div className="space-detail-chat-preview">{chat.last_message || 'Нет сообщений'}</div>
                         <div className="space-detail-chat-date">
                           {chat.last_message_at ? new Date(chat.last_message_at).toLocaleDateString('ru-RU') : ''}
                         </div>
+                      </div>
+                      <div className="space-detail-chat-actions">
+                        {editingChatId === chat.id ? (
+                          <>
+                            <button
+                              className="space-detail-chat-action-btn"
+                              onClick={(e) => handleSaveChatTitle(chat.id, e)}
+                              disabled={isUpdatingChat}
+                              title="Сохранить"
+                            >
+                              <Icon src={ICONS.send} size="sm" />
+                            </button>
+                            <button
+                              className="space-detail-chat-action-btn"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCancelEditChat();
+                              }}
+                              disabled={isUpdatingChat}
+                              title="Отмена"
+                            >
+                              <Icon src={ICONS.close} size="sm" />
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              className="space-detail-chat-action-btn"
+                              onClick={(e) => handleStartEditChat(chat, e)}
+                              title="Переименовать чат"
+                            >
+                              <Icon src={ICONS.edit} size="sm" />
+                            </button>
+                            <button
+                              className="space-detail-chat-action-btn danger"
+                              onClick={(e) => handleDeleteChat(chat.id, e)}
+                              title="Удалить чат"
+                            >
+                              <Icon src={ICONS.trash} size="sm" />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -542,12 +651,14 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
                       key={note.id}
                       className="space-detail-note-item"
                       onClick={async () => {
-                        try {
-                          const fullNote = await notesAPI.getNote(note.id);
-                          // TODO: Открыть модальное окно с заметкой
-                          alert(`Заметка: ${fullNote.title}\n\n${fullNote.content}`);
-                        } catch (error) {
-                          console.error('Ошибка загрузки заметки:', error);
+                        if (editingNoteId !== note.id) {
+                          try {
+                            const fullNote = await notesAPI.getNote(note.id);
+                            // TODO: Открыть модальное окно с заметкой
+                            alert(`Заметка: ${fullNote.title}\n\n${fullNote.content}`);
+                          } catch (error) {
+                            console.error('Ошибка загрузки заметки:', error);
+                          }
                         }
                       }}
                     >
@@ -555,11 +666,72 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
                         <Icon src={ICONS.note} size="md" />
                       </div>
                       <div className="space-detail-note-content">
-                        <div className="space-detail-note-title">{note.title}</div>
+                        {editingNoteId === note.id ? (
+                          <input
+                            type="text"
+                            value={editNoteTitle}
+                            onChange={(e) => setEditNoteTitle(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                handleSaveNoteTitle(note.id);
+                              } else if (e.key === 'Escape') {
+                                handleCancelEditNote();
+                              }
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="space-detail-note-title-input"
+                            autoFocus
+                            disabled={isUpdatingNote}
+                          />
+                        ) : (
+                          <div className="space-detail-note-title">{note.title}</div>
+                        )}
                         <div className="space-detail-note-preview">{note.content_preview}</div>
                         <div className="space-detail-note-date">
                           {new Date(note.updated_at).toLocaleDateString('ru-RU')}
                         </div>
+                      </div>
+                      <div className="space-detail-note-actions">
+                        {editingNoteId === note.id ? (
+                          <>
+                            <button
+                              className="space-detail-note-action-btn"
+                              onClick={(e) => handleSaveNoteTitle(note.id, e)}
+                              disabled={isUpdatingNote}
+                              title="Сохранить"
+                            >
+                              <Icon src={ICONS.send} size="sm" />
+                            </button>
+                            <button
+                              className="space-detail-note-action-btn"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCancelEditNote();
+                              }}
+                              disabled={isUpdatingNote}
+                              title="Отмена"
+                            >
+                              <Icon src={ICONS.close} size="sm" />
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              className="space-detail-note-action-btn"
+                              onClick={(e) => handleStartEditNote(note, e)}
+                              title="Переименовать заметку"
+                            >
+                              <Icon src={ICONS.edit} size="sm" />
+                            </button>
+                            <button
+                              className="space-detail-note-action-btn danger"
+                              onClick={(e) => handleDeleteNote(note.id, e)}
+                              title="Удалить заметку"
+                            >
+                              <Icon src={ICONS.trash} size="sm" />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -650,105 +822,6 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
                   </div>
                 </form>
               </div>
-
-              <div className="space-detail-settings-section">
-                <h3>Поддержка</h3>
-                <form onSubmit={handleSubmitFeedback} className="space-detail-support-form">
-                  {feedbackSuccess && (
-                    <div className="space-detail-feedback-success">
-                      Спасибо за ваш отзыв! Мы свяжемся с вами в ближайшее время.
-                    </div>
-                  )}
-                  {!isAuthenticated && (
-                    <>
-                      <div className="space-detail-settings-field">
-                        <label>Имя *</label>
-                        <input
-                          type="text"
-                          value={feedbackName}
-                          onChange={(e) => setFeedbackName(e.target.value)}
-                          required
-                          placeholder="Введите ваше имя"
-                        />
-                      </div>
-                      <div className="space-detail-settings-field">
-                        <label>Email *</label>
-                        <input
-                          type="email"
-                          value={feedbackEmail}
-                          onChange={(e) => setFeedbackEmail(e.target.value)}
-                          required
-                          placeholder="your@email.com"
-                        />
-                      </div>
-                    </>
-                  )}
-                  <div className="space-detail-settings-field">
-                    <label>Тип обращения</label>
-                    <select
-                      value={feedbackType}
-                      onChange={(e) => setFeedbackType(e.target.value as 'bug' | 'feature' | 'question' | 'other')}
-                    >
-                      <option value="question">Вопрос</option>
-                      <option value="bug">Ошибка</option>
-                      <option value="feature">Предложение</option>
-                      <option value="other">Другое</option>
-                    </select>
-                  </div>
-                  <div className="space-detail-settings-field">
-                    <label>Тема *</label>
-                    <input
-                      type="text"
-                      value={feedbackSubject}
-                      onChange={(e) => setFeedbackSubject(e.target.value)}
-                      required
-                      placeholder="Краткое описание проблемы или вопроса"
-                    />
-                  </div>
-                  <div className="space-detail-settings-field">
-                    <label>Сообщение *</label>
-                    <textarea
-                      value={feedbackMessage}
-                      onChange={(e) => setFeedbackMessage(e.target.value)}
-                      required
-                      rows={6}
-                      placeholder="Опишите вашу проблему или вопрос подробнее"
-                    />
-                  </div>
-                  <div className="space-detail-settings-actions">
-                    <button
-                      type="submit"
-                      className="space-detail-settings-save-btn"
-                      disabled={isSubmittingFeedback}
-                    >
-                      {isSubmittingFeedback ? 'Отправка...' : 'Отправить'}
-                    </button>
-                  </div>
-                </form>
-              </div>
-
-              <div className="space-detail-settings-section">
-                <h3>Справочные статьи</h3>
-                {supportArticles.length === 0 ? (
-                  <div className="space-detail-empty">Нет доступных статей</div>
-                ) : (
-                  <div className="space-detail-articles-list">
-                    {supportArticles.map(article => (
-                      <div
-                        key={article.id}
-                        className="space-detail-article-item"
-                        onClick={() => handleViewArticle(article.id)}
-                      >
-                        <div className="space-detail-article-content">
-                          <div className="space-detail-article-title">{article.title}</div>
-                          <div className="space-detail-article-category">{article.category}</div>
-                        </div>
-                        <Icon src={ICONS.arrowLeft} size="sm" className="space-detail-article-arrow" />
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
             </div>
           )}
         </div>
@@ -805,30 +878,6 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {selectedArticle && (
-        <div
-          className="space-detail-article-modal-overlay"
-          onClick={() => setSelectedArticle(null)}
-        >
-          <div className="space-detail-article-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="space-detail-article-modal-header">
-              <div>
-                <h3>{selectedArticle.title}</h3>
-                <div className="space-detail-article-modal-category">{selectedArticle.category}</div>
-              </div>
-              <button
-                className="space-detail-article-modal-close"
-                onClick={() => setSelectedArticle(null)}
-                title="Закрыть"
-              >
-                ×
-              </button>
-            </div>
-            <div className="space-detail-article-modal-content">{selectedArticle.content}</div>
           </div>
         </div>
       )}

@@ -1,0 +1,81 @@
+.not-found-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg);
+  padding: 24px;
+}
+
+.not-found-container {
+  width: 100%;
+  max-width: 500px;
+  background: var(--color-sidebar-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  padding: 60px 32px;
+  box-shadow: var(--shadow-lg);
+  text-align: center;
+}
+
+.not-found-header {
+  margin-bottom: 40px;
+}
+
+.not-found-logo {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  margin-bottom: 24px;
+  opacity: 0.8;
+}
+
+.not-found-code {
+  font-size: 72px;
+  font-weight: 700;
+  color: var(--color-primary);
+  margin: 0 0 16px 0;
+  line-height: 1;
+}
+
+.not-found-title {
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 0 0 12px 0;
+}
+
+.not-found-subtitle {
+  font-size: 16px;
+  color: var(--color-text-secondary);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.not-found-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+.not-found-btn {
+  padding: 12px 24px;
+  background: var(--color-primary);
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--color-text-on-primary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.not-found-btn:hover {
+  background: var(--color-primary-hover);
+}
+
+.not-found-btn:active {
+  transform: scale(0.98);
+}
+
