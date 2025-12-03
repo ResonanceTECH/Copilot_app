@@ -22,7 +22,7 @@ type ProfileSection =
 
 export const UserProfilePage: React.FC = () => {
   const { isAuthenticated } = useAuth();
-  const { language } = useLanguage();
+  const { language, setLanguage } = useLanguage();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
@@ -45,6 +45,7 @@ export const UserProfilePage: React.FC = () => {
     theme: getTheme(),
   });
   const [isThemeDropdownOpen, setIsThemeDropdownOpen] = useState(false);
+  const [isLanguageDropdownOpen, setIsLanguageDropdownOpen] = useState(false);
   const [referralLink, setReferralLink] = useState<string>('');
   const [isLinkCopied, setIsLinkCopied] = useState(false);
 
@@ -224,17 +225,18 @@ export const UserProfilePage: React.FC = () => {
       const target = event.target as HTMLElement;
       if (!target.closest('.user-profile-theme-dropdown-wrapper')) {
         setIsThemeDropdownOpen(false);
+        setIsLanguageDropdownOpen(false);
       }
     };
 
-    if (isThemeDropdownOpen) {
+    if (isThemeDropdownOpen || isLanguageDropdownOpen) {
       document.addEventListener('mousedown', handleClickOutside);
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isThemeDropdownOpen]);
+  }, [isThemeDropdownOpen, isLanguageDropdownOpen]);
 
   if (isLoading) {
     return (
@@ -502,10 +504,37 @@ export const UserProfilePage: React.FC = () => {
                       </div>
                     </div>
                     <div className="user-profile-preference-control">
-                      <button className="user-profile-preference-button">
-                        <span>По умолчанию</span>
-                        <Icon src={ICONS.chevronDown} size="sm" />
-                      </button>
+                      <div className="user-profile-theme-dropdown-wrapper">
+                        <button 
+                          className="user-profile-preference-button"
+                          onClick={() => setIsLanguageDropdownOpen(!isLanguageDropdownOpen)}
+                        >
+                          <span>{language === 'ru' ? 'Русский' : 'English'}</span>
+                          <Icon src={ICONS.chevronDown} size="sm" />
+                        </button>
+                        {isLanguageDropdownOpen && (
+                          <div className="user-profile-theme-dropdown">
+                            <button
+                              className={`user-profile-theme-option ${language === 'ru' ? 'active' : ''}`}
+                              onClick={() => {
+                                setLanguage('ru');
+                                setIsLanguageDropdownOpen(false);
+                              }}
+                            >
+                              <span>Русский</span>
+                            </button>
+                            <button
+                              className={`user-profile-theme-option ${language === 'en' ? 'active' : ''}`}
+                              onClick={() => {
+                                setLanguage('en');
+                                setIsLanguageDropdownOpen(false);
+                              }}
+                            >
+                              <span>English</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
 
@@ -540,33 +569,6 @@ export const UserProfilePage: React.FC = () => {
                         />
                         <span className="user-profile-setting-toggle-slider"></span>
                       </label>
-                    </div>
-                  </div>
-
-                  <div className="user-profile-preference-divider"></div>
-
-                  <div className="user-profile-preference-group">
-                    <div className="user-profile-preference-left">
-                      <div className="user-profile-preference-label">Искусственный интеллект</div>
-                      <div className="user-profile-preference-ai-list">
-                        <div className="user-profile-preference-ai-item">
-                          <span className="user-profile-preference-ai-label">Модель:</span>
-                          <button className="user-profile-preference-upgrade-btn">Обновите до выбора</button>
-                        </div>
-                        <div className="user-profile-preference-ai-item">
-                          <span className="user-profile-preference-ai-label">Модель генерации изображений:</span>
-                          <button className="user-profile-preference-upgrade-btn">Обновите до выбора</button>
-                        </div>
-                        <div className="user-profile-preference-ai-item">
-                          <span className="user-profile-preference-ai-label">Модель генерации видео:</span>
-                          <div className="user-profile-preference-ai-control">
-                            <button className="user-profile-preference-upgrade-btn">Обновите до Мад</button>
-                            <button className="user-profile-preference-help-btn" title="Справка">
-                              <Icon src={ICONS.support} size="sm" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
                     </div>
                   </div>
                 </div>
