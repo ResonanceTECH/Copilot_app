@@ -352,9 +352,6 @@ export const AssistantPage: React.FC = () => {
     const threadData = threads.get(threadId);
     const chatId = threadData?.chatId;
 
-    // Проверяем, есть ли уже сообщения от ассистента (чтобы не показывать "Поиск..." для первого сообщения)
-    const hasAssistantMessages = threadData?.messages.some(msg => msg.role === 'assistant') ?? false;
-
     // Добавляем сообщение пользователя в UI сразу
     const userMessage: ChatMessage = {
       id: `temp-user-${Date.now()}`,
@@ -363,23 +360,21 @@ export const AssistantPage: React.FC = () => {
       timestamp: new Date(),
     };
 
-    // Добавляем сообщение "Поиск и формирование ответа" (кроме первого сообщения)
-    const loadingMessage: ChatMessage | null = hasAssistantMessages ? {
+    // Добавляем сообщение "Поиск и формирование ответа"
+    const loadingMessage: ChatMessage = {
       id: `loading-${Date.now()}`,
       content: 'Поиск и формирование ответа',
       role: 'assistant',
       timestamp: new Date(),
       isLoading: true,
-    } : null;
+    };
 
     setThreads((prev) => {
       const updated = new Map(prev);
       const data = updated.get(threadId);
 
       if (data) {
-        const updatedMessages = loadingMessage
-          ? [...data.messages, userMessage, loadingMessage]
-          : [...data.messages, userMessage];
+        const updatedMessages = [...data.messages, userMessage, loadingMessage];
         updated.set(threadId, {
           ...data,
           thread: {
