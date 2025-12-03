@@ -111,9 +111,14 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             >
               <div className="chat-message-content">
                 {message.role === 'assistant' && !message.isLoading ? (
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {message.content}
-                  </ReactMarkdown>
+                  // Проверяем, содержит ли контент HTML теги
+                  message.content.includes('<div') || message.content.includes('<img') || message.content.includes('<p') ? (
+                    <div dangerouslySetInnerHTML={{ __html: message.content }} />
+                  ) : (
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {message.content}
+                    </ReactMarkdown>
+                  )
                 ) : (
                   message.content
                 )}

@@ -282,6 +282,7 @@ export interface MessageItem {
   id: number;
   role: string;
   content: string;
+  image_url?: string;
   created_at: string;
 }
 
