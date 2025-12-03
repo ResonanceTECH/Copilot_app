@@ -339,6 +339,28 @@ export const chatAPI = {
       method: 'DELETE',
     });
   },
+
+  // Получение данных эффективности
+  getEfficiencyData: async (period: 'day' | 'week' | 'month' | 'year' = 'year'): Promise<{
+    activities: Array<{ date: string; count: number }>;
+    total: number;
+    average: number;
+  }> => {
+    return apiRequest(`/chat/activity/efficiency?period=${period}`, {
+      method: 'GET',
+    });
+  },
+
+  // Получение данных активности по часам
+  getHourlyActivity: async (days: number = 7): Promise<{
+    hourly_data: Array<{ hour: number; count: number }>;
+    peak_hour: number;
+    peak_count: number;
+  }> => {
+    return apiRequest(`/chat/activity/hourly?days=${days}`, {
+      method: 'GET',
+    });
+  },
 };
 
 // API методы для пространств (mock версия)

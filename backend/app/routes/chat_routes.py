@@ -12,6 +12,7 @@ from backend.app.models.user import User
 from backend.app.models.space import Space
 from backend.app.models.chat import Chat
 from backend.app.models.message import Message
+from backend.app.models.user_activity import UserActivity
 from backend.ml.services.classifier_service import BusinessClassifierService
 from backend.app.services.llm_service import LLMService
 from backend.app.services.cache_service import CacheService
@@ -243,6 +244,25 @@ async def send_message(
             content=user_message
         )
         db.add(user_msg)
+        
+        # Сохраняем активность пользователя для аналитики эффективности
+        today = datetime.now(timezone.utc).date()
+        activity = db.query(UserActivity).filter(
+            UserActivity.user_id == current_user.id,
+            UserActivity.activity_date == today
+        ).first()
+        
+        if activity:
+            activity.message_count += 1
+            activity.updated_at = datetime.now(timezone.utc)
+        else:
+            activity = UserActivity(
+                user_id=current_user.id,
+                activity_date=today,
+                message_count=1
+            )
+            db.add(activity)
+        
         db.commit()
         db.refresh(user_msg)
 
@@ -596,6 +616,134 @@ async def delete_chat(
     db.commit()
 
     return None
+
+
+class ActivityRecord(BaseModel):
+    date: str  # ISO date string (YYYY-MM-DD)
+    count: int
+
+    class Config:
+        from_attributes = True
+
+
+class EfficiencyResponse(BaseModel):
+    activities: List[ActivityRecord]
+    total: int
+    average: float
+
+
+@router.get("/activity/efficiency", response_model=EfficiencyResponse)
+async def get_efficiency_data(
+    period: str = Query("year", description="Период: day, week, month, year"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Получить данные эффективности пользователя"""
+    from datetime import timedelta
+    
+    today = datetime.now(timezone.utc).date()
+    
+    # Определяем диапазон дат в зависимости от периода
+    if period == "day":
+        start_date = today
+        end_date = today
+    elif period == "week":
+        start_date = today - timedelta(days=6)
+        end_date = today
+    elif period == "month":
+        start_date = today - timedelta(days=29)
+        end_date = today
+    else:  # year
+        start_date = today - timedelta(days=365)
+        end_date = today
+    
+    # Получаем активность за период
+    activities = db.query(UserActivity).filter(
+        UserActivity.user_id == current_user.id,
+        UserActivity.activity_date >= start_date,
+        UserActivity.activity_date <= end_date
+    ).order_by(UserActivity.activity_date).all()
+    
+    # Преобразуем в формат для фронтенда
+    activity_records = [
+        ActivityRecord(
+            date=activity.activity_date.isoformat(),
+            count=activity.message_count
+        )
+        for activity in activities
+    ]
+    
+    total = sum(a.count for a in activity_records)
+    average = total / len(activity_records) if activity_records else 0
+    
+    return EfficiencyResponse(
+        activities=activity_records,
+        total=total,
+        average=round(average, 2)
+    )
+
+
+class HourlyActivityRecord(BaseModel):
+    hour: int  # 0-23
+    count: int
+
+
+class HourlyActivityResponse(BaseModel):
+    hourly_data: List[HourlyActivityRecord]
+    peak_hour: int
+    peak_count: int
+
+
+@router.get("/activity/hourly", response_model=HourlyActivityResponse)
+async def get_hourly_activity(
+    days: int = Query(7, ge=1, le=30, description="Количество дней для анализа"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Получить данные активности по часам за последние N дней"""
+    from datetime import timedelta
+    from sqlalchemy import func, extract
+    
+    today = datetime.now(timezone.utc)
+    start_date = today - timedelta(days=days)
+    
+    # Получаем сообщения пользователя за период и группируем по часам
+    hourly_stats = db.query(
+        extract('hour', Message.created_at).label('hour'),
+        func.count(Message.id).label('count')
+    ).join(
+        Chat, Message.chat_id == Chat.id
+    ).filter(
+        Chat.user_id == current_user.id,
+        Message.role == 'user',  # Только сообщения пользователя
+        Message.created_at >= start_date
+    ).group_by(
+        extract('hour', Message.created_at)
+    ).order_by(
+        extract('hour', Message.created_at)
+    ).all()
+    
+    # Создаем массив для всех 24 часов
+    hourly_data_dict = {i: 0 for i in range(24)}
+    for stat in hourly_stats:
+        hour = int(stat.hour)
+        hourly_data_dict[hour] = stat.count
+    
+    # Преобразуем в список
+    hourly_records = [
+        HourlyActivityRecord(hour=hour, count=count)
+        for hour, count in sorted(hourly_data_dict.items())
+    ]
+    
+    # Находим пиковый час
+    peak_hour = max(hourly_records, key=lambda x: x.count).hour
+    peak_count = max(hourly_records, key=lambda x: x.count).count
+    
+    return HourlyActivityResponse(
+        hourly_data=hourly_records,
+        peak_hour=peak_hour,
+        peak_count=peak_count
+    )
 
 
 # Оставляем старый эндпоинт для обратной совместимости

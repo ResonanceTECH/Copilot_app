@@ -10,6 +10,7 @@ from backend.app.models.notification import Notification
 from backend.app.models.note_tag import note_tags
 from backend.app.models.feedback import Feedback
 from backend.app.models.support_article import SupportArticle
+from backend.app.models.user_activity import UserActivity
 
 __all__ = [
     "User",
@@ -22,6 +23,7 @@ __all__ = [
     "Notification",
     "note_tags",
     "Feedback",
-    "SupportArticle"
+    "SupportArticle",
+    "UserActivity"
 ]
 
