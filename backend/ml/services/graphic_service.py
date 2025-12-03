@@ -30,18 +30,11 @@ class GraphicService:
 3. Не выводи график на экран, только сохраняй
 4. Верни только чистый Python код без объяснений
 5. Код должен быть полным и готовым к выполнению
-
-Пример:
-import matplotlib.pyplot as plt
-import numpy as np
-x = np.linspace(0, 10, 100)
-y = np.sin(x)
-plt.figure(figsize=(10, 6))
-plt.plot(x, y)
-plt.title('График синуса')
-plt.grid(True)
-plt.savefig('graph_output.png', dpi=100, bbox_inches='tight')
-plt.close()
+6. Используй библиотеку matplotlib
+7. Сделай график максимально информативным и удобным к восприятию
+8. Используй минималистичный дизайн
+9. Сделай легенду к графику
+10. Используй стильный и понятный офисный шрифт
 """
 
             user_prompt = f"Создай Python код для графика по запросу: {user_query}"
@@ -97,10 +90,14 @@ plt.close()
             # 5. Возвращаем результат
             if result["success"] and result.get("image_base64"):
                 print(f"\n🎉 ГРАФИК УСПЕШНО СОЗДАН!")
+                saved_image_path = result.get("saved_image_path")
+                if saved_image_path:
+                    print(f"📁 Картинка сохранена: {saved_image_path}")
                 return {
                     "success": True,
                     "image_base64": result["image_base64"],
-                    "mime_type": result.get("mime_type", "image/png")
+                    "mime_type": result.get("mime_type", "image/png"),
+                    "saved_image_path": saved_image_path
                 }
             else:
                 print(f"\n❌ ОШИБКА ПРИ СОЗДАНИИ ГРАФИКА")
@@ -150,30 +147,42 @@ plt.close()
             if 'import ' in code or 'plt.' in code or 'def ' in code:
                 return self._clean_and_validate_code(code)
 
-        # Способ 3: Ищем строки с импортами и plt
+        # Способ 3: Если текст начинается с import и нет блоков кода, берем все строки подряд
         print(f"🔍 Ищем строки с импортами...")
         lines = text.split('\n')
         python_lines = []
-
+        code_started = False
+        empty_lines_count = 0
+        
         for line in lines:
-            line = line.strip()
-            if (line.startswith('import ') or
-                    line.startswith('from ') or
-                    'plt.' in line or
-                    'sns.' in line or
-                    'np.' in line or
-                    'pd.' in line or
-                    'ax.' in line or
-                    'figure(' in line or
-                    'plot(' in line or
-                    'scatter(' in line or
-                    'bar(' in line or
-                    'hist(' in line or
-                    'savefig(' in line or
-                    'title(' in line or
-                    'xlabel(' in line or
-                    'ylabel(' in line):
-                python_lines.append(line)
+            stripped = line.strip()
+            
+            # Пропускаем пустые строки до начала кода
+            if not stripped and not code_started:
+                continue
+            
+            # Начало кода - строка с import или from
+            if stripped.startswith('import ') or stripped.startswith('from '):
+                code_started = True
+                empty_lines_count = 0
+                python_lines.append(stripped)
+                continue
+            
+            # Если код начался
+            if code_started:
+                if not stripped:
+                    # Пустая строка - увеличиваем счетчик
+                    empty_lines_count += 1
+                    # Если две пустые строки подряд, возможно код закончился
+                    if empty_lines_count >= 2:
+                        break
+                    continue
+                
+                # Сбрасываем счетчик пустых строк
+                empty_lines_count = 0
+                
+                # Добавляем все непустые строки (они все должны быть кодом)
+                python_lines.append(stripped)
 
         if python_lines:
             print(f"✅ Найдено {len(python_lines)} строк, похожих на Python код")

@@ -31,6 +31,11 @@ static_dir = os.path.join(os.path.dirname(__file__), "static")
 if os.path.exists(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
+# Подключаем статические файлы из assets (графики)
+assets_dir = os.path.join(os.path.dirname(__file__), "assets")
+if os.path.exists(assets_dir):
+    app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+
 # Импортируем и подключаем роуты с префиксом /api
 try:
     from backend.app.routes.chat_routes import router as chat_router

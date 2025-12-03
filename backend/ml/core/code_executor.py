@@ -3,12 +3,18 @@ import os
 import sys
 import tempfile
 import base64
+import uuid
+from pathlib import Path
 
 
 class SafeCodeExecutor:
     def __init__(self, timeout=30):
         self.timeout = timeout
         self.output_filename = "graph_output.png"  # фиксированное имя файла
+        # Определяем путь к папке assets относительно корня проекта
+        # code_executor.py находится в backend/ml/core/, поэтому идем на 2 уровня вверх
+        self.assets_dir = Path(__file__).parent.parent.parent / "assets"
+        self.assets_dir.mkdir(parents=True, exist_ok=True)
 
     def execute_python_code(self, code: str) -> dict:
         """Выполняет Python код для создания графика и возвращает base64 изображение"""
@@ -58,14 +64,27 @@ class SafeCodeExecutor:
             output_path = os.path.join(temp_dir, self.output_filename)
             has_graph = os.path.exists(output_path) and os.path.getsize(output_path) > 0
 
-            # Если график создан, читаем его как base64
+            # Если график создан, сохраняем его в assets и читаем как base64
             image_base64 = None
             mime_type = None
+            saved_image_path = None
 
             if has_graph:
+                # Генерируем уникальное имя файла
+                unique_filename = f"graph_{uuid.uuid4().hex[:12]}.png"
+                saved_image_path = self.assets_dir / unique_filename
+                
+                # Копируем файл в assets
+                import shutil
+                shutil.copy2(output_path, saved_image_path)
+                
+                # Читаем как base64 для обратной совместимости
                 with open(output_path, 'rb') as img_file:
                     image_base64 = base64.b64encode(img_file.read()).decode('utf-8')
                     mime_type = 'image/png'
+                
+                # Возвращаем относительный путь от корня backend
+                saved_image_path = f"assets/{unique_filename}"
 
             # Возвращаем в исходную директорию
             os.chdir(original_dir)
@@ -86,7 +105,8 @@ class SafeCodeExecutor:
                 "has_image": has_graph,
                 "image_base64": image_base64,
                 "mime_type": mime_type,
-                "output_filename": self.output_filename if has_graph else None
+                "output_filename": self.output_filename if has_graph else None,
+                "saved_image_path": saved_image_path
             }
 
         except subprocess.TimeoutExpired:

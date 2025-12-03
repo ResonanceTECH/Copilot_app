@@ -3,15 +3,21 @@ import os
 from dotenv import load_dotenv
 from typing import List, Dict, Optional
 import tiktoken
+import httpx
 
 load_dotenv()
 
 
 class LLMService:
     def __init__(self):
+        # Увеличиваем таймауты для медленных соединений
+        timeout = httpx.Timeout(60.0, connect=30.0)  # 60 сек на запрос, 30 сек на подключение
+        http_client = httpx.Client(timeout=timeout)
+        
         self.client = OpenAI(
             base_url="https://openrouter.ai/api/v1",
-            api_key=os.getenv("OPENROUTER_API_KEY")
+            api_key=os.getenv("OPENROUTER_API_KEY"),
+            http_client=http_client
         )
         self.quick_responses = {
             'привет': 'Здравствуйте! Я ваш бизнес-помощник. Задавайте вопросы по маркетингу, финансам, юриспруденции или управлению бизнесом.',

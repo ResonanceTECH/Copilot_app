@@ -12,6 +12,7 @@ from backend.app.models.user import User
 from backend.app.models.space import Space
 from backend.app.models.chat import Chat
 from backend.app.models.message import Message
+from backend.app.models.note import Note
 from backend.ml.models.business_classifier import EnhancedBusinessClassifier
 from backend.app.services.llm_service import LLMService
 from backend.app.services.cache_service import CacheService
@@ -78,6 +79,7 @@ class MessageItem(BaseModel):
     id: int
     role: str
     content: str
+    image_url: Optional[str] = None
     created_at: str
 
     class Config:
@@ -157,10 +159,10 @@ def get_conversation_history(chat_id: int, db: Session, max_messages: int = 10) 
     return formatted_history
 
 
-async def process_graphic_request(user_query: str) -> dict:
+async def process_graphic_request(user_query: str, current_user: User, db: Session, space_id: int) -> dict:
     """
     Обработка запроса на график.
-    Возвращает ответ с base64 изображением.
+    Возвращает ответ с base64 изображением и создает заметку с ссылкой на картинку.
     """
     try:
         print(f"📊 Обработка графического запроса: {user_query}")
@@ -169,41 +171,94 @@ async def process_graphic_request(user_query: str) -> dict:
         result = graphic_service.process_graphic_request(user_query)
 
         if result["success"]:
-            # Формируем HTML с base64 изображением
-            image_html = f'''
-            <div class="graphic-container" style="
-                background: white;
-                border-radius: 10px;
-                padding: 15px;
-                margin: 15px 0;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            ">
-                <div class="graphic-header" style="
-                    margin-bottom: 10px;
-                    padding-bottom: 10px;
-                    border-bottom: 1px solid #eee;
+            saved_image_path = result.get('saved_image_path')
+            
+            # Создаем заметку с ссылкой на картинку
+            if saved_image_path:
+                try:
+                    # Получаем пространство
+                    space = db.query(Space).filter(
+                        Space.id == space_id,
+                        Space.user_id == current_user.id
+                    ).first()
+                    
+                    if space:
+                        # Создаем заметку
+                        new_note = Note(
+                            space_id=space.id,
+                            user_id=current_user.id,
+                            title=f"График: {user_query[:50]}",
+                            content=f"График создан по запросу: {user_query}",
+                            image_url=saved_image_path
+                        )
+                        db.add(new_note)
+                        db.commit()
+                        db.refresh(new_note)
+                        print(f"✅ Заметка создана с ID {new_note.id}, image_url: {saved_image_path}")
+                    else:
+                        print(f"⚠️ Пространство {space_id} не найдено, заметка не создана")
+                except Exception as e:
+                    print(f"❌ Ошибка при создании заметки: {e}")
+                    import traceback
+                    traceback.print_exc()
+            
+            # Формируем HTML с изображением из assets
+            # Используем сохраненный путь, если есть, иначе fallback на base64
+            image_src = None
+            if saved_image_path:
+                # Формируем URL к файлу (путь уже в формате assets/graph_xxx.png)
+                image_src = f"/{saved_image_path}"
+            elif result.get('image_base64'):
+                # Fallback на base64, если путь не сохранился
+                image_src = f"data:image/png;base64,{result['image_base64']}"
+            
+            if image_src:
+                image_html = f'''
+                <div class="graphic-container" style="
+                    background: white;
+                    border-radius: 10px;
+                    padding: 15px;
+                    margin: 15px 0;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
                 ">
-                    <h4 style="margin: 0; color: #333;">📈 Сгенерированный график</h4>
+                    <div class="graphic-header" style="
+                        margin-bottom: 10px;
+                        padding-bottom: 10px;
+                        border-bottom: 1px solid #eee;
+                    ">
+                        <h4 style="margin: 0; color: #333;">📈 Сгенерированный график</h4>
+                    </div>
+                    <div class="graphic-image" style="text-align: center;">
+                        <img src="{image_src}" 
+                             alt="Сгенерированный график" 
+                             style="
+                                max-width: 100%;
+                                height: auto;
+                                border-radius: 5px;
+                             ">
+                    </div>
+                    <div class="graphic-note" style="
+                        margin-top: 10px;
+                        font-size: 12px;
+                        color: #666;
+                        text-align: center;
+                    ">
+                        Запрос: "{user_query}"
+                    </div>
                 </div>
-                <div class="graphic-image" style="text-align: center;">
-                    <img src="data:image/png;base64,{result['image_base64']}" 
-                         alt="Сгенерированный график" 
-                         style="
-                            max-width: 100%;
-                            height: auto;
-                            border-radius: 5px;
-                         ">
-                </div>
-                <div class="graphic-note" style="
-                    margin-top: 10px;
-                    font-size: 12px;
-                    color: #666;
-                    text-align: center;
+                '''
+            else:
+                image_html = f'''
+                <div class="graphic-container" style="
+                    background: #fff5f5;
+                    border-left: 4px solid #f44336;
+                    padding: 15px;
+                    margin: 15px 0;
+                    border-radius: 5px;
                 ">
-                    Запрос: "{user_query}"
+                    <p style="margin: 0; color: #d32f2f;">⚠️ График создан, но изображение недоступно</p>
                 </div>
-            </div>
-            '''
+                '''
 
             return {
                 'raw_text': f"Создан график по запросу: {user_query}",
@@ -213,7 +268,8 @@ async def process_graphic_request(user_query: str) -> dict:
                 'graphic_data': {
                     'success': True,
                     'has_image': True,
-                    'mime_type': result.get('mime_type', 'image/png')
+                    'mime_type': result.get('mime_type', 'image/png'),
+                    'saved_image_path': saved_image_path
                 }
             }
         else:
@@ -423,13 +479,16 @@ async def send_message(
         # Если категория 'graphic', обрабатываем специальным образом
         if category == 'graphic':
             # Обрабатываем графический запрос
-            response_data = await process_graphic_request(user_message)
+            response_data = await process_graphic_request(user_message, current_user, db, space.id)
 
             # Сохраняем ответ ассистента в базу
+            # Для графиков сохраняем также image_url
+            saved_image_path = response_data.get('graphic_data', {}).get('saved_image_path')
             assistant_msg = Message(
                 chat_id=chat.id,
                 role="assistant",
-                content=response_data['raw_text']
+                content=response_data['raw_text'],
+                image_url=saved_image_path
             )
             db.add(assistant_msg)
             chat.updated_at = datetime.now(timezone.utc)
@@ -646,15 +705,55 @@ async def get_chat_messages(
         Message.chat_id == chat_id
     ).order_by(Message.created_at).offset(offset).limit(limit).all()
 
-    message_items = [
-        MessageItem(
+    message_items = []
+    for msg in messages:
+        # Если есть image_url, регенерируем HTML для отображения графика
+        content = msg.content
+        if msg.image_url and msg.role == 'assistant':
+            # Регенерируем HTML с изображением
+            image_src = f"/{msg.image_url}"
+            content = f'''
+            <div class="graphic-container" style="
+                background: white;
+                border-radius: 10px;
+                padding: 15px;
+                margin: 15px 0;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            ">
+                <div class="graphic-header" style="
+                    margin-bottom: 10px;
+                    padding-bottom: 10px;
+                    border-bottom: 1px solid #eee;
+                ">
+                    <h4 style="margin: 0; color: #333;">📈 Сгенерированный график</h4>
+                </div>
+                <div class="graphic-image" style="text-align: center;">
+                    <img src="{image_src}" 
+                         alt="Сгенерированный график" 
+                         style="
+                            max-width: 100%;
+                            height: auto;
+                            border-radius: 5px;
+                         ">
+                </div>
+                <div class="graphic-note" style="
+                    margin-top: 10px;
+                    font-size: 12px;
+                    color: #666;
+                    text-align: center;
+                ">
+                    {msg.content}
+                </div>
+            </div>
+            '''
+        
+        message_items.append(MessageItem(
             id=msg.id,
             role=msg.role,
-            content=msg.content,
+            content=content,
+            image_url=msg.image_url,
             created_at=msg.created_at.isoformat()
-        )
-        for msg in messages
-    ]
+        ))
 
     return ChatMessagesResponse(
         messages=message_items,
