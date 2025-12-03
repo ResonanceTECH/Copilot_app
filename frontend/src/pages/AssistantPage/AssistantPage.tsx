@@ -10,6 +10,7 @@ import { useLanguage } from '../../contexts/LanguageContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { getTranslation } from '../../utils/i18n';
 import { chatAPI, ChatHistoryItem, MessageItem } from '../../utils/api';
+import { trackActivity } from '../../utils/activityTracker';
 import './AssistantPage.css';
 
 interface ThreadData {
@@ -532,6 +533,8 @@ export const AssistantPage: React.FC = () => {
 
   // Отправить сообщение
   const handleSendMessage = useCallback(async (content: string) => {
+    // Отслеживаем активность пользователя
+    trackActivity();
     if (!activeThreadId) {
       // Если нет активного чата, создаем новый на сервере
       try {

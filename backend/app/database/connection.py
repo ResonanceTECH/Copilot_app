@@ -68,7 +68,7 @@ def init_db():
     # Это нужно для fallback создания таблиц через SQLAlchemy
     from backend.app.models import (
         User, Space, Chat, Message, Note, Tag, NotificationSettings, Notification, note_tags,
-        Feedback, SupportArticle
+        Feedback, SupportArticle, UserActivity
     )
     
     # Путь к SQL-скрипту

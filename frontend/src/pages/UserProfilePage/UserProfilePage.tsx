@@ -7,12 +7,13 @@ import { ICONS } from '../../utils/icons';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { getTranslation } from '../../utils/i18n';
 import { applyTheme, getTheme, watchSystemTheme, type Theme } from '../../utils/theme';
+import { EfficiencyAnalytics } from './EfficiencyAnalytics';
 import './UserProfilePage.css';
 
 type ProfileSection = 
   | 'account' 
   | 'preferences' 
-  | 'personalization' 
+  | 'efficiency' 
   | 'assistant' 
   | 'tasks' 
   | 'notifications' 
@@ -225,7 +226,7 @@ export const UserProfilePage: React.FC = () => {
       items: [
         { id: 'account' as ProfileSection, label: 'Аккаунт', icon: ICONS.user },
         { id: 'preferences' as ProfileSection, label: 'Предпочтения', icon: ICONS.settings },
-        { id: 'personalization' as ProfileSection, label: 'Персонализация', icon: ICONS.user },
+        { id: 'efficiency' as ProfileSection, label: 'Эффективность', icon: ICONS.user },
         { id: 'assistant' as ProfileSection, label: 'Ассистент', icon: ICONS.brain },
         { id: 'tasks' as ProfileSection, label: 'Задачи', icon: ICONS.note },
         { id: 'notifications' as ProfileSection, label: 'Уведомления', icon: ICONS.bell },
@@ -536,10 +537,10 @@ export const UserProfilePage: React.FC = () => {
               </div>
             )}
 
-            {activeSection === 'personalization' && (
+            {activeSection === 'efficiency' && (
               <div className="user-profile-section">
-                <h2 className="user-profile-section-title">Персонализация</h2>
-                <div className="user-profile-empty">Раздел в разработке</div>
+                <h2 className="user-profile-section-title">Эффективность</h2>
+                <EfficiencyAnalytics />
               </div>
             )}
 

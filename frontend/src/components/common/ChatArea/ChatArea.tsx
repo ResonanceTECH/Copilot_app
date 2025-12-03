@@ -8,6 +8,7 @@ import logoIcon from '../../../assets/icons/logo.svg';
 import { useLanguage } from '../../../contexts/LanguageContext';
 import { getTranslation } from '../../../utils/i18n';
 import { NotesPanel } from '../NotesPanel';
+import { trackActivity } from '../../../utils/activityTracker';
 import './ChatArea.css';
 
 interface ChatAreaProps {
@@ -43,6 +44,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
   const handleSend = () => {
     if (inputValue.trim() && onSendMessage) {
+      // Отслеживаем активность пользователя
+      trackActivity();
       onSendMessage(inputValue.trim());
       setInputValue('');
       // Фокус на поле ввода после отправки
