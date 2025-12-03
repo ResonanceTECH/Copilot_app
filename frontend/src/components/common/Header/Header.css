@@ -186,59 +186,6 @@
   gap: 16px;
 }
 
-.header-language-selector {
-  position: relative;
-}
-
-.header-language-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: transparent;
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  cursor: pointer;
-  color: var(--color-text);
-  font-size: 14px;
-  transition: all 0.2s ease;
-}
-
-.header-language-btn:hover {
-  background: var(--color-hover);
-  border-color: var(--color-border-hover);
-}
-
-.header-language-dropdown {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  background: var(--color-sidebar-bg);
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  padding: 4px;
-  min-width: 120px;
-  box-shadow: var(--shadow-lg);
-  z-index: 100;
-}
-
-.header-language-dropdown button {
-  width: 100%;
-  padding: 8px 12px;
-  background: transparent;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  color: var(--color-text);
-  font-size: 14px;
-  text-align: left;
-  transition: background 0.2s ease;
-}
-
-.header-language-dropdown button:hover {
-  background: var(--color-hover);
-}
-
 .header-nav-btn,
 .header-notification-btn {
   display: flex;
