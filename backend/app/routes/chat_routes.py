@@ -12,19 +12,25 @@ from backend.app.models.user import User
 from backend.app.models.space import Space
 from backend.app.models.chat import Chat
 from backend.app.models.message import Message
+from backend.app.models.note import Note
+from backend.ml.models.business_classifier import EnhancedBusinessClassifier
 from backend.app.models.user_activity import UserActivity
-from backend.ml.services.classifier_service import BusinessClassifierService
 from backend.app.services.llm_service import LLMService
 from backend.app.services.cache_service import CacheService
 from backend.app.services.formatting_service import FormattingService
+from backend.ml.services.graphic_service import GraphicService
 
 router = APIRouter()
 
 # Инициализация сервисов
-classifier_service = BusinessClassifierService()
+classifier_service = EnhancedBusinessClassifier()
+classifier_service.load_model('backend/ml/models/business_classifier.pkl')
 llm_service = LLMService()
 cache_service = CacheService()
 formatting_service = FormattingService()
+
+# Инициализация сервиса для графиков
+graphic_service = GraphicService(llm_service)
 
 CATEGORY_PROMPTS = {
     'marketing': "Ты — эксперт по маркетингу и продвижению бизнеса. Отвечай кратко, практично и с фокусом на измеримые результаты.",
@@ -32,7 +38,8 @@ CATEGORY_PROMPTS = {
     'legal': "Ты — юридический консультант по бизнес-праву. Будь аккуратен в формулировках и указывай на риски.",
     'management': "Ты — эксперт по управлению бизнесом и командами. Давай практические, реализуемые советы.",
     'sales': "Ты — специалист по продажам и работе с клиентами. Предлагай конкретные техники и скрипты.",
-    'general': "Ты — универсальный бизнес-консультант для малого бизнеса. Отвечай кратко, структурно и по делу."
+    'general': "Ты — универсальный бизнес-консультант для малого бизнеса. Отвечай кратко, структурно и по делу.",
+    'graphic': "Ты эксперт по визуализации данных. Пользователь просит создать график."
 }
 
 
@@ -73,6 +80,7 @@ class MessageItem(BaseModel):
     id: int
     role: str
     content: str
+    image_url: Optional[str] = None
     created_at: str
 
     class Config:
@@ -104,7 +112,7 @@ def get_or_create_default_space(user: User, db: Session) -> Space:
         Space.name == "Моё рабочее пространство",
         Space.is_archived == False
     ).first()
-    
+
     if not default_space:
         # Создаем дефолтное пространство
         default_space = Space(
@@ -115,7 +123,7 @@ def get_or_create_default_space(user: User, db: Session) -> Space:
         db.add(default_space)
         db.commit()
         db.refresh(default_space)
-    
+
     return default_space
 
 
@@ -139,10 +147,205 @@ def get_conversation_history(chat_id: int, db: Session, max_messages: int = 10) 
     """Получить историю сообщений для контекста LLM"""
     messages = db.query(Message).filter(
         Message.chat_id == chat_id
-    ).order_by(Message.created_at.desc()).limit(max_messages).all()
+    ).order_by(Message.created_at.asc()).limit(max_messages).all()  # Уже в хронологическом порядке
 
-    # Возвращаем в хронологическом порядке (от старых к новым)
-    return list(reversed(messages))
+    # Преобразуем в список словарей
+    formatted_history = []
+    for msg in messages:
+        formatted_history.append({
+            'role': msg.role,
+            'content': msg.content
+        })
+
+    return formatted_history
+
+
+async def process_graphic_request(user_query: str, current_user: User, db: Session, space_id: int) -> dict:
+    """
+    Обработка запроса на график.
+    Возвращает ответ с base64 изображением и создает заметку с ссылкой на картинку.
+    """
+    try:
+        print(f"📊 Обработка графического запроса: {user_query}")
+
+        # Обрабатываем запрос через GraphicService
+        result = graphic_service.process_graphic_request(user_query)
+
+        if result["success"]:
+            saved_image_path = result.get('saved_image_path')
+
+            # Создаем заметку с ссылкой на картинку
+            if saved_image_path:
+                try:
+                    # Получаем пространство
+                    space = db.query(Space).filter(
+                        Space.id == space_id,
+                        Space.user_id == current_user.id
+                    ).first()
+
+                    if space:
+                        # Создаем заметку
+                        new_note = Note(
+                            space_id=space.id,
+                            user_id=current_user.id,
+                            title=f"График: {user_query[:50]}",
+                            content=f"График создан по запросу: {user_query}",
+                            image_url=saved_image_path
+                        )
+                        db.add(new_note)
+                        db.commit()
+                        db.refresh(new_note)
+                        print(f"✅ Заметка создана с ID {new_note.id}, image_url: {saved_image_path}")
+                    else:
+                        print(f"⚠️ Пространство {space_id} не найдено, заметка не создана")
+                except Exception as e:
+                    print(f"❌ Ошибка при создании заметки: {e}")
+                    import traceback
+                    traceback.print_exc()
+
+            # Формируем HTML с изображением из assets
+            # Используем сохраненный путь, если есть, иначе fallback на base64
+            image_src = None
+            if saved_image_path:
+                # Формируем URL к файлу (путь уже в формате assets/graph_xxx.png)
+                image_src = f"/{saved_image_path}"
+            elif result.get('image_base64'):
+                # Fallback на base64, если путь не сохранился
+                image_src = f"data:image/png;base64,{result['image_base64']}"
+
+            if image_src:
+                image_html = f'''
+                <div class="graphic-container" style="
+                    background: white;
+                    border-radius: 10px;
+                    padding: 15px;
+                    margin: 15px 0;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                ">
+                    <div class="graphic-header" style="
+                        margin-bottom: 10px;
+                        padding-bottom: 10px;
+                        border-bottom: 1px solid #eee;
+                    ">
+                        <h4 style="margin: 0; color: #333;">📈 Сгенерированный график</h4>
+                    </div>
+                    <div class="graphic-image" style="text-align: center;">
+                        <img src="{image_src}" 
+                             alt="Сгенерированный график" 
+                             style="
+                                max-width: 100%;
+                                height: auto;
+                                border-radius: 5px;
+                             ">
+                    </div>
+                    <div class="graphic-note" style="
+                        margin-top: 10px;
+                        font-size: 12px;
+                        color: #666;
+                        text-align: center;
+                    ">
+                        Запрос: "{user_query}"
+                    </div>
+                </div>
+                '''
+            else:
+                image_html = f'''
+                <div class="graphic-container" style="
+                    background: #fff5f5;
+                    border-left: 4px solid #f44336;
+                    padding: 15px;
+                    margin: 15px 0;
+                    border-radius: 5px;
+                ">
+                    <p style="margin: 0; color: #d32f2f;">⚠️ График создан, но изображение недоступно</p>
+                </div>
+                '''
+
+            return {
+                'raw_text': f"Создан график по запросу: {user_query}",
+                'formatted_html': image_html,
+                'timestamp': datetime.now().isoformat(),
+                'category': 'graphic',
+                'graphic_data': {
+                    'success': True,
+                    'has_image': True,
+                    'mime_type': result.get('mime_type', 'image/png'),
+                    'saved_image_path': saved_image_path
+                }
+            }
+        else:
+            error_msg = result.get('error', 'Неизвестная ошибка')
+            stderr = result.get('stderr', '')
+
+            error_html = f'''
+            <div class="error-container" style="
+                background: #fff5f5;
+                border-left: 4px solid #f44336;
+                padding: 15px;
+                margin: 15px 0;
+                border-radius: 5px;
+            ">
+                <h4 style="margin: 0 0 10px 0; color: #d32f2f;">❌ Ошибка создания графика</h4>
+                <p style="margin: 0 0 10px 0;">{error_msg}</p>
+            '''
+
+            if stderr:
+                error_html += f'''
+                <details style="margin-top: 10px;">
+                    <summary style="cursor: pointer; color: #666; font-size: 12px;">Подробности ошибки</summary>
+                    <pre style="
+                        background: #f8f9fa;
+                        padding: 10px;
+                        border-radius: 5px;
+                        font-size: 11px;
+                        overflow-x: auto;
+                        margin-top: 5px;
+                    ">{stderr[:500]}</pre>
+                </details>
+                '''
+
+            error_html += '</div>'
+
+            return {
+                'raw_text': f"Ошибка создания графика: {error_msg}",
+                'formatted_html': error_html,
+                'timestamp': datetime.now().isoformat(),
+                'category': 'graphic',
+                'graphic_data': {
+                    'success': False,
+                    'error': error_msg,
+                    'stderr': stderr[:500] if stderr else ''
+                }
+            }
+
+    except Exception as e:
+        print(f"❌ Исключение при обработке графического запроса: {e}")
+        import traceback
+        traceback.print_exc()
+
+        error_html = f'''
+        <div class="error-container" style="
+            background: #fff5f5;
+            border-left: 4px solid #f44336;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+        ">
+            <h4 style="margin: 0 0 10px 0; color: #d32f2f;">❌ Ошибка обработки запроса</h4>
+            <p style="margin: 0;">{str(e)}</p>
+        </div>
+        '''
+
+        return {
+            'raw_text': f"Ошибка обработки запроса на график: {str(e)}",
+            'formatted_html': error_html,
+            'timestamp': datetime.now().isoformat(),
+            'category': 'graphic',
+            'graphic_data': {
+                'success': False,
+                'error': str(e)
+            }
+        }
 
 
 @router.get("/")
@@ -152,9 +355,9 @@ async def root():
 
 @router.post("/chat", response_model=ChatHistoryItem, status_code=201)
 async def create_chat(
-    chat_data: ChatCreateRequest,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+        chat_data: ChatCreateRequest,
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db)
 ):
     """Создать новый пустой чат"""
     # Определяем пространство
@@ -244,14 +447,14 @@ async def send_message(
             content=user_message
         )
         db.add(user_msg)
-        
+
         # Сохраняем активность пользователя для аналитики эффективности
         today = datetime.now(timezone.utc).date()
         activity = db.query(UserActivity).filter(
             UserActivity.user_id == current_user.id,
             UserActivity.activity_date == today
         ).first()
-        
+
         if activity:
             activity.message_count += 1
             activity.updated_at = datetime.now(timezone.utc)
@@ -262,7 +465,7 @@ async def send_message(
                 message_count=1
             )
             db.add(activity)
-        
+
         db.commit()
         db.refresh(user_msg)
 
@@ -277,7 +480,7 @@ async def send_message(
             db.add(assistant_msg)
             db.commit()
             db.refresh(assistant_msg)
-            
+
             return ChatSendResponse(
                 success=True,
                 chat_id=chat.id,
@@ -290,12 +493,41 @@ async def send_message(
                 }
             )
 
-        # Проверяем кэш
+        # Получаем усиленный промпт и категорию
+        enhanced_prompt, category, probabilities = get_enhanced_system_prompt(user_message)
+
+        # Если категория 'graphic', обрабатываем специальным образом
+        if category == 'graphic':
+            # Обрабатываем графический запрос
+            response_data = await process_graphic_request(user_message, current_user, db, space.id)
+
+            # Сохраняем ответ ассистента в базу
+            # Для графиков сохраняем также image_url
+            saved_image_path = response_data.get('graphic_data', {}).get('saved_image_path')
+            assistant_msg = Message(
+                chat_id=chat.id,
+                role="assistant",
+                content=response_data['raw_text'],
+                image_url=saved_image_path
+            )
+            db.add(assistant_msg)
+            chat.updated_at = datetime.now(timezone.utc)
+            db.commit()
+            db.refresh(assistant_msg)
+
+            return ChatSendResponse(
+                success=True,
+                chat_id=chat.id,
+                message_id=assistant_msg.id,
+                response=response_data
+            )
+
+        # Для остальных категорий - проверяем кэш
         cached_response = cache_service.get(user_message)
         if cached_response:
             print(f"✅ Используем кэшированный ответ для: {user_message[:50]}...")
             assistant_content = cached_response.get('raw_text', '')
-            
+
             assistant_msg = Message(
                 chat_id=chat.id,
                 role="assistant",
@@ -304,7 +536,7 @@ async def send_message(
             db.add(assistant_msg)
             db.commit()
             db.refresh(assistant_msg)
-            
+
             return ChatSendResponse(
                 success=True,
                 chat_id=chat.id,
@@ -318,9 +550,6 @@ async def send_message(
         conversation_history = get_conversation_history(chat.id, db, max_messages=15)
 
         print(f"📚 Используем историю из {len(conversation_history)} сообщений для контекста")
-
-        # Получаем усиленный промпт
-        enhanced_prompt, category, probabilities = get_enhanced_system_prompt(user_message)
 
         # Генерируем ответ с учетом всей истории чата
         try:
@@ -403,6 +632,34 @@ async def send_message(
         )
 
 
+@router.get("/test-graph")
+async def test_graph():
+    """Тестовый эндпоинт для проверки графиков"""
+    test_code = """
+import matplotlib.pyplot as plt
+import numpy as np
+
+x = np.linspace(0, 10, 100)
+y = np.sin(x)
+
+plt.figure(figsize=(10, 6))
+plt.plot(x, y, 'b-', linewidth=2)
+plt.title('Тестовый график синуса')
+plt.grid(True)
+plt.savefig('graph_output.png', dpi=100, bbox_inches='tight')
+plt.close()
+"""
+
+    from backend.ml.core.code_executor import SafeCodeExecutor
+    executor = SafeCodeExecutor(timeout=30)
+    result = executor.execute_python_code(test_code)
+
+    if result["success"] and result.get("image_base64"):
+        html = f'<img src="data:image/png;base64,{result["image_base64"]}">'
+        return {"success": True, "html": html}
+
+    return {"success": False, "error": result.get("error")}
+
 @router.get("/chat/history", response_model=ChatHistoryResponse)
 async def get_chat_history(
         space_id: Optional[int] = Query(None, description="Фильтр по пространству"),
@@ -413,21 +670,21 @@ async def get_chat_history(
 ):
     """Получить историю чатов пользователя"""
     query = db.query(Chat).filter(Chat.user_id == current_user.id)
-    
+
     if space_id:
         query = query.filter(Chat.space_id == space_id)
-    
+
     total = query.count()
-    
+
     chats = query.order_by(desc(Chat.updated_at)).offset(offset).limit(limit).all()
-    
+
     chat_items = []
     for chat in chats:
         # Получаем последнее сообщение
         last_message = db.query(Message).filter(
             Message.chat_id == chat.id
         ).order_by(desc(Message.created_at)).first()
-        
+
         chat_items.append(ChatHistoryItem(
             id=chat.id,
             title=chat.title,
@@ -457,33 +714,74 @@ async def get_chat_messages(
         Chat.id == chat_id,
         Chat.user_id == current_user.id
     ).first()
-    
+
     if not chat:
         raise HTTPException(status_code=404, detail="Чат не найден")
-    
+
     # Получаем сообщения
     total = db.query(Message).filter(Message.chat_id == chat_id).count()
-    
+
     messages = db.query(Message).filter(
         Message.chat_id == chat_id
     ).order_by(Message.created_at).offset(offset).limit(limit).all()
-    
-    message_items = [
-        MessageItem(
+
+    message_items = []
+    for msg in messages:
+        # Если есть image_url, регенерируем HTML для отображения графика
+        content = msg.content
+        if msg.image_url and msg.role == 'assistant':
+            # Регенерируем HTML с изображением
+            image_src = f"/{msg.image_url}"
+            content = f'''
+            <div class="graphic-container" style="
+                background: white;
+                border-radius: 10px;
+                padding: 15px;
+                margin: 15px 0;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            ">
+                <div class="graphic-header" style="
+                    margin-bottom: 10px;
+                    padding-bottom: 10px;
+                    border-bottom: 1px solid #eee;
+                ">
+                    <h4 style="margin: 0; color: #333;">📈 Сгенерированный график</h4>
+                </div>
+                <div class="graphic-image" style="text-align: center;">
+                    <img src="{image_src}" 
+                         alt="Сгенерированный график" 
+                         style="
+                            max-width: 100%;
+                            height: auto;
+                            border-radius: 5px;
+                         ">
+                </div>
+                <div class="graphic-note" style="
+                    margin-top: 10px;
+                    font-size: 12px;
+                    color: #666;
+                    text-align: center;
+                ">
+                    {msg.content}
+                </div>
+            </div>
+            '''
+
+        message_items.append(MessageItem(
             id=msg.id,
             role=msg.role,
-            content=msg.content,
+            content=content,
+            image_url=msg.image_url,
             created_at=msg.created_at.isoformat()
-        )
-        for msg in messages
-    ]
-    
+        ))
+
     return ChatMessagesResponse(
         messages=message_items,
         total=total,
         chat_id=chat.id,
         chat_title=chat.title
     )
+
 
 @router.get("/chat/{chat_id}/context")
 async def get_chat_context(
@@ -520,14 +818,12 @@ async def get_chat_context(
     }
 
 
-
-
 @router.put("/chat/{chat_id}", response_model=ChatHistoryItem)
 async def update_chat(
-    chat_id: int,
-    chat_data: ChatUpdateRequest,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+        chat_id: int,
+        chat_data: ChatUpdateRequest,
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db)
 ):
     """Обновить чат (переименовать или изменить пространство)"""
     chat = db.query(Chat).filter(
@@ -542,7 +838,7 @@ async def update_chat(
         )
 
     update_data = {}
-    
+
     if chat_data.title is not None:
         if not chat_data.title.strip():
             raise HTTPException(
@@ -592,9 +888,9 @@ async def update_chat(
 
 @router.delete("/chat/{chat_id}", status_code=204)
 async def delete_chat(
-    chat_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+        chat_id: int,
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db)
 ):
     """Удалить чат"""
     chat = db.query(Chat).filter(
@@ -640,9 +936,9 @@ async def get_efficiency_data(
 ):
     """Получить данные эффективности пользователя"""
     from datetime import timedelta
-    
+
     today = datetime.now(timezone.utc).date()
-    
+
     # Определяем диапазон дат в зависимости от периода
     if period == "day":
         start_date = today
@@ -656,14 +952,14 @@ async def get_efficiency_data(
     else:  # year
         start_date = today - timedelta(days=365)
         end_date = today
-    
+
     # Получаем активность за период
     activities = db.query(UserActivity).filter(
         UserActivity.user_id == current_user.id,
         UserActivity.activity_date >= start_date,
         UserActivity.activity_date <= end_date
     ).order_by(UserActivity.activity_date).all()
-    
+
     # Преобразуем в формат для фронтенда
     activity_records = [
         ActivityRecord(
@@ -672,10 +968,10 @@ async def get_efficiency_data(
         )
         for activity in activities
     ]
-    
+
     total = sum(a.count for a in activity_records)
     average = total / len(activity_records) if activity_records else 0
-    
+
     return EfficiencyResponse(
         activities=activity_records,
         total=total,
@@ -703,10 +999,10 @@ async def get_hourly_activity(
     """Получить данные активности по часам за последние N дней"""
     from datetime import timedelta
     from sqlalchemy import func, extract
-    
+
     today = datetime.now(timezone.utc)
     start_date = today - timedelta(days=days)
-    
+
     # Получаем сообщения пользователя за период и группируем по часам
     hourly_stats = db.query(
         extract('hour', Message.created_at).label('hour'),
@@ -722,23 +1018,23 @@ async def get_hourly_activity(
     ).order_by(
         extract('hour', Message.created_at)
     ).all()
-    
+
     # Создаем массив для всех 24 часов
     hourly_data_dict = {i: 0 for i in range(24)}
     for stat in hourly_stats:
         hour = int(stat.hour)
         hourly_data_dict[hour] = stat.count
-    
+
     # Преобразуем в список
     hourly_records = [
         HourlyActivityRecord(hour=hour, count=count)
         for hour, count in sorted(hourly_data_dict.items())
     ]
-    
+
     # Находим пиковый час
     peak_hour = max(hourly_records, key=lambda x: x.count).hour
     peak_count = max(hourly_records, key=lambda x: x.count).count
-    
+
     return HourlyActivityResponse(
         hourly_data=hourly_records,
         peak_hour=peak_hour,
@@ -759,10 +1055,10 @@ async def ask_question_legacy(
     question = request.get("question", "")
     if not question:
         raise HTTPException(status_code=400, detail="Вопрос не может быть пустым")
-    
+
     send_request = ChatSendRequest(message=question)
     response = await send_message(send_request, current_user, db)
-    
+
     return {
         "success": response.success,
         "response": response.response,

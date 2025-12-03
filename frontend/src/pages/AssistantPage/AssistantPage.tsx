@@ -429,9 +429,11 @@ export const AssistantPage: React.FC = () => {
           : threadId;
 
         // Добавляем ответ ассистента
+        // Используем formatted_html если есть, иначе raw_text
+        const content = response.response.formatted_html || response.response.raw_text;
         const assistantMessage: ChatMessage = {
           id: `temp-assistant-${Date.now()}`,
-          content: response.response.raw_text,
+          content: content,
           role: 'assistant',
           timestamp: new Date(response.response.timestamp),
         };

@@ -5,23 +5,21 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
 import joblib
 import re
-# from sentence_transformers import SentenceTransformer
 
 
 class EnhancedBusinessClassifier:
     def __init__(self):
-        # Используем легкую модель для эмбеддингов
-        # self.embedder = SentenceTransformer('sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2')
         self.classifier = RandomForestClassifier(
             n_estimators=100,
-            max_depth=20,
+            max_depth=30,
             min_samples_split=3,
             min_samples_leaf=1,
             random_state=42
         )
-        self.labels = ['marketing', 'finance', 'legal', 'management', 'sales', 'general']
+        # Категории включая 'graphic'
+        self.labels = ['marketing', 'finance', 'legal', 'management', 'sales', 'general', 'graphic']
 
-        # Расширенные ключевые слова
+        # Ключевые слова для категорий
         self.category_keywords = {
             'marketing': ['маркетинг', 'реклама', 'продвижение', 'бренд', 'smm', 'seo', 'таргетинг',
                           'контент', 'аудитория', 'трафик', 'конверсия', 'воронка'],
@@ -34,7 +32,17 @@ class EnhancedBusinessClassifier:
             'sales': ['продаж', 'клиент', 'сделка', 'лид', 'crm', 'возражен', 'коммерческ',
                       'контракт', 'менеджер', 'запрос', 'предложение'],
             'general': ['бизнес', 'стартап', 'компания', 'развитие', 'стратегия', 'план',
-                        'идея', 'проект', 'рынок', 'конкуренция', 'ниша']
+                        'идея', 'проект', 'рынок', 'конкуренция', 'ниша'],
+            'graphic': [
+                'график', 'диаграмма', 'визуализац', 'chart', 'plot', 'визуализировать',
+                'отобразить', 'построить', 'нарисовать', 'статистик', 'данные', 'таблиц',
+                'анализ данных', 'гистограмм', 'круговая', 'столбчатая', 'линейный', 'scatter',
+                'heatmap', 'тренд', 'динамика', 'распределение', 'доля', 'процент', 'гистограмма',
+                'точечный', 'корреляция', 'зависимость', 'ящик с усами', 'box plot', 'violin',
+                'bar chart', 'pie chart', 'line chart', 'area chart', 'графический', 'визуальный',
+                'отчёт', 'отчет', 'визуализация', 'диаграм', 'построй', 'нарисуй', 'покажи',
+                'создай', 'отобрази', 'представь в виде'
+            ]
         }
 
     def preprocess_text(self, text):
@@ -50,27 +58,29 @@ class EnhancedBusinessClassifier:
         features = []
 
         for category, keywords in self.category_keywords.items():
-            # 1. Простое наличие
             presence = sum(1 for keyword in keywords if keyword in text_lower)
-
-            # 2. Взвешенное по TF (частоте в тексте)
             tf_score = sum(text_lower.count(keyword) for keyword in keywords)
-
-            # 3. Нормализованный счет
             normalized_score = tf_score / max(len(text.split()), 1)
-
             features.extend([presence, tf_score, normalized_score])
 
         return np.array(features)
 
     def get_text_embeddings(self, texts):
-        """Получение семантических эмбеддингов"""
+        """Получение семантических эмбеддингов (заглушка)"""
         if isinstance(texts, str):
             texts = [texts]
 
-        # Получаем эмбеддинги
-        embeddings = self.embedder.encode(texts, convert_to_tensor=False)
+        embedding_dim = 384
+        if len(texts) > 0:
+            embeddings = np.zeros((len(texts), embedding_dim))
+        else:
+            embeddings = np.array([]).reshape(0, embedding_dim)
+
         return embeddings
+
+    def predict_category(self, text: str):
+        """Метод для обратной совместимости с chat_routes.py"""
+        return self.predict(text)
 
     def extract_text_features(self, text):
         """Извлечение дополнительных текстовых фич"""
@@ -78,25 +88,28 @@ class EnhancedBusinessClassifier:
         sentences = text.split('.')
 
         features = [
-            len(text),  # длина текста
-            len(words),  # количество слов
-            len(sentences),  # количество предложений
-            np.mean([len(word) for word in words]) if words else 0,  # средняя длина слова
-            len([w for w in words if len(w) > 6]) / max(len(words), 1),  # доля длинных слов
+            len(text),
+            len(words),
+            len(sentences),
+            np.mean([len(word) for word in words]) if words else 0,
+            len([w for w in words if len(w) > 6]) / max(len(words), 1),
         ]
 
         return np.array(features)
 
     def train(self, dataset):
+        """Обучение модели"""
         df = pd.DataFrame(dataset)
         df['processed_text'] = df['text'].apply(self.preprocess_text)
 
         print("🔍 Извлечение признаков...")
+        print(f"📊 Категории в датасете: {df['label'].unique()}")
+        print(f"📈 Распределение: {df['label'].value_counts().to_dict()}")
 
-        # 1. Семантические эмбеддинги
+        # 1. Семантические эмбеддинги (заглушка)
         embeddings = self.get_text_embeddings(df['processed_text'].tolist())
 
-        # 2. Признаки ключевых слов
+        # 2. Признаки ключевых слов (теперь 7 категорий × 3 фичи = 21 фича)
         keyword_features = np.array([self.calculate_keyword_features(text) for text in df['text']])
 
         # 3. Текстовые метрики
@@ -106,12 +119,15 @@ class EnhancedBusinessClassifier:
         X_combined = np.hstack([embeddings, keyword_features, text_metrics])
         y = df['label']
 
-        # Разделение на train/test
+        print(f"📊 Размерность признаков: {X_combined.shape}")
+        print(f"📊 Размерность эмбеддингов: {embeddings.shape}")
+        print(f"📊 Размерность keyword_features: {keyword_features.shape}")
+        print(f"📊 Размерность text_metrics: {text_metrics.shape}")
+
+        # Разделение на train/test с учетом новой категории
         X_train, X_test, y_train, y_test = train_test_split(
             X_combined, y, test_size=0.15, random_state=42, stratify=y
         )
-
-        print(f"📊 Размерность признаков: {X_combined.shape}")
 
         # Обучение классификатора
         self.classifier.fit(X_train, y_train)
@@ -134,7 +150,7 @@ class EnhancedBusinessClassifier:
         """Предсказание с улучшенными признаками"""
         processed_text = self.preprocess_text(text)
 
-        # 1. Эмбеддинги
+        # 1. Эмбеддинги (заглушка)
         embedding = self.get_text_embeddings(processed_text)
 
         # 2. Ключевые слова
@@ -154,6 +170,10 @@ class EnhancedBusinessClassifier:
             label: round(prob, 3)
             for label, prob in zip(self.classifier.classes_, probabilities)
         }
+
+        # Логирование для отладки
+        print(f"🔍 Предсказание для '{text[:50]}...': {prediction}")
+        print(f"📊 Вероятности: {prob_dict}")
 
         return prediction, prob_dict
 

@@ -12,6 +12,7 @@ class Message(Base):
     chat_id = Column(Integer, ForeignKey("chats.id", ondelete="CASCADE"), nullable=False, index=True)
     role = Column(String(20), nullable=False)  # 'user' или 'assistant'
     content = Column(Text, nullable=False)
+    image_url = Column(String(500), nullable=True)  # Ссылка на изображение для графиков
     created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
 
     # Relationships

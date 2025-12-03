@@ -60,6 +60,7 @@ CREATE TABLE IF NOT EXISTS messages (
     chat_id INTEGER NOT NULL,
     role VARCHAR(20) NOT NULL,
     content TEXT NOT NULL,
+    image_url VARCHAR(500),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_messages_chat FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE
 );
@@ -75,6 +76,7 @@ CREATE TABLE IF NOT EXISTS notes (
     user_id INTEGER NOT NULL,
     title VARCHAR(255) NOT NULL,
     content TEXT,
+    image_url VARCHAR(500),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_notes_space FOREIGN KEY (space_id) REFERENCES spaces(id) ON DELETE CASCADE,
@@ -269,6 +271,22 @@ BEGIN
         WHERE tablename = 'spaces' AND indexname = 'idx_spaces_public_token'
     ) THEN
         CREATE INDEX idx_spaces_public_token ON spaces(public_token);
+    END IF;
+    
+    -- Добавляем image_url в messages если не существует
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'messages' AND column_name = 'image_url'
+    ) THEN
+        ALTER TABLE messages ADD COLUMN image_url VARCHAR(500);
+    END IF;
+    
+    -- Добавляем image_url в notes если не существует
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'notes' AND column_name = 'image_url'
+    ) THEN
+        ALTER TABLE notes ADD COLUMN image_url VARCHAR(500);
     END IF;
 END $$;
 

@@ -18,12 +18,14 @@ router = APIRouter()
 class NoteCreateRequest(BaseModel):
     title: str
     content: Optional[str] = None
+    image_url: Optional[str] = None
     space_id: Optional[int] = None
 
 
 class NoteUpdateRequest(BaseModel):
     title: Optional[str] = None
     content: Optional[str] = None
+    image_url: Optional[str] = None
     space_id: Optional[int] = None
 
 
@@ -34,6 +36,7 @@ class NoteResponse(BaseModel):
     user_id: int
     title: str
     content: Optional[str]
+    image_url: Optional[str] = None
     created_at: str
     updated_at: str
     tags: List[dict] = []
@@ -95,7 +98,8 @@ async def create_note(
         space_id=space.id,
         user_id=current_user.id,
         title=note_data.title.strip(),
-        content=note_data.content.strip() if note_data.content else None
+        content=note_data.content.strip() if note_data.content else None,
+        image_url=note_data.image_url
     )
 
     db.add(new_note)
@@ -130,6 +134,7 @@ async def create_note(
         user_id=new_note.user_id,
         title=new_note.title,
         content=new_note.content,
+        image_url=new_note.image_url,
         created_at=new_note.created_at.isoformat(),
         updated_at=new_note.updated_at.isoformat(),
         tags=[{"id": tag.id, "name": tag.name, "color": tag.color} for tag in new_note.tags]
@@ -259,6 +264,9 @@ async def update_note(
     if note_data.content is not None:
         note.content = note_data.content.strip() if note_data.content else None
 
+    if note_data.image_url is not None:
+        note.image_url = note_data.image_url
+
     # Если указано новое пространство, проверяем доступ
     if note_data.space_id is not None and note_data.space_id != note.space_id:
         space = db.query(Space).filter(
@@ -286,6 +294,7 @@ async def update_note(
         user_id=note.user_id,
         title=note.title,
         content=note.content,
+        image_url=note.image_url,
         created_at=note.created_at.isoformat(),
         updated_at=note.updated_at.isoformat(),
         tags=[{"id": tag.id, "name": tag.name, "color": tag.color} for tag in note.tags]
