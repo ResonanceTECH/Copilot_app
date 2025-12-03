@@ -13,6 +13,8 @@ import {
   Mic01Icon,
   Menu01Icon,
   ArrowDown01Icon as ChevronDown01Icon,
+  ArrowDown01Icon as ArrowDownIcon,
+  ArrowUp01Icon,
   Delete01Icon,
   Edit01Icon,
   Notification01Icon as Bell01Icon,
@@ -23,6 +25,8 @@ import {
   ArchiveIcon as Archive01Icon,
   HelpCircleIcon,
   Link01Icon,
+  Copy01Icon,
+  Flag01Icon,
 } from '@hugeicons/core-free-icons';
 
 export type IconSvgObject = typeof Search01Icon;
@@ -53,6 +57,10 @@ export const ICON_COMPONENTS: Record<string, IconSvgObject> = {
   close: Delete01Icon,
   support: HelpCircleIcon,
   link: Link01Icon,
+  copy: Copy01Icon,
+  thumbsUp: ArrowUp01Icon,
+  thumbsDown: ArrowDownIcon,
+  flag: Flag01Icon,
 };
 
 // Старые URL для обратной совместимости (если нужно)
@@ -82,6 +90,10 @@ export const ICONS = {
   close: 'close',
   support: 'support',
   link: 'link',
+  copy: 'copy',
+  thumbsUp: 'thumbsUp',
+  thumbsDown: 'thumbsDown',
+  flag: 'flag',
 } as const;
 
 export type IconName = keyof typeof ICONS;

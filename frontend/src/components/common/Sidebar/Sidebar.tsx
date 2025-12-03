@@ -279,7 +279,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   </div>
                   <div className="sidebar-pinned-spaces">
                     {pinnedSpacesList.map(space => (
-                      <button
+                      <div
                         key={space.id}
                         className="sidebar-space-item sidebar-space-item--pinned"
                         onClick={() => {
@@ -316,7 +316,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         >
                           <Icon src={starFilledIcon} size="sm" className="sidebar-star-icon" />
                         </button>
-                      </button>
+                      </div>
                     ))}
                   </div>
                 </div>

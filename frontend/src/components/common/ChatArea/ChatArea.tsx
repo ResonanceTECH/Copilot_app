@@ -29,8 +29,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   const [inputValue, setInputValue] = useState('');
   const [internalActiveTool, setInternalActiveTool] = useState<string>('assistant');
   const [isNotesPanelVisible, setIsNotesPanelVisible] = useState(false);
+  const [showReportMenu, setShowReportMenu] = useState<string | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const reportMenuRef = useRef<HTMLDivElement>(null);
   const { language } = useLanguage();
 
   const activeTool = externalActiveTool !== undefined ? externalActiveTool : internalActiveTool;
@@ -79,6 +81,39 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Закрытие меню отчета при клике вне его
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (reportMenuRef.current && !reportMenuRef.current.contains(event.target as Node)) {
+        setShowReportMenu(null);
+      }
+    };
+
+    if (showReportMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [showReportMenu]);
+
+  const handleCopyMessage = async (content: string) => {
+    try {
+      await navigator.clipboard.writeText(content);
+    } catch (error) {
+      console.error('Ошибка копирования:', error);
+    }
+  };
+
+  const handleReaction = (messageId: string, reaction: 'like' | 'dislike') => {
+    console.log(`Reaction ${reaction} for message ${messageId}`);
+  };
+
+  const handleReport = (messageId: string) => {
+    console.log(`Report message ${messageId}`);
+    setShowReportMenu(null);
+  };
 
 
   return (
@@ -132,6 +167,51 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                         minute: '2-digit'
                       })
                     }
+                  </div>
+                )}
+                {message.role === 'assistant' && !message.isLoading && (
+                  <div className="chat-message-actions">
+                    <button
+                      className="chat-message-action-btn"
+                      onClick={() => handleCopyMessage(message.content)}
+                      title="Копировать"
+                    >
+                      <Icon src={ICONS.copy} size="sm" />
+                    </button>
+                    <button
+                      className="chat-message-action-btn"
+                      onClick={() => handleReaction(message.id, 'like')}
+                      title="Лайк"
+                    >
+                      <Icon src={ICONS.thumbsUp} size="sm" />
+                    </button>
+                    <button
+                      className="chat-message-action-btn"
+                      onClick={() => handleReaction(message.id, 'dislike')}
+                      title="Дизлайк"
+                    >
+                      <Icon src={ICONS.thumbsDown} size="sm" />
+                    </button>
+                    <div className="chat-message-menu" ref={reportMenuRef}>
+                      <button
+                        className="chat-message-action-btn"
+                        onClick={() => setShowReportMenu(showReportMenu === message.id ? null : message.id)}
+                        title="Еще"
+                      >
+                        <Icon src={ICONS.more} size="sm" />
+                      </button>
+                      {showReportMenu === message.id && (
+                        <div className="chat-message-menu-dropdown">
+                          <button
+                            className="chat-message-menu-item"
+                            onClick={() => handleReport(message.id)}
+                          >
+                            <Icon src={ICONS.flag} size="sm" />
+                            <span>Отчет</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
