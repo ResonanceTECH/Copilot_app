@@ -553,6 +553,34 @@ async def send_message(
         )
 
 
+@router.get("/test-graph")
+async def test_graph():
+    """Тестовый эндпоинт для проверки графиков"""
+    test_code = """
+import matplotlib.pyplot as plt
+import numpy as np
+
+x = np.linspace(0, 10, 100)
+y = np.sin(x)
+
+plt.figure(figsize=(10, 6))
+plt.plot(x, y, 'b-', linewidth=2)
+plt.title('Тестовый график синуса')
+plt.grid(True)
+plt.savefig('graph_output.png', dpi=100, bbox_inches='tight')
+plt.close()
+"""
+
+    from backend.ml.core.code_executor import SafeCodeExecutor
+    executor = SafeCodeExecutor(timeout=30)
+    result = executor.execute_python_code(test_code)
+
+    if result["success"] and result.get("image_base64"):
+        html = f'<img src="data:image/png;base64,{result["image_base64"]}">'
+        return {"success": True, "html": html}
+
+    return {"success": False, "error": result.get("error")}
+
 @router.get("/chat/history", response_model=ChatHistoryResponse)
 async def get_chat_history(
         space_id: Optional[int] = Query(None, description="Фильтр по пространству"),
