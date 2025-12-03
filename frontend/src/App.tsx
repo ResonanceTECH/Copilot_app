@@ -9,12 +9,27 @@ import { SettingsPage } from './pages/SettingsPage';
 import { UserProfilePage } from './pages/UserProfilePage/UserProfilePage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { PublicSpacePage } from './pages/PublicSpacePage';
+import { applyTheme, getTheme, watchSystemTheme } from './utils/theme';
 
 export const App: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
   const [currentPage, setCurrentPage] = React.useState<'login' | 'register' | 'assistant' | 'spaces' | 'space-detail' | 'settings' | 'profile' | 'public-space' | 'not-found'>('login');
   const [spaceId, setSpaceId] = React.useState<number | null>(null);
   const [publicToken, setPublicToken] = React.useState<string | null>(null);
+
+  // Инициализация темы при загрузке приложения
+  React.useEffect(() => {
+    const theme = getTheme();
+    applyTheme(theme);
+    
+    // Если выбрана системная тема, слушаем изменения системных настроек
+    if (theme === 'system') {
+      const unwatch = watchSystemTheme(() => {
+        applyTheme('system');
+      });
+      return unwatch;
+    }
+  }, []);
 
   // Определяем текущую страницу из URL
   React.useEffect(() => {

@@ -2,12 +2,23 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { userAPI } from '../../utils/api';
 import type { UserProfile, UserProfileUpdate } from '../../types';
-import { Header } from '../../components/common/Header';
 import { Icon } from '../../components/ui/Icon';
 import { ICONS } from '../../utils/icons';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { getTranslation } from '../../utils/i18n';
+import { applyTheme, getTheme, watchSystemTheme, type Theme } from '../../utils/theme';
 import './UserProfilePage.css';
+
+type ProfileSection = 
+  | 'account' 
+  | 'preferences' 
+  | 'personalization' 
+  | 'assistant' 
+  | 'tasks' 
+  | 'notifications' 
+  | 'connectors' 
+  | 'api' 
+  | 'corporation';
 
 export const UserProfilePage: React.FC = () => {
   const { isAuthenticated } = useAuth();
@@ -16,7 +27,7 @@ export const UserProfilePage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [activeSection, setActiveSection] = useState<'account' | 'settings'>('account');
+  const [activeSection, setActiveSection] = useState<ProfileSection>('account');
   
   // Форма редактирования
   const [formData, setFormData] = useState<UserProfileUpdate>({
@@ -31,14 +42,63 @@ export const UserProfilePage: React.FC = () => {
     notifications: true,
     emailNotifications: true,
     language: language,
-    theme: 'dark',
+    theme: getTheme(),
   });
+  const [isThemeDropdownOpen, setIsThemeDropdownOpen] = useState(false);
 
   useEffect(() => {
     if (isAuthenticated) {
       loadProfile();
     }
   }, [isAuthenticated]);
+
+  // Отслеживаем изменения системной темы, если выбрана системная тема
+  useEffect(() => {
+    if (settings.theme === 'system') {
+      const unwatch = watchSystemTheme(() => {
+        applyTheme('system');
+      });
+      return unwatch;
+    }
+  }, [settings.theme]);
+
+  const handleThemeChange = (theme: Theme) => {
+    setSettings(prev => ({ ...prev, theme }));
+    applyTheme(theme);
+    setIsThemeDropdownOpen(false);
+  };
+
+  const getThemeIcon = (theme: Theme) => {
+    if (theme === 'light') {
+      return (
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="8" cy="8" r="3.5" stroke="currentColor" strokeWidth="1.5" fill="none"/>
+          <path d="M8 2V1M8 15V14M2 8H1M15 8H14M3.343 3.343L2.636 2.636M13.364 13.364L12.657 12.657M3.343 12.657L2.636 13.364M13.364 2.636L12.657 3.343" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+        </svg>
+      );
+    } else if (theme === 'dark') {
+      return (
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M8 3C8 3 3 3 3 8C3 13 8 13 8 13C10.761 13 13 10.761 13 8C13 5.239 10.761 3 8 3Z" fill="currentColor"/>
+        </svg>
+      );
+    } else {
+      // Система - иконка монитора
+      return (
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="2" y="3" width="12" height="9" rx="1" stroke="currentColor" strokeWidth="1.5" fill="none"/>
+          <path d="M5 3V2C5 1.448 5.448 1 6 1H10C10.552 1 11 1.448 11 2V3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          <circle cx="8" cy="7.5" r="1.5" fill="currentColor"/>
+        </svg>
+      );
+    }
+  };
+
+  const getThemeLabel = (theme: Theme) => {
+    if (theme === 'light') return 'Светлая';
+    if (theme === 'dark') return 'Темный';
+    return 'Система';
+  };
 
   const loadProfile = async () => {
     setIsLoading(true);
@@ -121,10 +181,27 @@ export const UserProfilePage: React.FC = () => {
     }
   };
 
+  // Закрываем dropdown при клике вне его
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.user-profile-theme-dropdown-wrapper')) {
+        setIsThemeDropdownOpen(false);
+      }
+    };
+
+    if (isThemeDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isThemeDropdownOpen]);
+
   if (isLoading) {
     return (
       <div className="user-profile-page">
-        <Header />
         <div className="user-profile-loading">
           {getTranslation('loading', language)}
         </div>
@@ -135,7 +212,6 @@ export const UserProfilePage: React.FC = () => {
   if (!profile) {
     return (
       <div className="user-profile-page">
-        <Header />
         <div className="user-profile-error">
           {getTranslation('profileNotFound', language)}
         </div>
@@ -143,11 +219,32 @@ export const UserProfilePage: React.FC = () => {
     );
   }
 
+  const navigationSections = [
+    {
+      title: 'Аккаунт',
+      items: [
+        { id: 'account' as ProfileSection, label: 'Аккаунт', icon: ICONS.user },
+        { id: 'preferences' as ProfileSection, label: 'Предпочтения', icon: ICONS.settings },
+        { id: 'personalization' as ProfileSection, label: 'Персонализация', icon: ICONS.user },
+        { id: 'assistant' as ProfileSection, label: 'Ассистент', icon: ICONS.brain },
+        { id: 'tasks' as ProfileSection, label: 'Задачи', icon: ICONS.note },
+        { id: 'notifications' as ProfileSection, label: 'Уведомления', icon: ICONS.bell },
+        { id: 'connectors' as ProfileSection, label: 'Подключатели', icon: ICONS.cloud },
+      ],
+    },
+    {
+      title: 'Рабочее пространство',
+      items: [
+        { id: 'api' as ProfileSection, label: 'API', icon: ICONS.settings },
+        { id: 'corporation' as ProfileSection, label: 'Корпорация', icon: ICONS.settings },
+      ],
+    },
+  ];
+
   return (
     <div className="user-profile-page">
-      <Header />
-      <div className="user-profile-content">
-        <div className="user-profile-container">
+      <div className="user-profile-layout">
+        <div className="user-profile-sidebar">
           <button
             className="user-profile-back-btn"
             onClick={() => {
@@ -155,25 +252,30 @@ export const UserProfilePage: React.FC = () => {
             }}
           >
             <Icon src={ICONS.arrowLeft} size="sm" />
-            {getTranslation('backToChat', language)}
+            Назад
           </button>
-          
-          <div className="user-profile-tabs">
-            <button
-              className={`user-profile-tab ${activeSection === 'account' ? 'active' : ''}`}
-              onClick={() => setActiveSection('account')}
-            >
-              Аккаунт
-            </button>
-            <button
-              className={`user-profile-tab ${activeSection === 'settings' ? 'active' : ''}`}
-              onClick={() => setActiveSection('settings')}
-            >
-              Настройки
-            </button>
-          </div>
 
-          {activeSection === 'account' && (
+          {navigationSections.map((section, sectionIndex) => (
+            <div key={sectionIndex} className="user-profile-nav-section">
+              <div className="user-profile-nav-section-title">{section.title}</div>
+              {section.items.map((item) => (
+                <button
+                  key={item.id}
+                  className={`user-profile-nav-item ${activeSection === item.id ? 'active' : ''}`}
+                  onClick={() => setActiveSection(item.id)}
+                >
+                  <Icon src={item.icon} size="sm" />
+                  <span>{item.label}</span>
+                </button>
+              ))}
+            </div>
+          ))}
+        </div>
+
+        <div className="user-profile-content">
+          <div className="user-profile-container">
+
+            {activeSection === 'account' && (
             <div className="user-profile-section">
               <h2 className="user-profile-section-title">Аккаунт</h2>
               
@@ -244,6 +346,13 @@ export const UserProfilePage: React.FC = () => {
                   </div>
                 </div>
 
+                <div className="user-profile-account-item">
+                  <div className="user-profile-account-item-label">Дата регистрации</div>
+                  <div className="user-profile-account-item-value">
+                    <span>{formatDate(profile.created_at)}</span>
+                  </div>
+                </div>
+
                 {isEditing && (
                   <>
                     <div className="user-profile-account-item">
@@ -298,82 +407,219 @@ export const UserProfilePage: React.FC = () => {
             </div>
           )}
 
-          {activeSection === 'settings' && (
-            <div className="user-profile-section">
-              <h2 className="user-profile-section-title">Настройки</h2>
-              
-              <div className="user-profile-settings-list">
-                <div className="user-profile-setting-item">
-                  <div className="user-profile-setting-info">
-                    <div className="user-profile-setting-label">Уведомления</div>
-                    <div className="user-profile-setting-description">
-                      Получать уведомления о новых сообщениях и событиях
+            {activeSection === 'preferences' && (
+              <div className="user-profile-section">
+                <h2 className="user-profile-section-title">Предпочтения</h2>
+                <div className="user-profile-preferences-list">
+                  <div className="user-profile-preference-group">
+                    <div className="user-profile-preference-left">
+                      <div className="user-profile-preference-label">Внешний вид</div>
+                      <div className="user-profile-preference-description">
+                        Как Perplexity выглядит на вашем устройстве
+                      </div>
+                    </div>
+                    <div className="user-profile-preference-control">
+                      <div className="user-profile-theme-dropdown-wrapper">
+                        <button 
+                          className="user-profile-preference-button"
+                          onClick={() => setIsThemeDropdownOpen(!isThemeDropdownOpen)}
+                        >
+                          {getThemeIcon(settings.theme)}
+                          <span>{getThemeLabel(settings.theme)}</span>
+                          <Icon src={ICONS.chevronDown} size="sm" />
+                        </button>
+                        {isThemeDropdownOpen && (
+                          <div className="user-profile-theme-dropdown">
+                            <button
+                              className={`user-profile-theme-option ${settings.theme === 'light' ? 'active' : ''}`}
+                              onClick={() => handleThemeChange('light')}
+                            >
+                              {getThemeIcon('light')}
+                              <span>Светлая</span>
+                            </button>
+                            <button
+                              className={`user-profile-theme-option ${settings.theme === 'dark' ? 'active' : ''}`}
+                              onClick={() => handleThemeChange('dark')}
+                            >
+                              {getThemeIcon('dark')}
+                              <span>Темный</span>
+                            </button>
+                            <button
+                              className={`user-profile-theme-option ${settings.theme === 'system' ? 'active' : ''}`}
+                              onClick={() => handleThemeChange('system')}
+                            >
+                              {getThemeIcon('system')}
+                              <span>Система</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
-                  <label className="user-profile-setting-toggle">
-                    <input
-                      type="checkbox"
-                      checked={settings.notifications}
-                      onChange={(e) => setSettings(prev => ({ ...prev, notifications: e.target.checked }))}
-                    />
-                    <span className="user-profile-setting-toggle-slider"></span>
-                  </label>
-                </div>
 
-                <div className="user-profile-setting-item">
-                  <div className="user-profile-setting-info">
-                    <div className="user-profile-setting-label">Email уведомления</div>
-                    <div className="user-profile-setting-description">
-                      Получать уведомления на электронную почту
+                  <div className="user-profile-preference-group">
+                    <div className="user-profile-preference-left">
+                      <div className="user-profile-preference-label">Язык</div>
+                      <div className="user-profile-preference-description">
+                        Язык, используемый в пользовательском интерфейсе
+                      </div>
+                    </div>
+                    <div className="user-profile-preference-control">
+                      <button className="user-profile-preference-button">
+                        <span>По умолчанию</span>
+                        <Icon src={ICONS.chevronDown} size="sm" />
+                      </button>
                     </div>
                   </div>
-                  <label className="user-profile-setting-toggle">
-                    <input
-                      type="checkbox"
-                      checked={settings.emailNotifications}
-                      onChange={(e) => setSettings(prev => ({ ...prev, emailNotifications: e.target.checked }))}
-                      disabled={!settings.notifications}
-                    />
-                    <span className="user-profile-setting-toggle-slider"></span>
-                  </label>
-                </div>
 
-                <div className="user-profile-setting-item">
-                  <div className="user-profile-setting-info">
-                    <div className="user-profile-setting-label">Язык интерфейса</div>
-                    <div className="user-profile-setting-description">
-                      Выберите язык интерфейса приложения
+                  <div className="user-profile-preference-group">
+                    <div className="user-profile-preference-left">
+                      <div className="user-profile-preference-label">Предпочтительный язык ответа</div>
+                      <div className="user-profile-preference-description">
+                        Язык, используемый для ответов ИИ
+                      </div>
+                    </div>
+                    <div className="user-profile-preference-control">
+                      <button className="user-profile-preference-button">
+                        <span>Автоматический (обнаружение ввода)</span>
+                        <Icon src={ICONS.chevronDown} size="sm" />
+                      </button>
                     </div>
                   </div>
-                  <select
-                    className="user-profile-setting-select"
-                    value={settings.language}
-                    onChange={(e) => setSettings(prev => ({ ...prev, language: e.target.value }))}
-                  >
-                    <option value="ru">Русский</option>
-                    <option value="en">English</option>
-                  </select>
-                </div>
 
-                <div className="user-profile-setting-item">
-                  <div className="user-profile-setting-info">
-                    <div className="user-profile-setting-label">Тема оформления</div>
-                    <div className="user-profile-setting-description">
-                      Выберите тему оформления интерфейса
+                  <div className="user-profile-preference-group">
+                    <div className="user-profile-preference-left">
+                      <div className="user-profile-preference-label">Автоподсказка</div>
+                      <div className="user-profile-preference-description">
+                        Включите раскрывающееся меню и автоматические подсказки во время ввода запроса
+                      </div>
+                    </div>
+                    <div className="user-profile-preference-control">
+                      <label className="user-profile-setting-toggle">
+                        <input
+                          type="checkbox"
+                          checked={settings.notifications}
+                          onChange={(e) => setSettings(prev => ({ ...prev, notifications: e.target.checked }))}
+                        />
+                        <span className="user-profile-setting-toggle-slider"></span>
+                      </label>
                     </div>
                   </div>
-                  <select
-                    className="user-profile-setting-select"
-                    value={settings.theme}
-                    onChange={(e) => setSettings(prev => ({ ...prev, theme: e.target.value }))}
-                  >
-                    <option value="dark">Темная</option>
-                    <option value="light">Светлая</option>
-                  </select>
+
+                  <div className="user-profile-preference-divider"></div>
+
+                  <div className="user-profile-preference-group">
+                    <div className="user-profile-preference-left">
+                      <div className="user-profile-preference-label">Искусственный интеллект</div>
+                      <div className="user-profile-preference-ai-list">
+                        <div className="user-profile-preference-ai-item">
+                          <span className="user-profile-preference-ai-label">Модель:</span>
+                          <button className="user-profile-preference-upgrade-btn">Обновите до выбора</button>
+                        </div>
+                        <div className="user-profile-preference-ai-item">
+                          <span className="user-profile-preference-ai-label">Модель генерации изображений:</span>
+                          <button className="user-profile-preference-upgrade-btn">Обновите до выбора</button>
+                        </div>
+                        <div className="user-profile-preference-ai-item">
+                          <span className="user-profile-preference-ai-label">Модель генерации видео:</span>
+                          <div className="user-profile-preference-ai-control">
+                            <button className="user-profile-preference-upgrade-btn">Обновите до Мад</button>
+                            <button className="user-profile-preference-help-btn" title="Справка">
+                              <Icon src={ICONS.support} size="sm" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
+
+            {activeSection === 'personalization' && (
+              <div className="user-profile-section">
+                <h2 className="user-profile-section-title">Персонализация</h2>
+                <div className="user-profile-empty">Раздел в разработке</div>
+              </div>
+            )}
+
+            {activeSection === 'assistant' && (
+              <div className="user-profile-section">
+                <h2 className="user-profile-section-title">Ассистент</h2>
+                <div className="user-profile-empty">Раздел в разработке</div>
+              </div>
+            )}
+
+            {activeSection === 'tasks' && (
+              <div className="user-profile-section">
+                <h2 className="user-profile-section-title">Задачи</h2>
+                <div className="user-profile-empty">Раздел в разработке</div>
+              </div>
+            )}
+
+            {activeSection === 'notifications' && (
+              <div className="user-profile-section">
+                <h2 className="user-profile-section-title">Уведомления</h2>
+                <div className="user-profile-settings-list">
+                  <div className="user-profile-setting-item">
+                    <div className="user-profile-setting-info">
+                      <div className="user-profile-setting-label">Уведомления</div>
+                      <div className="user-profile-setting-description">
+                        Получать уведомления о новых сообщениях и событиях
+                      </div>
+                    </div>
+                    <label className="user-profile-setting-toggle">
+                      <input
+                        type="checkbox"
+                        checked={settings.notifications}
+                        onChange={(e) => setSettings(prev => ({ ...prev, notifications: e.target.checked }))}
+                      />
+                      <span className="user-profile-setting-toggle-slider"></span>
+                    </label>
+                  </div>
+
+                  <div className="user-profile-setting-item">
+                    <div className="user-profile-setting-info">
+                      <div className="user-profile-setting-label">Email уведомления</div>
+                      <div className="user-profile-setting-description">
+                        Получать уведомления на электронную почту
+                      </div>
+                    </div>
+                    <label className="user-profile-setting-toggle">
+                      <input
+                        type="checkbox"
+                        checked={settings.emailNotifications}
+                        onChange={(e) => setSettings(prev => ({ ...prev, emailNotifications: e.target.checked }))}
+                        disabled={!settings.notifications}
+                      />
+                      <span className="user-profile-setting-toggle-slider"></span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeSection === 'connectors' && (
+              <div className="user-profile-section">
+                <h2 className="user-profile-section-title">Подключатели</h2>
+                <div className="user-profile-empty">Раздел в разработке</div>
+              </div>
+            )}
+
+            {activeSection === 'api' && (
+              <div className="user-profile-section">
+                <h2 className="user-profile-section-title">API</h2>
+                <div className="user-profile-empty">Раздел в разработке</div>
+              </div>
+            )}
+
+            {activeSection === 'corporation' && (
+              <div className="user-profile-section">
+                <h2 className="user-profile-section-title">Корпорация</h2>
+                <div className="user-profile-empty">Раздел в разработке</div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
