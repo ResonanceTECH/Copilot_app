@@ -222,7 +222,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           const pinnedSpacesList = spaces.filter(space => pinnedSpaces.has(space.id));
 
           // Показываем секцию только если есть закрепленные пространства или идет перетаскивание
-          if (pinnedSpacesList.length === 0 && !dragOverPinnedArea) {
+          if (pinnedSpacesList.length === 0 && !dragOverPinnedArea && draggedSpaceId === null) {
             return null;
           }
 
@@ -232,15 +232,36 @@ export const Sidebar: React.FC<SidebarProps> = ({
               className={`sidebar-pinned-section ${dragOverPinnedArea ? 'sidebar-pinned-section--drag-over' : ''}`}
               onDragOver={(e) => {
                 e.preventDefault();
-                setDragOverPinnedArea(true);
+                e.stopPropagation();
+                if (draggedSpaceId !== null) {
+                  setDragOverPinnedArea(true);
+                }
+              }}
+              onDragEnter={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (draggedSpaceId !== null) {
+                  setDragOverPinnedArea(true);
+                }
               }}
               onDragLeave={(e) => {
-                if (!pinnedAreaRef.current?.contains(e.relatedTarget as Node)) {
+                e.preventDefault();
+                e.stopPropagation();
+                const rect = pinnedAreaRef.current?.getBoundingClientRect();
+                if (rect) {
+                  const x = e.clientX;
+                  const y = e.clientY;
+                  // Проверяем, что курсор действительно вышел за пределы области
+                  if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+                    setDragOverPinnedArea(false);
+                  }
+                } else {
                   setDragOverPinnedArea(false);
                 }
               }}
               onDrop={(e) => {
                 e.preventDefault();
+                e.stopPropagation();
                 setDragOverPinnedArea(false);
                 if (draggedSpaceId !== null) {
                   const pinnedSpaces = loadPinnedSpaces();
