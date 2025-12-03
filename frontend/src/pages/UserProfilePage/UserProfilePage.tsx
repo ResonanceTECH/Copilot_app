@@ -266,7 +266,7 @@ export const UserProfilePage: React.FC = () => {
         { id: 'assistant' as ProfileSection, label: 'Ассистент', icon: ICONS.brain },
         { id: 'tasks' as ProfileSection, label: 'Задачи', icon: ICONS.note },
         { id: 'notifications' as ProfileSection, label: 'Уведомления', icon: ICONS.bell },
-        { id: 'connectors' as ProfileSection, label: 'Реферальная ссылка', icon: ICONS.cloud },
+        { id: 'connectors' as ProfileSection, label: 'Реферальная ссылка', icon: ICONS.link },
       ],
     },
     {
