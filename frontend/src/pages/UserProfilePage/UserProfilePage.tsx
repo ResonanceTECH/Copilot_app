@@ -45,12 +45,24 @@ export const UserProfilePage: React.FC = () => {
     theme: getTheme(),
   });
   const [isThemeDropdownOpen, setIsThemeDropdownOpen] = useState(false);
+  const [referralLink, setReferralLink] = useState<string>('');
+  const [isLinkCopied, setIsLinkCopied] = useState(false);
 
   useEffect(() => {
     if (isAuthenticated) {
       loadProfile();
     }
   }, [isAuthenticated]);
+
+  // Генерируем реферальную ссылку на основе ID пользователя
+  useEffect(() => {
+    if (profile) {
+      // Используем ID пользователя для создания реферального кода
+      const referralCode = btoa(`ref_${profile.id}_${profile.email}`).replace(/[+/=]/g, '').substring(0, 16);
+      const baseUrl = window.location.origin;
+      setReferralLink(`${baseUrl}/register?ref=${referralCode}`);
+    }
+  }, [profile]);
 
   // Отслеживаем изменения системной темы, если выбрана системная тема
   useEffect(() => {
@@ -181,6 +193,31 @@ export const UserProfilePage: React.FC = () => {
     }
   };
 
+  const handleCopyReferralLink = async () => {
+    try {
+      await navigator.clipboard.writeText(referralLink);
+      setIsLinkCopied(true);
+      setTimeout(() => setIsLinkCopied(false), 2000);
+    } catch (error) {
+      console.error('Ошибка копирования ссылки:', error);
+      // Fallback для старых браузеров
+      const textArea = document.createElement('textarea');
+      textArea.value = referralLink;
+      textArea.style.position = 'fixed';
+      textArea.style.opacity = '0';
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        setIsLinkCopied(true);
+        setTimeout(() => setIsLinkCopied(false), 2000);
+      } catch (err) {
+        console.error('Ошибка копирования:', err);
+      }
+      document.body.removeChild(textArea);
+    }
+  };
+
   // Закрываем dropdown при клике вне его
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -229,7 +266,7 @@ export const UserProfilePage: React.FC = () => {
         { id: 'assistant' as ProfileSection, label: 'Ассистент', icon: ICONS.brain },
         { id: 'tasks' as ProfileSection, label: 'Задачи', icon: ICONS.note },
         { id: 'notifications' as ProfileSection, label: 'Уведомления', icon: ICONS.bell },
-        { id: 'connectors' as ProfileSection, label: 'Подключатели', icon: ICONS.cloud },
+        { id: 'connectors' as ProfileSection, label: 'Реферальная ссылка', icon: ICONS.cloud },
       ],
     },
     {
@@ -601,8 +638,68 @@ export const UserProfilePage: React.FC = () => {
 
             {activeSection === 'connectors' && (
               <div className="user-profile-section">
-                <h2 className="user-profile-section-title">Подключатели</h2>
-                <div className="user-profile-empty">Раздел в разработке</div>
+                <h2 className="user-profile-section-title">Реферальная ссылка</h2>
+                
+                {/* Реферальная ссылка */}
+                <div className="user-profile-referral-link-section">
+                  <div className="user-profile-referral-link-label">Ваша реферальная ссылка</div>
+                  <div className="user-profile-referral-link-container">
+                    <input
+                      type="text"
+                      readOnly
+                      value={referralLink}
+                      className="user-profile-referral-link-input"
+                    />
+                    <button
+                      className={`user-profile-referral-copy-btn ${isLinkCopied ? 'copied' : ''}`}
+                      onClick={handleCopyReferralLink}
+                      title={isLinkCopied ? 'Скопировано!' : 'Копировать ссылку'}
+                    >
+                      {isLinkCopied ? (
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M13.5 4L6 11.5L2.5 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      ) : (
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M5.5 3.5H3.5C2.67 3.5 2 4.17 2 5V12.5C2 13.33 2.67 14 3.5 14H11C11.83 14 12.5 13.33 12.5 12.5V10.5M10.5 2.5H13.5C14.33 2.5 15 3.17 15 4V6.5M10.5 2.5L15 6.5M10.5 2.5V6.5H15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      )}
+                      <span>{isLinkCopied ? 'Скопировано' : 'Копировать'}</span>
+                    </button>
+                  </div>
+                  <div className="user-profile-referral-link-hint">
+                    Поделитесь этой ссылкой с друзьями, чтобы получить бонусы
+                  </div>
+                </div>
+                
+                {/* Блок Акции */}
+                <div className="user-profile-referral-section">
+                  <h3 className="user-profile-referral-title">Акции</h3>
+                  <div className="user-profile-referral-divider"></div>
+                  
+                  <div className="user-profile-referral-content">
+                    <div className="user-profile-referral-text">
+                      <div className="user-profile-referral-main-text">
+                        Получите до 6 месяцев премиум-функций бесплатно, приглашая друзей
+                      </div>
+                      <div className="user-profile-referral-sub-text">
+                        Заработайте 1 месяц премиум-доступа за каждого друга, которого вы порекомендуете
+                      </div>
+                    </div>
+                    
+                    <div className="user-profile-referral-actions">
+                      <button className="user-profile-referral-button">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M4 12L12 4M12 4H6M12 4V10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                        Просмотреть предложение
+                      </button>
+                      <div className="user-profile-referral-stats">
+                        Успешные рекомендации: 1
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 
