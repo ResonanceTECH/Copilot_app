@@ -3,7 +3,6 @@ import { Icon } from '../../ui/Icon';
 import { ICONS } from '../../../utils/icons';
 import { ChatThread, Space } from '../../../types';
 import logoIcon from '../../../assets/icons/logo.svg';
-import pinIcon from '../../../assets/icons/pin.svg';
 import starIcon from '../../../assets/icons/star.svg';
 import starFilledIcon from '../../../assets/icons/star-filled.svg';
 import { ThreadContextMenu } from './ThreadContextMenu';
@@ -296,7 +295,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           setDragOverPinnedArea(false);
                         }}
                       >
-                        <Icon src={ICONS.flame} size="sm" />
+                        <Icon src={starFilledIcon} size="sm" className="sidebar-thread-pin-icon" />
                         <div className="sidebar-space-content">
                           <div className="sidebar-space-name">{space.name}</div>
                           <div className="sidebar-space-meta">
