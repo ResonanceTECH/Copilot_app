@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Query, UploadFile, File, status
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime, timezone
@@ -1040,6 +1040,106 @@ async def get_hourly_activity(
         peak_hour=peak_hour,
         peak_count=peak_count
     )
+
+
+class TranscribeResponse(BaseModel):
+    success: bool
+    text: Optional[str] = None
+    audio_url: Optional[str] = None  # URL сохраненного аудио файла
+    error: Optional[str] = None
+
+
+@router.post("/chat/transcribe", response_model=TranscribeResponse)
+async def transcribe_audio(
+    audio: UploadFile = File(...),
+    current_user: User = Depends(get_current_user)
+):
+    """Транскрибация аудио в текст через Whisper API"""
+    try:
+        # Проверяем формат файла
+        if not audio.content_type or not audio.content_type.startswith('audio/'):
+            # Разрешаем webm и другие форматы
+            if not audio.filename or not any(audio.filename.endswith(ext) for ext in ['.webm', '.mp3', '.wav', '.m4a', '.ogg']):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Файл должен быть аудио форматом (webm, mp3, wav, m4a, ogg)"
+                )
+        
+        # Читаем аудио файл
+        audio_bytes = await audio.read()
+        
+        print(f"📥 Получен аудио файл:")
+        print(f"   - Размер: {len(audio_bytes)} байт ({len(audio_bytes) / 1024:.2f} KB)")
+        print(f"   - Content-Type: {audio.content_type}")
+        print(f"   - Имя файла: {audio.filename}")
+        
+        if len(audio_bytes) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Аудио файл пустой"
+            )
+        
+        # Проверяем минимальный размер (например, 1KB для очень коротких записей)
+        if len(audio_bytes) < 1024:
+            print(f"⚠️ Аудио файл очень маленький ({len(audio_bytes)} байт), возможно запись слишком короткая")
+        
+        # Определяем язык (можно сделать параметром)
+        language = "ru"  # По умолчанию русский
+        
+        # Сохраняем аудио файл в папку assets
+        import uuid
+        from pathlib import Path
+        
+        # Определяем путь к папке assets (как в main.py)
+        # В Docker контейнере структура: /app/backend/assets
+        backend_dir = Path(__file__).parent.parent.parent  # backend/
+        assets_dir = backend_dir / "assets"
+        assets_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Генерируем уникальное имя файла
+        file_extension = Path(audio.filename or "recording.webm").suffix or ".webm"
+        unique_filename = f"audio_{uuid.uuid4().hex[:12]}{file_extension}"
+        saved_audio_path = assets_dir / unique_filename
+        
+        # Сохраняем файл
+        with open(saved_audio_path, 'wb') as f:
+            f.write(audio_bytes)
+        
+        # Формируем относительный путь для URL
+        audio_url = f"assets/{unique_filename}"
+        print(f"💾 Аудио файл сохранен: {audio_url} ({len(audio_bytes)} байт)")
+        
+        # Используем LLMService для транскрибации
+        filename = audio.filename or "recording.webm"
+        print(f"🔄 Начинаем транскрибацию...")
+        text = None
+        try:
+            text = llm_service.transcribe_audio(audio_bytes, filename, language)
+            print(f"✅ Транскрибация завершена, распознано: '{text}'")
+        except Exception as e:
+            print(f"⚠️ Ошибка транскрибации: {e}, но аудио файл сохранен")
+            # Продолжаем выполнение, даже если транскрибация не удалась
+        
+        return TranscribeResponse(
+            success=True,
+            text=text,
+            audio_url=audio_url
+        )
+        
+    except ValueError as e:
+        # Ошибка от LLMService (например, API не настроен)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+    except Exception as e:
+        print(f"❌ Ошибка транскрибации: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Ошибка распознавания речи: {str(e)}"
+        )
 
 
 # Оставляем старый эндпоинт для обратной совместимости

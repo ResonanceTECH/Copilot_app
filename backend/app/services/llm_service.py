@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 from typing import List, Dict, Optional
 import tiktoken
 import httpx
+import io
 
 load_dotenv()
 
@@ -19,6 +20,81 @@ class LLMService:
             api_key=os.getenv("OPENROUTER_API_KEY"),
             http_client=http_client
         )
+        
+        # Настройка Whisper: локальный или API
+        # По умолчанию используем локальный Whisper, если установлен USE_WHISPER_API=true - используем API
+        use_whisper_api = os.getenv("USE_WHISPER_API", "false").lower() == "true"
+        
+        self.local_whisper = None
+        self.whisper_client = None
+        
+        if use_whisper_api:
+            # Использование Whisper API через OpenAI
+            openai_api_key = os.getenv("OPENAI_API_KEY")
+            if openai_api_key:
+                whisper_timeout = httpx.Timeout(120.0, connect=30.0)  # 120 сек для транскрибации
+                whisper_http_client = httpx.Client(timeout=whisper_timeout)
+                self.whisper_client = OpenAI(
+                    api_key=openai_api_key,
+                    http_client=whisper_http_client
+                )
+                print("✅ Используется Whisper API (OpenAI)")
+            else:
+                print("⚠️ USE_WHISPER_API=true, но OPENAI_API_KEY не установлен. Переключаюсь на локальный Whisper.")
+                use_whisper_api = False
+        
+        if not use_whisper_api:
+            # Использование локального Whisper
+            try:
+                from backend.ml.services.whisper_service import LocalWhisperService
+                
+                # Параметры из переменных окружения
+                model_size = os.getenv("WHISPER_MODEL_SIZE", "base")  # tiny, base, small, medium, large-v2, large-v3
+                device = os.getenv("WHISPER_DEVICE", "cpu")  # cpu или cuda
+                compute_type = os.getenv("WHISPER_COMPUTE_TYPE", "int8")  # int8, int8_float16, float16, float32
+                download_root = os.getenv("WHISPER_DOWNLOAD_ROOT")  # Путь для сохранения моделей
+                
+                self.local_whisper = LocalWhisperService(
+                    model_size=model_size,
+                    device=device,
+                    compute_type=compute_type,
+                    download_root=download_root
+                )
+                print(f"✅ Используется локальный Whisper (модель: {model_size}, устройство: {device})")
+                # Модель загружается при создании LocalWhisperService
+            except ImportError as e:
+                print(f"⚠️ faster-whisper не установлен: {e}")
+                print("⚠️ Попытка использовать Whisper API...")
+                self.local_whisper = None
+                # Fallback на API если локальный не доступен
+                openai_api_key = os.getenv("OPENAI_API_KEY")
+                if openai_api_key:
+                    whisper_timeout = httpx.Timeout(120.0, connect=30.0)
+                    whisper_http_client = httpx.Client(timeout=whisper_timeout)
+                    self.whisper_client = OpenAI(
+                        api_key=openai_api_key,
+                        http_client=whisper_http_client
+                    )
+                    print("✅ Используется Whisper API (fallback)")
+                else:
+                    print("❌ Whisper недоступен: нет локальной модели и нет OPENAI_API_KEY")
+            except Exception as e:
+                print(f"⚠️ Ошибка инициализации локального Whisper: {e}")
+                import traceback
+                traceback.print_exc()
+                self.local_whisper = None
+                # Fallback на API если локальный не доступен
+                openai_api_key = os.getenv("OPENAI_API_KEY")
+                if openai_api_key:
+                    whisper_timeout = httpx.Timeout(120.0, connect=30.0)
+                    whisper_http_client = httpx.Client(timeout=whisper_timeout)
+                    self.whisper_client = OpenAI(
+                        api_key=openai_api_key,
+                        http_client=whisper_http_client
+                    )
+                    print("✅ Используется Whisper API (fallback)")
+                else:
+                    print("❌ Whisper недоступен: ошибка локальной модели и нет OPENAI_API_KEY")
         self.quick_responses = {
             'привет': 'Здравствуйте! Я ваш бизнес-помощник. Задавайте вопросы по маркетингу, финансам, юриспруденции или управлению бизнесом.',
             'спасибо': 'Пожалуйста! Обращайтесь, если понадобится ещё помощь.',
@@ -263,3 +339,55 @@ class LLMService:
             'estimated_tokens': total_tokens,
             'conversation_ratio': user_messages / total_messages if total_messages > 0 else 0
         }
+
+    def transcribe_audio(self, audio_bytes: bytes, filename: str = "audio.webm", language: str = "ru") -> str:
+        """
+        Транскрибация аудио в текст через локальный Whisper или API
+        
+        Args:
+            audio_bytes: Байты аудио файла
+            filename: Имя файла (нужно для определения формата)
+            language: Язык аудио (ru, en, etc.)
+            
+        Returns:
+            Распознанный текст
+        """
+        # Используем локальный Whisper если доступен
+        if self.local_whisper:
+            try:
+                # Модель загрузится автоматически при первом использовании
+                return self.local_whisper.transcribe(audio_bytes, language=language)
+            except Exception as e:
+                print(f"❌ Ошибка локальной транскрибации: {e}")
+                import traceback
+                traceback.print_exc()
+                # Fallback на API если локальный не сработал
+                if self.whisper_client:
+                    print("🔄 Переключение на Whisper API...")
+                else:
+                    raise ValueError(f"Ошибка распознавания речи: {str(e)}")
+        
+        # Используем Whisper API если локальный недоступен
+        if self.whisper_client:
+            # Создаем файловый объект из байтов
+            audio_file = io.BytesIO(audio_bytes)
+            audio_file.name = filename
+            
+            try:
+                # Отправляем в Whisper API
+                transcript = self.whisper_client.audio.transcriptions.create(
+                    model="whisper-1",
+                    file=audio_file,
+                    language=language
+                )
+                
+                return transcript.text
+            except Exception as e:
+                print(f"❌ Ошибка транскрибации Whisper API: {e}")
+                raise ValueError(f"Ошибка распознавания речи: {str(e)}")
+        else:
+            raise ValueError(
+                "Whisper недоступен. "
+                "Установите faster-whisper (pip install faster-whisper) "
+                "или установите OPENAI_API_KEY для использования API"
+            )

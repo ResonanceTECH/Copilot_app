@@ -1,9 +1,11 @@
 # Многоступенчатая сборка для оптимизации размера
 FROM python:3.12-slim as builder
 
-# Установка системных зависимостей для сборки
+# Установка системных зависимостей для сборки (включая зависимости для faster-whisper)
 RUN apt-get update && apt-get install -y \
     build-essential \
+    git \
+    cmake \
     && rm -rf /var/lib/apt/lists/*
 
 # Рабочая директория
@@ -15,13 +17,18 @@ COPY requirements.txt .
 # Устанавливаем зависимости
 RUN pip install --no-cache-dir --user -r requirements.txt
 
+# Модель Whisper будет загружена локально при первом использовании
+# Для использования локальной модели установите переменную окружения WHISPER_MODEL_PATH
+
 # Финальный образ
 FROM python:3.12-slim
 
-# Установка только runtime зависимостей (если нужны)
+# Установка только runtime зависимостей (включая ffmpeg для faster-whisper)
 RUN apt-get update && apt-get install -y \
     libgl1 \
     libglib2.0-0 \
+    ffmpeg \
+    libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Копируем установленные пакеты из builder

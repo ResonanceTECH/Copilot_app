@@ -362,6 +362,32 @@ export const chatAPI = {
       method: 'GET',
     });
   },
+
+  // Транскрибация аудио в текст
+  transcribeAudio: async (audioBlob: Blob): Promise<{ success: boolean; text?: string; audio_url?: string; error?: string }> => {
+    const token = getAccessToken();
+    if (!token) {
+      throw new Error('Необходима авторизация');
+    }
+
+    const formData = new FormData();
+    formData.append('audio', audioBlob, 'recording.webm');
+
+    const response = await fetch(`${API_BASE_URL}/chat/transcribe`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ detail: 'Ошибка распознавания речи' }));
+      throw new Error(errorData.detail || 'Ошибка распознавания речи');
+    }
+
+    return response.json();
+  },
 };
 
 // API методы для пространств (mock версия)

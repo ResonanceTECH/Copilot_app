@@ -504,3 +504,40 @@
 .chat-input-send-btn:hover {
   background: var(--color-primary-hover);
 }
+
+.chat-input-icon-btn--recording {
+  background: #f44336 !important;
+  color: white !important;
+  animation: pulse-recording 1.5s infinite;
+}
+
+.chat-input-icon-btn--transcribing {
+  background: #ff9800 !important;
+  color: white !important;
+  animation: pulse-transcribing 1s infinite;
+}
+
+.chat-input-icon-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@keyframes pulse-recording {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes pulse-transcribing {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}

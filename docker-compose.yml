@@ -35,6 +35,8 @@ services:
     volumes:
       # Монтируем код для разработки (можно закомментировать для продакшена)
       - ./backend:/app/backend
+      # Кэш для моделей Whisper (сохраняется между перезапусками)
+      - whisper_cache:/root/.cache/huggingface
     depends_on:
       db:
         condition: service_healthy
@@ -48,4 +50,5 @@ services:
 
 volumes:
   postgres_data:
+  whisper_cache:
 
