@@ -20,13 +20,40 @@ services:
       timeout: 5s
       retries: 5
 
+  whisper:
+    image: onerahmet/openai-whisper-asr-webservice:latest
+    container_name: copilot_whisper
+    ports:
+      - "9000:9000"
+    environment:
+      - ASR_MODEL=${WHISPER_MODEL_SIZE:-base}
+      - ASR_ENGINE=faster_whisper
+    volumes:
+      - whisper_models:/app/models
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:9000/health\", timeout=5)' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    # Раскомментируйте секцию deploy ниже, если у вас есть GPU
+    # Для CPU-only режима оставьте секцию deploy закомментированной
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
   deepseek:
-    image: ai/deepseek-r1-distill-llama
+    image: ai/deepseek-r1-distill-llama:8B-Q4_0
     container_name: copilot_deepseek
     ports:
       - "8001:8000"
     environment:
-      - MODEL_NAME=deepseek-r1-distill-llama
+      - MODEL_NAME=deepseek-r1-distill-llama-8B-Q4_0
     restart: unless-stopped
     # Healthcheck для OpenAI-совместимого API
     # Проверяем доступность через /v1/models endpoint
@@ -58,6 +85,8 @@ services:
       - DATABASE_URL=postgresql://copilot_user:copilot_pass@db:5432/copilot_db
       - DEEPSEEK_API_URL=http://deepseek:8000
       - USE_LOCAL_DEEPSEEK=${USE_LOCAL_DEEPSEEK:-false}
+      - WHISPER_API_URL=http://whisper:9000
+      - USE_WHISPER_CONTAINER=${USE_WHISPER_CONTAINER:-false}
     env_file:
       - .env
     volumes:
@@ -67,6 +96,8 @@ services:
       - whisper_cache:/root/.cache/huggingface
     depends_on:
       db:
+        condition: service_healthy
+      whisper:
         condition: service_healthy
       deepseek:
         condition: service_healthy
@@ -87,4 +118,5 @@ services:
 volumes:
   postgres_data:
   whisper_cache:
+  whisper_models:
 

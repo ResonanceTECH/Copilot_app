@@ -36,14 +36,26 @@ class LLMService:
             )
             print("✅ Используется OpenRouter API")
         
-        # Настройка Whisper: локальный или API
-        # По умолчанию используем локальный Whisper, если установлен USE_WHISPER_API=true - используем API
+        # Настройка Whisper: контейнер, API или локальный
+        # Приоритет: контейнер > API > локальный
+        use_whisper_container = os.getenv("USE_WHISPER_CONTAINER", "false").lower() == "true"
         use_whisper_api = os.getenv("USE_WHISPER_API", "false").lower() == "true"
         
         self.local_whisper = None
         self.whisper_client = None
         
-        if use_whisper_api:
+        if use_whisper_container:
+            # Использование Whisper контейнера
+            whisper_api_url = os.getenv("WHISPER_API_URL", "http://whisper:9000")
+            whisper_timeout = httpx.Timeout(120.0, connect=30.0)  # 120 сек для транскрибации
+            whisper_http_client = httpx.Client(timeout=whisper_timeout)
+            self.whisper_client = OpenAI(
+                base_url=whisper_api_url,
+                api_key="not-needed",  # Локальный контейнер не требует API ключ
+                http_client=whisper_http_client
+            )
+            print(f"✅ Используется Whisper контейнер (URL: {whisper_api_url})")
+        elif use_whisper_api:
             # Использование Whisper API через OpenAI
             openai_api_key = os.getenv("OPENAI_API_KEY")
             if openai_api_key:
@@ -58,7 +70,7 @@ class LLMService:
                 print("⚠️ USE_WHISPER_API=true, но OPENAI_API_KEY не установлен. Переключаюсь на локальный Whisper.")
                 use_whisper_api = False
         
-        if not use_whisper_api:
+        if not use_whisper_container and not use_whisper_api:
             # Использование локального Whisper
             try:
                 from backend.ml.services.whisper_service import LocalWhisperService
@@ -474,7 +486,8 @@ class LLMService:
         else:
             raise ValueError(
                 "Whisper недоступен. "
-                "Установите faster-whisper (pip install faster-whisper) "
+                "Установите faster-whisper (pip install faster-whisper), "
+                "используйте Whisper контейнер (USE_WHISPER_CONTAINER=true), "
                 "или установите OPENAI_API_KEY для использования API"
             )
 
