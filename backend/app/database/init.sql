@@ -288,5 +288,46 @@ BEGIN
     ) THEN
         ALTER TABLE notes ADD COLUMN image_url VARCHAR(500);
     END IF;
+    
+    -- Миграция: добавление полей для реферальной системы
+    -- Добавляем referral_code если не существует
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'users' AND column_name = 'referral_code'
+    ) THEN
+        ALTER TABLE users ADD COLUMN referral_code VARCHAR(32) UNIQUE;
+    END IF;
+    
+    -- Добавляем referred_by_id если не существует
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'users' AND column_name = 'referred_by_id'
+    ) THEN
+        ALTER TABLE users ADD COLUMN referred_by_id INTEGER;
+        ALTER TABLE users ADD CONSTRAINT fk_users_referred_by FOREIGN KEY (referred_by_id) REFERENCES users(id) ON DELETE SET NULL;
+    END IF;
+    
+    -- Добавляем referrals_count если не существует
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'users' AND column_name = 'referrals_count'
+    ) THEN
+        ALTER TABLE users ADD COLUMN referrals_count INTEGER DEFAULT 0 NOT NULL;
+    END IF;
+    
+    -- Создаем индексы для реферальной системы если не существуют
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_indexes 
+        WHERE tablename = 'users' AND indexname = 'idx_users_referral_code'
+    ) THEN
+        CREATE INDEX idx_users_referral_code ON users(referral_code);
+    END IF;
+    
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_indexes 
+        WHERE tablename = 'users' AND indexname = 'idx_users_referred_by_id'
+    ) THEN
+        CREATE INDEX idx_users_referred_by_id ON users(referred_by_id);
+    END IF;
 END $$;
 

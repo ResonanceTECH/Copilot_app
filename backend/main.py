@@ -7,6 +7,16 @@ from dotenv import load_dotenv
 # Загружаем переменные окружения
 load_dotenv()
 
+# Инициализируем БД при старте (применяет миграции)
+try:
+    from backend.app.database.connection import init_db
+    print("🔄 Применение миграций базы данных...")
+    init_db()
+except Exception as e:
+    print(f"⚠️ Ошибка инициализации БД: {e}")
+    import traceback
+    traceback.print_exc()
+
 app = FastAPI(
     title="Business Assistant API",
     description="AI помощник для бизнес-консультаций",

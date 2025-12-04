@@ -14,6 +14,7 @@ export interface RegisterRequest {
   password: string;
   name: string;
   company_name?: string;
+  referral_code?: string;
 }
 
 export interface LoginRequest {
@@ -719,6 +720,48 @@ export const userAPI = {
       method: 'PUT',
       body: JSON.stringify(data),
     });
+  },
+
+  // Получение реферальной информации
+  getReferralInfo: async (): Promise<{
+    referral_code: string;
+    referral_link: string;
+    referrals_count: number;
+  }> => {
+    console.log('[API] Запрос к /user/referral');
+    try {
+      const result = await apiRequest<{
+        referral_code: string;
+        referral_link: string;
+        referrals_count: number;
+      }>('/user/referral', {
+        method: 'GET',
+      });
+      console.log('[API] Успешный ответ от /user/referral:', result);
+      return result;
+    } catch (error: any) {
+      console.error('[API] Ошибка при запросе к /user/referral:', error);
+      throw error;
+    }
+  },
+
+  // Проверка реферального кода (без авторизации)
+  checkReferralCode: async (referralCode: string): Promise<{
+    name: string;
+    referral_code: string;
+  }> => {
+    const response = await fetch(`${API_BASE_URL}/user/referral/check/${referralCode}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      await handleApiError(response);
+    }
+
+    return response.json();
   },
 };
 

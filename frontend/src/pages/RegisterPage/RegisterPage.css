@@ -9,7 +9,7 @@
 
 .auth-container {
   width: 100%;
-  max-width: 400px;
+  max-width: 600px;
   background: var(--color-sidebar-bg);
   border: 1px solid var(--color-border);
   border-radius: 16px;
@@ -45,6 +45,12 @@
 .auth-form {
   display: flex;
   flex-direction: column;
+  gap: 20px;
+}
+
+.auth-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 20px;
 }
 
@@ -158,4 +164,5 @@
   color: var(--color-primary-hover);
   text-decoration: underline;
 }
+
 

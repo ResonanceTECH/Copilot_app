@@ -42,61 +42,65 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigateToLogin })
         <form onSubmit={handleSubmit} className="auth-form">
           {error && <div className="auth-error">{error}</div>}
 
-          <div className="auth-field">
-            <label htmlFor="name" className="auth-label">Имя</label>
-            <input
-              id="name"
-              type="text"
-              className="auth-input"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Иван Иванов"
-              required
-              disabled={isLoading}
-            />
+          <div className="auth-form-grid">
+            <div className="auth-field">
+              <label htmlFor="name" className="auth-label">Имя</label>
+              <input
+                id="name"
+                type="text"
+                className="auth-input"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Иван Иванов"
+                required
+                disabled={isLoading}
+              />
+            </div>
+
+            <div className="auth-field">
+              <label htmlFor="email" className="auth-label">Email</label>
+              <input
+                id="email"
+                type="email"
+                className="auth-input"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="user@example.com"
+                required
+                disabled={isLoading}
+              />
+            </div>
           </div>
 
-          <div className="auth-field">
-            <label htmlFor="email" className="auth-label">Email</label>
-            <input
-              id="email"
-              type="email"
-              className="auth-input"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="user@example.com"
-              required
-              disabled={isLoading}
-            />
-          </div>
+          <div className="auth-form-grid">
+            <div className="auth-field">
+              <label htmlFor="password" className="auth-label">Пароль</label>
+              <input
+                id="password"
+                type="password"
+                className="auth-input"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Введите пароль"
+                required
+                disabled={isLoading}
+              />
+            </div>
 
-          <div className="auth-field">
-            <label htmlFor="password" className="auth-label">Пароль</label>
-            <input
-              id="password"
-              type="password"
-              className="auth-input"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Введите пароль"
-              required
-              disabled={isLoading}
-            />
-          </div>
-
-          <div className="auth-field">
-            <label htmlFor="companyName" className="auth-label">
-              Название компании <span className="auth-optional">(необязательно)</span>
-            </label>
-            <input
-              id="companyName"
-              type="text"
-              className="auth-input"
-              value={companyName}
-              onChange={(e) => setCompanyName(e.target.value)}
-              placeholder="ООО Компания"
-              disabled={isLoading}
-            />
+            <div className="auth-field">
+              <label htmlFor="companyName" className="auth-label">
+                Компания <span className="auth-optional">(необязательно)</span>
+              </label>
+              <input
+                id="companyName"
+                type="text"
+                className="auth-input"
+                value={companyName}
+                onChange={(e) => setCompanyName(e.target.value)}
+                placeholder="ООО Компания"
+                disabled={isLoading}
+              />
+            </div>
           </div>
 
           <button

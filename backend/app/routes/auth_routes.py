@@ -21,6 +21,7 @@ class UserRegister(BaseModel):
     password: str
     name: str
     company_name: str = None
+    referral_code: str = None
 
 
 class UserLogin(BaseModel):
@@ -52,14 +53,29 @@ async def register(
             detail="Пользователь с таким email уже существует"
         )
     
+    # Обработка реферального кода
+    referred_by_id = None
+    if user_data.referral_code:
+        referrer = db.query(User).filter(User.referral_code == user_data.referral_code).first()
+        if referrer:
+            referred_by_id = referrer.id
+            # Увеличиваем счетчик приглашенных у пригласившего
+            referrer.referrals_count = (referrer.referrals_count or 0) + 1
+            db.commit()
+    
     # Создаем нового пользователя
     hashed_password = get_password_hash(user_data.password)
     new_user = User(
         email=user_data.email,
         password_hash=hashed_password,
         name=user_data.name,
-        company_name=user_data.company_name
+        company_name=user_data.company_name,
+        referred_by_id=referred_by_id,
+        referrals_count=0
     )
+    
+    # Генерируем реферальный код для нового пользователя
+    new_user.generate_referral_code()
     
     db.add(new_user)
     db.commit()

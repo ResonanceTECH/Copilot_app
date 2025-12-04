@@ -5,7 +5,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, name: string, companyName?: string) => Promise<void>;
+  register: (email: string, password: string, name: string, companyName?: string, referralCode?: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshAccessToken: () => Promise<void>;
 }
@@ -91,10 +91,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     email: string,
     password: string,
     name: string,
-    companyName?: string
+    companyName?: string,
+    referralCode?: string
   ) => {
     try {
-      const tokens = await authAPI.register({ email, password, name, company_name: companyName });
+      const tokens = await authAPI.register({ 
+        email, 
+        password, 
+        name, 
+        company_name: companyName,
+        referral_code: referralCode
+      });
       setTokens(tokens);
       setIsAuthenticated(true);
       console.log('[Auth] Успешная регистрация, токены сохранены');

@@ -85,16 +85,50 @@ def init_db():
         sql_script = f.read()
     
     with engine.begin() as conn:
-        # Выполняем скрипт по частям (разделяем по ;)
-        statements = [s.strip() for s in sql_script.split(';') if s.strip()]
-        for statement in statements:
-            if statement:
+        # Выполняем весь скрипт целиком (DO $$ блоки должны выполняться целиком)
                 try:
-                    conn.execute(text(statement))
+            conn.execute(text(sql_script))
                 except Exception as e:
-                    # Игнорируем ошибки "уже существует" для CREATE TABLE IF NOT EXISTS
-                    if "already exists" not in str(e).lower() and "duplicate" not in str(e).lower():
-                        print(f"⚠️ Ошибка выполнения SQL: {e}")
+            # Игнорируем ошибки "уже существует" для CREATE TABLE IF NOT EXISTS и миграций
+            error_str = str(e).lower()
+            if ("already exists" in error_str or 
+                "duplicate" in error_str or
+                ("column" in error_str and "already exists" in error_str) or
+                ("constraint" in error_str and "already exists" in error_str)):
+                # Это нормально - миграция уже применена
+                print(f"ℹ️  Миграции уже применены или частично применены")
+            else:
+                # Если это не ошибка "уже существует", пробуем выполнить по частям
+                print(f"⚠️ Ошибка выполнения SQL целиком, пробуем по частям: {e}")
+                # Разделяем на части по ; но сохраняем DO $$ блоки
+                import re
+                # Находим DO $$ блоки
+                parts = []
+                current_pos = 0
+                for match in re.finditer(r'DO\s+\$\$.*?\$\$;', sql_script, re.DOTALL):
+                    # Добавляем текст до блока
+                    if match.start() > current_pos:
+                        before = sql_script[current_pos:match.start()]
+                        parts.extend([s.strip() for s in before.split(';') if s.strip()])
+                    # Добавляем DO блок целиком
+                    parts.append(match.group(0))
+                    current_pos = match.end()
+                # Добавляем оставшийся текст
+                if current_pos < len(sql_script):
+                    remaining = sql_script[current_pos:]
+                    parts.extend([s.strip() for s in remaining.split(';') if s.strip()])
+                
+                # Выполняем каждую часть
+                for part in parts:
+                    if part:
+                        try:
+                            conn.execute(text(part))
+                        except Exception as e2:
+                            error_str2 = str(e2).lower()
+                            if ("already exists" not in error_str2 and 
+                                "duplicate" not in error_str2 and
+                                "column" not in error_str2):
+                                print(f"⚠️ Ошибка выполнения части SQL: {e2}")
     
     print("✅ База данных инициализирована через SQL-скрипты")
 

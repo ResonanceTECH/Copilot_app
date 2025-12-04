@@ -37,9 +37,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigateToRegister }) =>
           <p className="auth-subtitle">Войдите в свой аккаунт</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="auth-form">
-          {error && <div className="auth-error">{error}</div>}
+        {error && <div className="auth-error">{error}</div>}
 
+        <form onSubmit={handleSubmit} className="auth-form">
           <div className="auth-field">
             <label htmlFor="email" className="auth-label">Email</label>
             <input
@@ -51,6 +51,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigateToRegister }) =>
               placeholder="user@example.com"
               required
               disabled={isLoading}
+              autoComplete="email"
             />
           </div>
 
@@ -65,6 +66,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigateToRegister }) =>
               placeholder="Введите пароль"
               required
               disabled={isLoading}
+              autoComplete="current-password"
             />
           </div>
 
