@@ -5,7 +5,7 @@ import { NotificationPanel } from '../NotificationPanel';
 import { notificationAPI } from '../../../utils/api';
 import { useLanguage } from '../../../contexts/LanguageContext';
 import { useAuth } from '../../../contexts/AuthContext';
-import { getTranslation, getLanguageName, Language } from '../../../utils/i18n';
+import { getTranslation } from '../../../utils/i18n';
 import './Header.css';
 
 interface HeaderProps {
@@ -23,9 +23,8 @@ export const Header: React.FC<HeaderProps> = ({
   activeTool = 'assistant',
   onToolSelect,
 }) => {
-  const { language, setLanguage } = useLanguage();
+  const { language } = useLanguage();
   const { logout } = useAuth();
-  const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [showNotificationPanel, setShowNotificationPanel] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -50,16 +49,12 @@ export const Header: React.FC<HeaderProps> = ({
   const [editingTitle, setEditingTitle] = useState('');
   const [isModelSelectorVisible, setIsModelSelectorVisible] = useState(false);
   const [showModelTooltip, setShowModelTooltip] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
   const profileDropdownRef = useRef<HTMLDivElement>(null);
   const modelSelectorRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setShowLanguageDropdown(false);
-      }
       if (profileDropdownRef.current && !profileDropdownRef.current.contains(event.target as Node)) {
         setShowProfileDropdown(false);
       }
@@ -68,18 +63,13 @@ export const Header: React.FC<HeaderProps> = ({
       }
     };
 
-    if (showLanguageDropdown || showProfileDropdown || isModelSelectorVisible) {
+    if (showProfileDropdown || isModelSelectorVisible) {
       document.addEventListener('mousedown', handleClickOutside);
       return () => {
         document.removeEventListener('mousedown', handleClickOutside);
       };
     }
-  }, [showLanguageDropdown, showProfileDropdown, isModelSelectorVisible]);
-
-  const handleLanguageChange = (lang: Language) => {
-    setLanguage(lang);
-    setShowLanguageDropdown(false);
-  };
+  }, [showProfileDropdown, isModelSelectorVisible]);
 
   const handleTitleClick = () => {
     if (threadId && onRename) {
@@ -257,25 +247,6 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="header-notification-badge">{unreadCount}</span>
           )}
         </button>
-        <div className="header-language-selector" ref={dropdownRef}>
-          <button
-            className="header-language-btn"
-            onClick={() => setShowLanguageDropdown(!showLanguageDropdown)}
-          >
-            <span>{getLanguageName(language)}</span>
-            <Icon src={ICONS.chevronDown} size="sm" />
-          </button>
-          {showLanguageDropdown && (
-            <div className="header-language-dropdown">
-              <button onClick={() => handleLanguageChange('en')}>
-                {getTranslation('english', 'en')}
-              </button>
-              <button onClick={() => handleLanguageChange('ru')}>
-                {getTranslation('russian', 'ru')}
-              </button>
-            </div>
-          )}
-        </div>
         <div className="header-profile-selector" ref={profileDropdownRef}>
           <button
             className="header-avatar-btn"

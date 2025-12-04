@@ -115,18 +115,18 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     try {
       // Очищаем предыдущие чанки
       audioChunksRef.current = [];
-      
+
       // Запрашиваем доступ к микрофону
       console.log('🎤 Запрос доступа к микрофону...');
-      const stream = await navigator.mediaDevices.getUserMedia({ 
+      const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true
-        } 
+        }
       });
       streamRef.current = stream;
-      
+
       // Проверяем состояние треков
       const audioTracks = stream.getAudioTracks();
       console.log('🎤 Получен доступ к микрофону:', {
@@ -135,7 +135,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         trackEnabled: audioTracks[0]?.enabled,
         trackLabel: audioTracks[0]?.label
       });
-      
+
       // Отслеживаем состояние трека
       audioTracks[0]?.addEventListener('ended', () => {
         console.warn('⚠️ Трек микрофона завершился автоматически!');
@@ -146,13 +146,13 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       });
 
       // Создаем MediaRecorder
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm') 
-        ? 'audio/webm' 
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm')
+        ? 'audio/webm'
         : MediaRecorder.isTypeSupported('audio/mp4')
         ? 'audio/mp4'
         : 'audio/webm'; // fallback
 
-      const recorder = new MediaRecorder(stream, { 
+      const recorder = new MediaRecorder(stream, {
         mimeType,
         audioBitsPerSecond: 128000 // Качество записи
       });
@@ -170,10 +170,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
       recorder.onstop = async () => {
         console.log('🛑 Событие onstop вызвано, состояние записи:', isRecording);
-        
+
         // Создаем Blob из записанных чанков
         const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
-        
+
         console.log('🎤 Запись остановлена:', {
           chunks: audioChunksRef.current.length,
           totalSize: audioBlob.size,
@@ -181,7 +181,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
           mimeType: mimeType,
           chunksSizes: audioChunksRef.current.map(c => c.size)
         });
-        
+
         // Проверяем, что запись не пустая
         if (audioBlob.size === 0) {
           console.error('❌ Аудио запись пустая!');
@@ -193,16 +193,16 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
           }
           return;
         }
-        
+
         // Проверяем минимальный размер (например, 1KB)
         if (audioBlob.size < 1024) {
           console.warn('⚠️ Аудио запись очень короткая:', audioBlob.size, 'байт');
           alert(`Запись слишком короткая (${audioBlob.size} байт). Попробуйте записать дольше.`);
         }
-        
+
         // Обнуляем ссылку на recorder после остановки
         mediaRecorderRef.current = null;
-        
+
         // Останавливаем поток микрофона
         if (streamRef.current) {
           streamRef.current.getTracks().forEach(track => {
@@ -269,13 +269,13 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       isRecording: isRecording,
       recorderState: mediaRecorderRef.current?.state
     });
-    
+
     if (mediaRecorderRef.current) {
       const recorder = mediaRecorderRef.current;
       const state = recorder.state;
-      
+
       console.log('🛑 Состояние recorder перед остановкой:', state);
-      
+
       if (state === 'recording') {
         recorder.stop();
         console.log('✅ Команда stop() отправлена');
@@ -285,7 +285,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       } else {
         console.warn('⚠️ Recorder не в состоянии recording, текущее состояние:', state);
       }
-      
+
       setIsRecording(false);
       // Не обнуляем mediaRecorderRef здесь, так как onstop еще должен сработать
     } else {
@@ -302,16 +302,16 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         size: audioBlob.size,
         type: audioBlob.type
       });
-      
+
       const result = await chatAPI.transcribeAudio(audioBlob);
-      
+
       console.log('📥 Результат транскрибации:', result);
-      
+
       if (result.success) {
         if (result.audio_url) {
           console.log('💾 Аудио файл сохранен:', result.audio_url);
         }
-        
+
         if (result.text) {
           console.log('✅ Распознанный текст:', result.text);
           // Добавляем распознанный текст в поле ввода
@@ -319,7 +319,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             const newValue = prev + (prev ? ' ' : '') + result.text!.trim();
             return newValue;
           });
-          
+
           // Фокус на поле ввода
           setTimeout(() => {
             inputRef.current?.focus();
@@ -354,13 +354,13 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       hasRecorder: !!mediaRecorderRef.current,
       recorderState: mediaRecorderRef.current?.state
     });
-    
+
     // Предотвращаем действия во время транскрибации
     if (isTranscribing) {
       console.warn('⚠️ Транскрибация в процессе, игнорируем клик');
       return;
     }
-    
+
     if (isRecording) {
       console.log('🛑 Останавливаем запись по клику');
       stopRecording();
@@ -429,6 +429,51 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                     }
                   </div>
                 )}
+                {message.role === 'assistant' && !message.isLoading && (
+                  <div className="chat-message-actions">
+                    <button
+                      className="chat-message-action-btn"
+                      onClick={() => handleCopyMessage(message.content)}
+                      title="Копировать"
+                    >
+                      <Icon src={ICONS.copy} size="sm" />
+                    </button>
+                    <button
+                      className="chat-message-action-btn"
+                      onClick={() => handleReaction(message.id, 'like')}
+                      title="Лайк"
+                    >
+                      <Icon src={ICONS.thumbsUp} size="sm" />
+                    </button>
+                    <button
+                      className="chat-message-action-btn"
+                      onClick={() => handleReaction(message.id, 'dislike')}
+                      title="Дизлайк"
+                    >
+                      <Icon src={ICONS.thumbsDown} size="sm" />
+                    </button>
+                    <div className="chat-message-menu" ref={reportMenuRef}>
+                      <button
+                        className="chat-message-action-btn"
+                        onClick={() => setShowReportMenu(showReportMenu === message.id ? null : message.id)}
+                        title="Еще"
+                      >
+                        <Icon src={ICONS.more} size="sm" />
+                      </button>
+                      {showReportMenu === message.id && (
+                        <div className="chat-message-menu-dropdown">
+                          <button
+                            className="chat-message-menu-item"
+                            onClick={() => handleReport(message.id)}
+                          >
+                            <Icon src={ICONS.flag} size="sm" />
+                            <span>Отчет</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           ))}
@@ -460,7 +505,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               <button className="chat-input-icon-btn" type="button">
                 <Icon src={ICONS.paperclip} size="md" />
               </button>
-              <button 
+              <button
                 className={`chat-input-icon-btn ${isRecording ? 'chat-input-icon-btn--recording' : ''} ${isTranscribing ? 'chat-input-icon-btn--transcribing' : ''}`}
                 type="button"
                 onClick={handleMicrophoneClick}
