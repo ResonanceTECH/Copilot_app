@@ -408,6 +408,11 @@ async def send_message(
     """Отправка сообщения в чат и получение ответа от LLM с учетом всей истории"""
     try:
         user_message = request.message.strip()
+        
+        print(f"📨 Получено сообщение пользователя:")
+        print(f"   - Длина: {len(user_message)} символов")
+        print(f"   - Первые 200 символов: {user_message[:200]}...")
+        print(f"   - Содержит HTML: {'<div' in user_message or '<img' in user_message or '<a href' in user_message}")
 
         if not user_message:
             raise HTTPException(status_code=400, detail="Сообщение не может быть пустым")
@@ -444,15 +449,23 @@ async def send_message(
             db.commit()
             db.refresh(chat)
 
-        # Извлекаем image_url из HTML, если есть изображение
+        # Извлекаем file_url из HTML, если есть файл (изображение или документ)
         image_url = None
+        import re
+        
+        # Ищем изображения: src="/assets/..." или src="assets/..."
         if '<img' in user_message and 'src=' in user_message:
-            import re
-            # Ищем src="/assets/..." или src="assets/..."
             img_match = re.search(r'src=["\']([^"\']*assets/[^"\']+)["\']', user_message)
             if img_match:
                 image_url = img_match.group(1).lstrip('/')  # Убираем ведущий / если есть
                 print(f"📷 Извлечен image_url из сообщения: {image_url}")
+        
+        # Ищем ссылки на файлы: href="/assets/..." или href="assets/..."
+        if not image_url and '<a href=' in user_message:
+            href_match = re.search(r'href=["\']([^"\']*assets/[^"\']+)["\']', user_message)
+            if href_match:
+                image_url = href_match.group(1).lstrip('/')  # Убираем ведущий / если есть
+                print(f"📎 Извлечен file_url из сообщения: {image_url}")
         
         # Сохраняем сообщение пользователя
         user_msg = Message(
@@ -754,8 +767,9 @@ async def get_chat_messages(
 
     message_items = []
     for msg in messages:
-        # Если есть image_url, регенерируем HTML для отображения
+        # Регенерируем HTML для отображения файлов (изображения или документы)
         content = msg.content
+        # Проверяем, есть ли файл (image_url может быть и для документов)
         if msg.image_url:
             image_src = f"/{msg.image_url}"
             if msg.role == 'assistant':
@@ -795,36 +809,61 @@ async def get_chat_messages(
                 </div>
                 '''
             elif msg.role == 'user':
-                # Для пользователя: если в content уже есть HTML с изображением, оставляем как есть
-                # Иначе формируем HTML с изображением
-                if '<img' not in content and '<div class="uploaded-file' not in content:
-                    # Извлекаем имя файла из image_url
-                    filename = msg.image_url.split('/')[-1] if '/' in msg.image_url else msg.image_url
-                    # Получаем анализ из FileAttachment, если есть
+                # Для пользователя: если в content уже есть HTML с файлом, оставляем как есть
+                # Иначе формируем HTML с файлом
+                if '<img' not in content and '<div class="uploaded-file' not in content and '<a href=' not in content:
+                    # Получаем информацию о файле из FileAttachment
                     file_attachment = db.query(FileAttachment).filter(
                         FileAttachment.message_id == msg.id
                     ).first()
-                    analysis_html = ''
-                    if file_attachment and file_attachment.analysis_result:
-                        analysis_html = f'''
-                        <details class="uploaded-file-analysis" style="margin-top: 12px;">
-                            <summary style="cursor: pointer; color: var(--color-primary); font-weight: 500; user-select: none;">🔍 Показать анализ изображения</summary>
-                            <div style="margin-top: 8px; padding: 12px; background: var(--color-hover); border-radius: 8px; font-size: 14px; line-height: 1.6;">
-                                {file_attachment.analysis_result}
+                    
+                    if file_attachment:
+                        filename = file_attachment.filename
+                        file_path = file_attachment.file_path
+                        file_type = file_attachment.file_type
+                        
+                        # Для изображений показываем само изображение
+                        if file_type == 'image':
+                            analysis_html = ''
+                            if file_attachment.analysis_result:
+                                analysis_html = f'''
+                                <details class="uploaded-file-analysis" style="margin-top: 12px;">
+                                    <summary style="cursor: pointer; color: var(--color-primary); font-weight: 500; user-select: none;">🔍 Показать анализ изображения</summary>
+                                    <div style="margin-top: 8px; padding: 12px; background: var(--color-hover); border-radius: 8px; font-size: 14px; line-height: 1.6;">
+                                        {file_attachment.analysis_result}
+                                    </div>
+                                </details>
+                                '''
+                            content = f'''
+                            <div class="uploaded-file-container">
+                                <div class="uploaded-file-header" style="margin-bottom: 8px; font-weight: 500;">
+                                    📎 {filename}
+                                </div>
+                                <div class="uploaded-file-image">
+                                    <img src="/{file_path}" alt="{filename}" style="max-width: 100%; max-height: 500px; border-radius: 8px; object-fit: contain;" />
+                                </div>
+                                {analysis_html}
                             </div>
-                        </details>
+                            '''
+                        else:
+                            # Для PDF/DOC файлов показываем только ссылку на файл, без извлеченного текста
+                            content = f'''
+                            <div class="uploaded-file-container">
+                                <div class="uploaded-file-header" style="margin-bottom: 8px; font-weight: 500;">
+                                    📎 <a href="/{file_path}" target="_blank" style="color: var(--color-primary); text-decoration: none;">{filename}</a>
+                                </div>
+                            </div>
+                            '''
+                    else:
+                        # Fallback: если FileAttachment не найден, используем image_url
+                        filename = msg.image_url.split('/')[-1] if '/' in msg.image_url else msg.image_url
+                        content = f'''
+                        <div class="uploaded-file-container">
+                            <div class="uploaded-file-header" style="margin-bottom: 8px; font-weight: 500;">
+                                📎 <a href="{image_src}" target="_blank" style="color: var(--color-primary); text-decoration: none;">{filename}</a>
+                            </div>
+                        </div>
                         '''
-                    content = f'''
-                    <div class="uploaded-file-container">
-                        <div class="uploaded-file-header" style="margin-bottom: 8px; font-weight: 500;">
-                            📎 {filename}
-                        </div>
-                        <div class="uploaded-file-image">
-                            <img src="{image_src}" alt="{filename}" style="max-width: 100%; max-height: 500px; border-radius: 8px; object-fit: contain;" />
-                        </div>
-                        {analysis_html}
-                    </div>
-                    '''
 
         message_items.append(MessageItem(
             id=msg.id,

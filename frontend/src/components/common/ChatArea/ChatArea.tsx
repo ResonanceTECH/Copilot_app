@@ -66,15 +66,20 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       let messageContent = textContent;
       
       // Убираем служебные сообщения о прикреплении файлов из текста
+      // Убираем только строки, которые ТОЛЬКО содержат сообщение о прикреплении
       const fileAttachmentMessages = attachedFiles.map(f => {
         const icon = f.file_type === 'image' ? '🖼️' : '📎';
         return `${icon} ${f.filename} прикреплен`;
       });
-      messageContent = messageContent
-        .split('\n')
-        .filter(line => !fileAttachmentMessages.some(msg => line.includes(msg)))
-        .join('\n')
-        .trim();
+      
+      // Разбиваем на строки и фильтруем только те, которые полностью совпадают с сообщением о прикреплении
+      const lines = messageContent.split('\n');
+      const filteredLines = lines.filter(line => {
+        const trimmedLine = line.trim();
+        // Убираем только строки, которые точно совпадают с сообщением о прикреплении
+        return !fileAttachmentMessages.some(msg => trimmedLine === msg.trim());
+      });
+      messageContent = filteredLines.join('\n').trim();
       
       // Добавляем HTML для изображений
       const imageFiles = attachedFiles.filter(f => f.file_type === 'image');
@@ -110,21 +115,33 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         }
       }
       
-      // Добавляем информацию о других файлах (PDF/DOC)
+      // Добавляем HTML для других файлов (PDF/DOC) - только файл, без извлеченного текста
       if (otherFiles.length > 0) {
-        const filesInfo = otherFiles.map(file => {
-          let info = `📎 ${file.filename}`;
-          if (file.extracted_text) {
-            const preview = file.extracted_text.substring(0, 500);
-            info += `\n\n📄 Извлеченный текст:\n${preview}${file.extracted_text.length > 500 ? '...' : ''}`;
-          }
-          return info;
-        }).join('\n\n');
+        const filesHtml = otherFiles.map(file => {
+          return `
+            <div class="uploaded-file-container" style="margin-top: ${messageContent ? '12px' : '0'};">
+              <div class="uploaded-file-header" style="margin-bottom: 8px; font-weight: 500;">
+                📎 <a href="/${file.file_url}" target="_blank" style="color: var(--color-primary); text-decoration: none;">${file.filename}</a>
+              </div>
+            </div>
+          `;
+        }).join('');
         
-        messageContent = messageContent 
-          ? `${messageContent}\n\n${filesInfo}`
-          : filesInfo;
+        // Если есть текст, добавляем его перед файлами
+        if (messageContent) {
+          messageContent = `${messageContent}${filesHtml}`;
+        } else {
+          messageContent = filesHtml;
+        }
       }
+      
+      // Логируем для отладки
+      console.log('📤 Отправляем сообщение:', {
+        originalText: textContent,
+        filteredText: messageContent.split('<div')[0] || messageContent,
+        hasFiles: attachedFiles.length > 0,
+        finalLength: messageContent.length
+      });
       
       // Отправляем сообщение
       onSendMessage(messageContent);
