@@ -637,9 +637,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                   message.content.includes('<div') || message.content.includes('<img') || message.content.includes('<p') ? (
                     <div dangerouslySetInnerHTML={{ __html: message.content }} />
                   ) : (
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {message.content}
-                    </ReactMarkdown>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {message.content}
+                  </ReactMarkdown>
                   )
                 ) : message.role === 'user' ? (
                   // Для пользователя: если есть HTML с изображением, рендерим его
