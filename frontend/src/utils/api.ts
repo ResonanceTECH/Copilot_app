@@ -135,9 +135,9 @@ const apiRequest = async <T>(
   let response: Response;
   try {
     response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      ...options,
-      headers,
-    });
+    ...options,
+    headers,
+  });
   } catch (error) {
     // Подавляем ошибки сети для 404, чтобы не засорять консоль
     if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
@@ -195,24 +195,24 @@ export const authAPI = {
     
     try {
       const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
 
       console.log('[API] Register response status:', response.status);
 
-      if (!response.ok) {
+    if (!response.ok) {
         if (response.status === 404) {
           throw new ApiErrorWithStatus(
             'Endpoint не найден. Проверьте, что бэкенд запущен на http://localhost:8000 и роут /api/auth/register зарегистрирован.',
             response.status
           );
         }
-        await handleApiError(response);
-      }
+      await handleApiError(response);
+    }
 
       const result = await response.json();
       console.log('[API] Register success');
@@ -237,18 +237,18 @@ export const authAPI = {
     
     try {
       const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
 
       console.log('[API] Login response status:', response.status);
 
-      if (!response.ok) {
-        await handleApiError(response);
-      }
+    if (!response.ok) {
+      await handleApiError(response);
+    }
 
       const result = await response.json();
       console.log('[API] Login success');

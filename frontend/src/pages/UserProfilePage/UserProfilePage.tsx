@@ -48,10 +48,8 @@ export const UserProfilePage: React.FC = () => {
   const [isThemeDropdownOpen, setIsThemeDropdownOpen] = useState(false);
   const [isLanguageDropdownOpen, setIsLanguageDropdownOpen] = useState(false);
   const [referralLink, setReferralLink] = useState<string>('');
-  const [referralCode, setReferralCode] = useState<string>('');
   const [referralsCount, setReferralsCount] = useState<number>(0);
   const [isLinkCopied, setIsLinkCopied] = useState(false);
-  const [isCodeCopied, setIsCodeCopied] = useState(false);
   const [isLoadingReferral, setIsLoadingReferral] = useState(false);
   const [referralError, setReferralError] = useState<string | null>(null);
 
@@ -76,6 +74,8 @@ export const UserProfilePage: React.FC = () => {
   useEffect(() => {
     if (isAuthenticated) {
       loadProfile();
+      // Автоматически загружаем реферальную информацию при загрузке профиля
+      loadReferralInfo();
     }
   }, [isAuthenticated]);
 
@@ -115,7 +115,6 @@ export const UserProfilePage: React.FC = () => {
       }
 
       setReferralLink(link);
-      setReferralCode(code);
       setReferralsCount(referralInfo.referrals_count || 0);
       setReferralError(null); // Очищаем ошибку при успехе
 
@@ -283,31 +282,6 @@ export const UserProfilePage: React.FC = () => {
         document.execCommand('copy');
         setIsLinkCopied(true);
         setTimeout(() => setIsLinkCopied(false), 2000);
-      } catch (err) {
-        console.error('Ошибка копирования:', err);
-      }
-      document.body.removeChild(textArea);
-    }
-  };
-
-  const handleCopyReferralCode = async () => {
-    try {
-      await navigator.clipboard.writeText(referralCode);
-      setIsCodeCopied(true);
-      setTimeout(() => setIsCodeCopied(false), 2000);
-    } catch (error) {
-      console.error('Ошибка копирования кода:', error);
-      // Fallback для старых браузеров
-      const textArea = document.createElement('textarea');
-      textArea.value = referralCode;
-      textArea.style.position = 'fixed';
-      textArea.style.opacity = '0';
-      document.body.appendChild(textArea);
-      textArea.select();
-      try {
-        document.execCommand('copy');
-        setIsCodeCopied(true);
-        setTimeout(() => setIsCodeCopied(false), 2000);
       } catch (err) {
         console.error('Ошибка копирования:', err);
       }
@@ -738,86 +712,11 @@ export const UserProfilePage: React.FC = () => {
               <div className="user-profile-section">
                 <h2 className="user-profile-section-title">Реферальная система</h2>
 
-                {/* Реферальный код */}
-                <div className="user-profile-referral-link-section">
-                  <div className="user-profile-referral-link-label">Ваш реферальный код</div>
-                  {referralError && (
-                    <div className="user-profile-referral-error">
-                      <span>{referralError}</span>
-                      <button
-                        onClick={loadReferralInfo}
-                        className="user-profile-referral-retry-btn"
-                        disabled={isLoadingReferral}
-                      >
-                        Попробовать снова
-                      </button>
-                    </div>
-                  )}
-                  {isLoadingReferral && !referralCode && (
-                    <div className="user-profile-referral-loading">Загрузка...</div>
-                  )}
-                  {!referralCode && !isLoadingReferral && !referralError && (
-                    <button
-                      onClick={loadReferralInfo}
-                      className="user-profile-referral-generate-btn"
-                      disabled={isLoadingReferral}
-                    >
-                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M8 2V14M2 8H14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                      </svg>
-                      Сгенерировать код
-                    </button>
-                  )}
-                  {referralCode && (
-                    <>
-                      <div className="user-profile-referral-link-container">
-                        <input
-                          type="text"
-                          readOnly
-                          value={referralCode}
-                          className="user-profile-referral-link-input"
-                        />
-                        <button
-                          className={`user-profile-referral-copy-btn ${isCodeCopied ? 'copied' : ''}`}
-                          onClick={handleCopyReferralCode}
-                          title={isCodeCopied ? 'Скопировано!' : 'Копировать код'}
-                        >
-                          {isCodeCopied ? (
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <path d="M13.5 4L6 11.5L2.5 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                          ) : (
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <path d="M5.5 3.5H3.5C2.67 3.5 2 4.17 2 5V12.5C2 13.33 2.67 14 3.5 14H11C11.83 14 12.5 13.33 12.5 12.5V10.5M10.5 2.5H13.5C14.33 2.5 15 3.17 15 4V6.5M10.5 2.5L15 6.5M10.5 2.5V6.5H15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                          )}
-                          <span>{isCodeCopied ? 'Скопировано' : 'Копировать'}</span>
-                        </button>
-                      </div>
-                      <div className="user-profile-referral-link-hint">
-                        Поделитесь этим кодом с друзьями, чтобы они могли ввести его при регистрации
-                      </div>
-                    </>
-                  )}
-                </div>
-
                 {/* Реферальная ссылка */}
                 <div className="user-profile-referral-link-section">
                   <div className="user-profile-referral-link-label">Ваша реферальная ссылка</div>
                   {isLoadingReferral && !referralLink && (
                     <div className="user-profile-referral-loading">Загрузка...</div>
-                  )}
-                  {!referralLink && !isLoadingReferral && !referralError && (
-                    <button
-                      onClick={loadReferralInfo}
-                      className="user-profile-referral-generate-btn"
-                      disabled={isLoadingReferral}
-                    >
-                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M8 2V14M2 8H14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                      </svg>
-                      Сгенерировать ссылку
-                    </button>
                   )}
                   {referralLink && (
                     <>
@@ -850,8 +749,10 @@ export const UserProfilePage: React.FC = () => {
                       </div>
                     </>
                   )}
-                  {isLoadingReferral && (
-                    <div className="user-profile-referral-loading">Генерация ссылки...</div>
+                  {!referralLink && !isLoadingReferral && referralError && (
+                    <div className="user-profile-referral-error">
+                      <span>{referralError}</span>
+                    </div>
                   )}
                 </div>
 
@@ -871,12 +772,17 @@ export const UserProfilePage: React.FC = () => {
                     </div>
 
                     <div className="user-profile-referral-actions">
-                      <button className="user-profile-referral-button">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M4 12L12 4M12 4H6M12 4V10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                        Просмотреть предложение
-                      </button>
+                      <div className="user-profile-referral-button-wrapper">
+                        <button className="user-profile-referral-button">
+                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M4 12L12 4M12 4H6M12 4V10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                          Просмотреть предложение
+                        </button>
+                        <div className="user-profile-referral-button-overlay">
+                          В разработке
+                        </div>
+                      </div>
                       <div className="user-profile-referral-stats">
                         Успешные рекомендации: {referralsCount}
                       </div>

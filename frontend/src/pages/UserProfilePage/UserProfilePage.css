@@ -799,6 +799,11 @@
   gap: 12px;
 }
 
+.user-profile-referral-button-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
 .user-profile-referral-button {
   display: flex;
   align-items: center;
@@ -813,6 +818,8 @@
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
+  position: relative;
+  z-index: 1;
 }
 
 .user-profile-referral-button:hover {
@@ -824,6 +831,33 @@
   width: 16px;
   height: 16px;
   flex-shrink: 0;
+}
+
+.user-profile-referral-button-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  border-radius: 8px;
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  z-index: 2;
+}
+
+.user-profile-referral-button-wrapper:hover .user-profile-referral-button-overlay,
+.user-profile-referral-button-wrapper:active .user-profile-referral-button-overlay {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .user-profile-referral-stats {

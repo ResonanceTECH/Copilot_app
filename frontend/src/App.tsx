@@ -3,6 +3,7 @@ import { useAuth } from './contexts/AuthContext';
 import { AssistantPage } from './pages/AssistantPage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
+import { ReferralRegisterPage } from './pages/ReferralRegisterPage/ReferralRegisterPage';
 import { SpacesListPage } from './pages/SpacesListPage';
 import { SpaceDetailPage } from './pages/SpaceDetailPage';
 import { SettingsPage } from './pages/SettingsPage';
@@ -13,7 +14,7 @@ import { applyTheme, getTheme, watchSystemTheme } from './utils/theme';
 
 export const App: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
-  const [currentPage, setCurrentPage] = React.useState<'login' | 'register' | 'assistant' | 'spaces' | 'space-detail' | 'settings' | 'profile' | 'public-space' | 'not-found'>('login');
+  const [currentPage, setCurrentPage] = React.useState<'login' | 'register' | 'referral-register' | 'assistant' | 'spaces' | 'space-detail' | 'settings' | 'profile' | 'public-space' | 'not-found'>('login');
   const [spaceId, setSpaceId] = React.useState<number | null>(null);
   const [publicToken, setPublicToken] = React.useState<string | null>(null);
 
@@ -34,6 +35,9 @@ export const App: React.FC = () => {
   // Определяем текущую страницу из URL
   React.useEffect(() => {
     const path = window.location.pathname;
+    const urlParams = new URLSearchParams(window.location.search);
+    const refCode = urlParams.get('ref');
+    
     if (path.startsWith('/public/spaces/')) {
       const match = path.match(/^\/public\/spaces\/(.+)$/);
       if (match) {
@@ -43,7 +47,12 @@ export const App: React.FC = () => {
         setCurrentPage('not-found');
       }
     } else if (path === '/register') {
-      setCurrentPage('register');
+      // Если есть параметр ref, используем реферальную страницу
+      if (refCode) {
+        setCurrentPage('referral-register');
+      } else {
+        setCurrentPage('register');
+      }
     } else if (path === '/settings') {
       setCurrentPage('settings');
     } else if (path === '/profile') {
@@ -98,6 +107,9 @@ export const App: React.FC = () => {
   }
 
   if (!isAuthenticated) {
+    if (currentPage === 'referral-register') {
+      return <ReferralRegisterPage onNavigateToLogin={() => handleNavigation('login')} />;
+    }
     if (currentPage === 'register') {
       return <RegisterPage onNavigateToLogin={() => handleNavigation('login')} />;
     }
