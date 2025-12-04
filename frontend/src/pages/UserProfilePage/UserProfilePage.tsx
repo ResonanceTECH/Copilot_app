@@ -455,7 +455,7 @@ export const UserProfilePage: React.FC = () => {
                     <div className="user-profile-preference-left">
                       <div className="user-profile-preference-label">Внешний вид</div>
                       <div className="user-profile-preference-description">
-                        Как Perplexity выглядит на вашем устройстве
+                        Как тема выглядит на вашем устройстве
                       </div>
                     </div>
                     <div className="user-profile-preference-control">
