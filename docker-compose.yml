@@ -20,6 +20,32 @@ services:
       timeout: 5s
       retries: 5
 
+  deepseek:
+    image: ai/deepseek-r1-distill-llama
+    container_name: copilot_deepseek
+    ports:
+      - "8001:8000"
+    environment:
+      - MODEL_NAME=deepseek-r1-distill-llama
+    restart: unless-stopped
+    # Healthcheck для OpenAI-совместимого API
+    # Проверяем доступность через /v1/models endpoint
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8000/v1/models\", timeout=5)' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    # Раскомментируйте секцию deploy ниже, если у вас есть GPU
+    # Для CPU-only режима оставьте секцию deploy закомментированной
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
   app:
     build:
       context: ./backend
@@ -30,6 +56,8 @@ services:
     environment:
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
       - DATABASE_URL=postgresql://copilot_user:copilot_pass@db:5432/copilot_db
+      - DEEPSEEK_API_URL=http://deepseek:8000
+      - USE_LOCAL_DEEPSEEK=${USE_LOCAL_DEEPSEEK:-false}
     env_file:
       - .env
     volumes:
@@ -40,6 +68,14 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      deepseek:
+        condition: service_healthy
+    # Если healthcheck для deepseek не работает, используйте:
+    # depends_on:
+    #   db:
+    #     condition: service_healthy
+    #   deepseek:
+    #     condition: service_started
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]

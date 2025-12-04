@@ -15,11 +15,26 @@ class LLMService:
         timeout = httpx.Timeout(60.0, connect=30.0)  # 60 сек на запрос, 30 сек на подключение
         http_client = httpx.Client(timeout=timeout)
         
-        self.client = OpenAI(
-            base_url="https://openrouter.ai/api/v1",
-            api_key=os.getenv("OPENROUTER_API_KEY"),
-            http_client=http_client
-        )
+        # Проверяем, использовать ли локальный DeepSeek контейнер
+        use_local_deepseek = os.getenv("USE_LOCAL_DEEPSEEK", "false").lower() == "true"
+        deepseek_api_url = os.getenv("DEEPSEEK_API_URL", "http://deepseek:8000")
+        
+        if use_local_deepseek:
+            # Использование локального DeepSeek контейнера
+            self.client = OpenAI(
+                base_url=deepseek_api_url,
+                api_key="not-needed",  # Локальные модели обычно не требуют API ключ
+                http_client=http_client
+            )
+            print(f"✅ Используется локальный DeepSeek (URL: {deepseek_api_url})")
+        else:
+            # Использование OpenRouter API
+            self.client = OpenAI(
+                base_url="https://openrouter.ai/api/v1",
+                api_key=os.getenv("OPENROUTER_API_KEY"),
+                http_client=http_client
+            )
+            print("✅ Используется OpenRouter API")
         
         # Настройка Whisper: локальный или API
         # По умолчанию используем локальный Whisper, если установлен USE_WHISPER_API=true - используем API
@@ -198,16 +213,29 @@ class LLMService:
                 max_history_tokens
             )
 
-            completion = self.client.chat.completions.create(
-                extra_headers={
-                    "HTTP-Referer": "http://localhost:5000",
-                    "X-Title": "Business Assistant",
-                },
-                model="tngtech/deepseek-r1t2-chimera:free",
-                messages=messages,
-                temperature=0.5,
-                max_tokens=1000  # Ограничение на ответ
-            )
+            # Определяем модель в зависимости от используемого API
+            use_local_deepseek = os.getenv("USE_LOCAL_DEEPSEEK", "false").lower() == "true"
+            model_name = "deepseek-r1-distill-llama" if use_local_deepseek else "tngtech/deepseek-r1t2-chimera:free"
+            
+            # Для локального DeepSeek не нужны extra_headers
+            if use_local_deepseek:
+                completion = self.client.chat.completions.create(
+                    model=model_name,
+                    messages=messages,
+                    temperature=0.5,
+                    max_tokens=1000
+                )
+            else:
+                completion = self.client.chat.completions.create(
+                    extra_headers={
+                        "HTTP-Referer": "http://localhost:5000",
+                        "X-Title": "Business Assistant",
+                    },
+                    model=model_name,
+                    messages=messages,
+                    temperature=0.5,
+                    max_tokens=1000
+                )
 
             if not completion.choices or len(completion.choices) == 0:
                 raise ValueError("LLM вернул пустой ответ")
@@ -280,19 +308,35 @@ class LLMService:
 
             summary_prompt += conversation_text
 
-            completion = self.client.chat.completions.create(
-                extra_headers={
-                    "HTTP-Referer": "http://localhost:5000",
-                    "X-Title": "Business Assistant",
-                },
-                model="tngtech/deepseek-r1t2-chimera:free",
-                messages=[
-                    {"role": "system", "content": "Ты помогаешь суммаризировать беседы."},
-                    {"role": "user", "content": summary_prompt}
-                ],
-                temperature=0.3,
-                max_tokens=300
-            )
+            # Определяем модель в зависимости от используемого API
+            use_local_deepseek = os.getenv("USE_LOCAL_DEEPSEEK", "false").lower() == "true"
+            model_name = "deepseek-r1-distill-llama" if use_local_deepseek else "tngtech/deepseek-r1t2-chimera:free"
+            
+            # Для локального DeepSeek не нужны extra_headers
+            if use_local_deepseek:
+                completion = self.client.chat.completions.create(
+                    model=model_name,
+                    messages=[
+                        {"role": "system", "content": "Ты помогаешь суммаризировать беседы."},
+                        {"role": "user", "content": summary_prompt}
+                    ],
+                    temperature=0.3,
+                    max_tokens=300
+                )
+            else:
+                completion = self.client.chat.completions.create(
+                    extra_headers={
+                        "HTTP-Referer": "http://localhost:5000",
+                        "X-Title": "Business Assistant",
+                    },
+                    model=model_name,
+                    messages=[
+                        {"role": "system", "content": "Ты помогаешь суммаризировать беседы."},
+                        {"role": "user", "content": summary_prompt}
+                    ],
+                    temperature=0.3,
+                    max_tokens=300
+                )
 
             return completion.choices[0].message.content
 
