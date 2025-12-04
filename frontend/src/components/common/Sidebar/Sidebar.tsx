@@ -378,7 +378,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           )}
                           <span
                             className="sidebar-thread-title"
-                            onClick={(e) => {
+                            onDoubleClick={(e) => {
                               e.stopPropagation();
                               handleRename(thread.id);
                             }}
