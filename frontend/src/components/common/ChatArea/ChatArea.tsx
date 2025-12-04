@@ -32,11 +32,13 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   const [isNotesPanelVisible, setIsNotesPanelVisible] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [showReportMenu, setShowReportMenu] = useState<string | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
+  const reportMenuRef = useRef<HTMLDivElement>(null);
   const { language } = useLanguage();
 
   const activeTool = externalActiveTool !== undefined ? externalActiveTool : internalActiveTool;
@@ -67,6 +69,63 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       handleSend();
     }
   };
+
+  // Копирование сообщения в буфер обмена
+  const handleCopyMessage = async (content: string) => {
+    try {
+      await navigator.clipboard.writeText(content);
+      // Можно добавить уведомление об успешном копировании
+      console.log('✅ Сообщение скопировано в буфер обмена');
+    } catch (error) {
+      console.error('❌ Ошибка копирования:', error);
+      // Fallback для старых браузеров
+      const textArea = document.createElement('textarea');
+      textArea.value = content;
+      textArea.style.position = 'fixed';
+      textArea.style.opacity = '0';
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        console.log('✅ Сообщение скопировано (fallback)');
+      } catch (err) {
+        console.error('❌ Ошибка копирования (fallback):', err);
+      }
+      document.body.removeChild(textArea);
+    }
+  };
+
+  // Обработка реакций (лайки/дизлайки)
+  const handleReaction = (messageId: string, reaction: 'like' | 'dislike') => {
+    console.log(`👍 Реакция ${reaction} на сообщение ${messageId}`);
+    // Здесь можно добавить логику сохранения реакций
+    // Например, отправка на бэкенд или сохранение в локальном состоянии
+  };
+
+  // Обработка жалобы на сообщение
+  const handleReport = (messageId: string) => {
+    console.log(`🚩 Жалоба на сообщение ${messageId}`);
+    setShowReportMenu(null);
+    // Здесь можно добавить логику отправки жалобы на бэкенд
+    alert('Спасибо за обратную связь. Мы рассмотрим вашу жалобу.');
+  };
+
+  // Закрытие меню при клике вне его
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (reportMenuRef.current && !reportMenuRef.current.contains(event.target as Node)) {
+        setShowReportMenu(null);
+      }
+    };
+
+    if (showReportMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showReportMenu]);
 
   // Автоматическое изменение размера textarea
   useEffect(() => {
