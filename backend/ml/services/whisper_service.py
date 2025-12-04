@@ -119,7 +119,7 @@ class LocalWhisperService:
             # Ждем немного, возможно модель загружается в фоне
             import time
             waited = 0
-            max_wait = 10  # Максимум 10 секунд ожидания фоновой загрузки
+            max_wait = 30  # Увеличиваем до 30 секунд ожидания фоновой загрузки
             while waited < max_wait:
                 time.sleep(1)
                 waited += 1
@@ -127,25 +127,52 @@ class LocalWhisperService:
                     if self.model is not None:
                         print(f"✅ Модель загружена из фонового потока")
                         break
-                if waited % 2 == 0:
+                if waited % 5 == 0:
                     print(f"⏳ Ожидание загрузки модели... ({waited}/{max_wait} сек)")
             
-            # Если модель все еще не загружена, пытаемся загрузить синхронно
+            # Если модель все еще не загружена, пытаемся загрузить синхронно с таймаутом
             with self._loading_lock:
                 if not self.model:
                     try:
                         print("🔄 Синхронная загрузка модели Whisper...")
-                        model_kwargs = {
-                            "device": self.device,
-                            "compute_type": self.compute_type
-                        }
+                        print("⏳ Это может занять несколько минут при первом запуске...")
                         
-                        if self.download_root:
-                            model_kwargs["download_root"] = self.download_root
+                        # Используем threading для таймаута загрузки
+                        import threading
+                        model_result = [None]
+                        load_error = [None]
                         
-                        self.model = WhisperModel(self.model_size, **model_kwargs)
+                        def load_model():
+                            try:
+                                model_kwargs = {
+                                    "device": self.device,
+                                    "compute_type": self.compute_type
+                                }
+                                
+                                if self.download_root:
+                                    model_kwargs["download_root"] = self.download_root
+                                
+                                model_result[0] = WhisperModel(self.model_size, **model_kwargs)
+                            except Exception as e:
+                                load_error[0] = e
+                        
+                        load_thread = threading.Thread(target=load_model, daemon=True)
+                        load_thread.start()
+                        load_thread.join(timeout=120)  # Таймаут 2 минуты на загрузку
+                        
+                        if load_thread.is_alive():
+                            print("⏱️ Загрузка модели превысила таймаут (120 сек)")
+                            raise TimeoutError("Загрузка модели превысила таймаут")
+                        
+                        if load_error[0]:
+                            raise load_error[0]
+                        
+                        if model_result[0] is None:
+                            raise ValueError("Модель не была загружена")
+                        
+                        self.model = model_result[0]
                         print(f"✅ Модель Whisper загружена успешно")
-                    except Exception as e:
+                    except (TimeoutError, ValueError, Exception) as e:
                         print(f"❌ Не удалось загрузить модель: {e}")
                         import traceback
                         traceback.print_exc()

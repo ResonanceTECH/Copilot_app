@@ -5,6 +5,8 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from typing import List, Dict
+from pathlib import Path
+import uuid
 
 from backend.app.database.connection import get_db
 from backend.app.dependencies import get_current_user
@@ -13,6 +15,8 @@ from backend.app.models.space import Space
 from backend.app.models.chat import Chat
 from backend.app.models.message import Message
 from backend.app.models.note import Note
+from backend.app.models.file_attachment import FileAttachment
+from backend.ml.services.file_analysis_service import FileAnalysisService
 from backend.ml.models.business_classifier import EnhancedBusinessClassifier
 from backend.app.models.user_activity import UserActivity
 from backend.app.services.llm_service import LLMService
@@ -440,13 +444,36 @@ async def send_message(
             db.commit()
             db.refresh(chat)
 
+        # Извлекаем image_url из HTML, если есть изображение
+        image_url = None
+        if '<img' in user_message and 'src=' in user_message:
+            import re
+            # Ищем src="/assets/..." или src="assets/..."
+            img_match = re.search(r'src=["\']([^"\']*assets/[^"\']+)["\']', user_message)
+            if img_match:
+                image_url = img_match.group(1).lstrip('/')  # Убираем ведущий / если есть
+                print(f"📷 Извлечен image_url из сообщения: {image_url}")
+        
         # Сохраняем сообщение пользователя
         user_msg = Message(
             chat_id=chat.id,
             role="user",
-            content=user_message
+            content=user_message,
+            image_url=image_url
         )
         db.add(user_msg)
+        db.flush()  # Получаем ID сообщения для связи с FileAttachment
+        
+        # Если есть image_url, ищем соответствующий FileAttachment и связываем его с сообщением
+        if image_url:
+            file_attachment = db.query(FileAttachment).filter(
+                FileAttachment.file_path == image_url,
+                FileAttachment.user_id == current_user.id
+            ).order_by(FileAttachment.created_at.desc()).first()
+            
+            if file_attachment and not file_attachment.message_id:
+                file_attachment.message_id = user_msg.id
+                print(f"✅ Связан FileAttachment {file_attachment.id} с сообщением {user_msg.id}")
 
         # Сохраняем активность пользователя для аналитики эффективности
         today = datetime.now(timezone.utc).date()
@@ -727,45 +754,77 @@ async def get_chat_messages(
 
     message_items = []
     for msg in messages:
-        # Если есть image_url, регенерируем HTML для отображения графика
+        # Если есть image_url, регенерируем HTML для отображения
         content = msg.content
-        if msg.image_url and msg.role == 'assistant':
-            # Регенерируем HTML с изображением
+        if msg.image_url:
             image_src = f"/{msg.image_url}"
-            content = f'''
-            <div class="graphic-container" style="
-                background: white;
-                border-radius: 10px;
-                padding: 15px;
-                margin: 15px 0;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            ">
-                <div class="graphic-header" style="
-                    margin-bottom: 10px;
-                    padding-bottom: 10px;
-                    border-bottom: 1px solid #eee;
+            if msg.role == 'assistant':
+                # Регенерируем HTML с изображением для ассистента (графики)
+                content = f'''
+                <div class="graphic-container" style="
+                    background: white;
+                    border-radius: 10px;
+                    padding: 15px;
+                    margin: 15px 0;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
                 ">
-                    <h4 style="margin: 0; color: #333;">📈 Сгенерированный график</h4>
+                    <div class="graphic-header" style="
+                        margin-bottom: 10px;
+                        padding-bottom: 10px;
+                        border-bottom: 1px solid #eee;
+                    ">
+                        <h4 style="margin: 0; color: #333;">📈 Сгенерированный график</h4>
+                    </div>
+                    <div class="graphic-image" style="text-align: center;">
+                        <img src="{image_src}" 
+                             alt="Сгенерированный график" 
+                             style="
+                                max-width: 100%;
+                                height: auto;
+                                border-radius: 5px;
+                             ">
+                    </div>
+                    <div class="graphic-note" style="
+                        margin-top: 10px;
+                        font-size: 12px;
+                        color: #666;
+                        text-align: center;
+                    ">
+                        {msg.content}
+                    </div>
                 </div>
-                <div class="graphic-image" style="text-align: center;">
-                    <img src="{image_src}" 
-                         alt="Сгенерированный график" 
-                         style="
-                            max-width: 100%;
-                            height: auto;
-                            border-radius: 5px;
-                         ">
-                </div>
-                <div class="graphic-note" style="
-                    margin-top: 10px;
-                    font-size: 12px;
-                    color: #666;
-                    text-align: center;
-                ">
-                    {msg.content}
-                </div>
-            </div>
-            '''
+                '''
+            elif msg.role == 'user':
+                # Для пользователя: если в content уже есть HTML с изображением, оставляем как есть
+                # Иначе формируем HTML с изображением
+                if '<img' not in content and '<div class="uploaded-file' not in content:
+                    # Извлекаем имя файла из image_url
+                    filename = msg.image_url.split('/')[-1] if '/' in msg.image_url else msg.image_url
+                    # Получаем анализ из FileAttachment, если есть
+                    file_attachment = db.query(FileAttachment).filter(
+                        FileAttachment.message_id == msg.id
+                    ).first()
+                    analysis_html = ''
+                    if file_attachment and file_attachment.analysis_result:
+                        analysis_html = f'''
+                        <details class="uploaded-file-analysis" style="margin-top: 12px;">
+                            <summary style="cursor: pointer; color: var(--color-primary); font-weight: 500; user-select: none;">🔍 Показать анализ изображения</summary>
+                            <div style="margin-top: 8px; padding: 12px; background: var(--color-hover); border-radius: 8px; font-size: 14px; line-height: 1.6;">
+                                {file_attachment.analysis_result}
+                            </div>
+                        </details>
+                        '''
+                    content = f'''
+                    <div class="uploaded-file-container">
+                        <div class="uploaded-file-header" style="margin-bottom: 8px; font-weight: 500;">
+                            📎 {filename}
+                        </div>
+                        <div class="uploaded-file-image">
+                            <img src="{image_src}" alt="{filename}" style="max-width: 100%; max-height: 500px; border-radius: 8px; object-fit: contain;" />
+                        </div>
+                        {analysis_html}
+                    </div>
+                    '''
 
         message_items.append(MessageItem(
             id=msg.id,
@@ -1113,32 +1172,205 @@ async def transcribe_audio(
         filename = audio.filename or "recording.webm"
         print(f"🔄 Начинаем транскрибацию...")
         text = None
+        error_message = None
         try:
             text = llm_service.transcribe_audio(audio_bytes, filename, language)
-            print(f"✅ Транскрибация завершена, распознано: '{text}'")
+            if text:
+                print(f"✅ Транскрибация завершена, распознано: '{text}'")
+            else:
+                error_message = "Транскрибация не вернула результат"
+                print(f"⚠️ {error_message}, но аудио файл сохранен")
+        except TimeoutError as e:
+            error_message = f"Транскрибация превысила таймаут: {str(e)}"
+            print(f"⏱️ {error_message}, но аудио файл сохранен")
+        except ValueError as e:
+            error_message = str(e)
+            print(f"⚠️ Ошибка транскрибации: {error_message}, но аудио файл сохранен")
         except Exception as e:
-            print(f"⚠️ Ошибка транскрибации: {e}, но аудио файл сохранен")
-            # Продолжаем выполнение, даже если транскрибация не удалась
+            error_message = f"Неожиданная ошибка транскрибации: {str(e)}"
+            print(f"❌ {error_message}, но аудио файл сохранен")
+            import traceback
+            traceback.print_exc()
         
-        return TranscribeResponse(
-            success=True,
-            text=text,
-            audio_url=audio_url
-        )
+        # Возвращаем ответ: успех если есть текст, иначе ошибка (но файл сохранен)
+        if text:
+            return TranscribeResponse(
+                success=True,
+                text=text,
+                audio_url=audio_url
+            )
+        else:
+            return TranscribeResponse(
+                success=False,
+                text=None,
+                audio_url=audio_url,
+                error=error_message or "Не удалось распознать речь"
+            )
         
-    except ValueError as e:
-        # Ошибка от LLMService (например, API не настроен)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
-        )
+    except HTTPException:
+        raise
     except Exception as e:
-        print(f"❌ Ошибка транскрибации: {e}")
+        print(f"❌ Критическая ошибка транскрибации: {e}")
         import traceback
         traceback.print_exc()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Ошибка распознавания речи: {str(e)}"
+            detail=f"Ошибка обработки аудио: {str(e)}"
+        )
+
+
+class FileUploadResponse(BaseModel):
+    success: bool
+    file_id: Optional[int] = None
+    file_url: Optional[str] = None
+    filename: Optional[str] = None
+    file_type: Optional[str] = None
+    extracted_text: Optional[str] = None
+    analysis_result: Optional[str] = None
+    error: Optional[str] = None
+
+
+@router.post("/chat/upload-file", response_model=FileUploadResponse)
+async def upload_file(
+    file: UploadFile = File(...),
+    chat_id: Optional[int] = Query(None),
+    space_id: Optional[int] = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Загрузка файла (PDF, DOC/DOCX, изображения) с анализом содержимого
+    """
+    try:
+        # Проверяем формат файла
+        allowed_extensions = ['.pdf', '.doc', '.docx', '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp']
+        allowed_mime_types = [
+            'application/pdf',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/bmp', 'image/webp'
+        ]
+        
+        file_ext = Path(file.filename or "").suffix.lower()
+        mime_type = file.content_type or ""
+        
+        if file_ext not in allowed_extensions and mime_type not in allowed_mime_types:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Неподдерживаемый формат файла. Разрешены: {', '.join(allowed_extensions)}"
+            )
+        
+        # Читаем файл
+        file_bytes = await file.read()
+        
+        if len(file_bytes) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Файл пустой"
+            )
+        
+        # Проверяем максимальный размер (50MB)
+        max_size = 50 * 1024 * 1024  # 50MB
+        if len(file_bytes) > max_size:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Файл слишком большой. Максимальный размер: 50MB"
+            )
+        
+        print(f"📥 Получен файл:")
+        print(f"   - Имя: {file.filename}")
+        print(f"   - Размер: {len(file_bytes)} байт ({len(file_bytes) / 1024:.2f} KB)")
+        print(f"   - MIME type: {mime_type}")
+        print(f"   - Расширение: {file_ext}")
+        
+        # Определяем путь к папке assets
+        backend_dir = Path(__file__).parent.parent.parent
+        assets_dir = backend_dir / "assets"
+        assets_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Генерируем уникальное имя файла
+        unique_filename = f"file_{uuid.uuid4().hex[:12]}{file_ext}"
+        saved_file_path = assets_dir / unique_filename
+        
+        # Сохраняем файл
+        with open(saved_file_path, 'wb') as f:
+            f.write(file_bytes)
+        
+        # Формируем относительный путь для URL
+        file_url = f"assets/{unique_filename}"
+        print(f"💾 Файл сохранен: {file_url}")
+        
+        # Анализируем файл
+        analysis_result = None
+        extracted_text = None
+        
+        try:
+            file_analysis = FileAnalysisService.analyze_file(
+                file_bytes=file_bytes,
+                filename=file.filename or unique_filename,
+                mime_type=mime_type,
+                llm_service=llm_service
+            )
+            
+            extracted_text = file_analysis.get("extracted_text")
+            analysis_result = file_analysis.get("analysis_result")
+            
+            if extracted_text:
+                print(f"✅ Извлечен текст: {len(extracted_text)} символов")
+            if analysis_result:
+                print(f"✅ Результат анализа: {len(analysis_result)} символов")
+                
+        except Exception as e:
+            print(f"⚠️ Ошибка анализа файла: {e}")
+            import traceback
+            traceback.print_exc()
+            # Продолжаем выполнение, даже если анализ не удался
+        
+        # Определяем chat_id и space_id если не указаны
+        if not chat_id and not space_id:
+            # Создаем или получаем дефолтное пространство
+            default_space = get_or_create_default_space(current_user, db)
+            space_id = default_space.id
+        
+        # Создаем запись в БД
+        file_attachment = FileAttachment(
+            chat_id=chat_id,
+            space_id=space_id,
+            user_id=current_user.id,
+            filename=file.filename or unique_filename,
+            file_path=file_url,
+            file_type=file_analysis.get("file_type", file_ext[1:] if file_ext else "unknown"),
+            file_size=len(file_bytes),
+            mime_type=mime_type,
+            extracted_text=extracted_text,
+            analysis_result=analysis_result
+        )
+        
+        db.add(file_attachment)
+        db.commit()
+        db.refresh(file_attachment)
+        
+        print(f"✅ Файл загружен и сохранен в БД (ID: {file_attachment.id})")
+        
+        return FileUploadResponse(
+            success=True,
+            file_id=file_attachment.id,
+            file_url=file_url,
+            filename=file.filename or unique_filename,
+            file_type=file_attachment.file_type,
+            extracted_text=extracted_text,
+            analysis_result=analysis_result
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Ошибка загрузки файла: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Ошибка загрузки файла: {str(e)}"
         )
 
 

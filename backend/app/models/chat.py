@@ -19,6 +19,7 @@ class Chat(Base):
     space = relationship("Space", back_populates="chats")
     user = relationship("User", back_populates="chats")
     messages = relationship("Message", back_populates="chat", cascade="all, delete-orphan", order_by="Message.created_at")
+    file_attachments = relationship("FileAttachment", back_populates="chat", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<Chat(id={self.id}, title={self.title}, space_id={self.space_id})>"

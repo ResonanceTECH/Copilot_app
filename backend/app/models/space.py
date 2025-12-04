@@ -26,6 +26,7 @@ class Space(Base):
     notes = relationship("Note", back_populates="space", cascade="all, delete-orphan")
     tags = relationship("Tag", back_populates="space", cascade="all, delete-orphan")
     notification_settings = relationship("NotificationSettings", back_populates="space", uselist=False, cascade="all, delete-orphan")
+    file_attachments = relationship("FileAttachment", back_populates="space", cascade="all, delete-orphan")
 
     def generate_public_token(self):
         """Генерирует уникальный токен для публичного доступа"""

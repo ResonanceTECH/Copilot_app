@@ -18,6 +18,8 @@ interface ChatAreaProps {
   activeTool?: string;
   onToolSelect?: (tool: string) => void;
   onSendMessage?: (message: string) => void;
+  chatId?: number;
+  spaceId?: number;
 }
 
 export const ChatArea: React.FC<ChatAreaProps> = ({
@@ -26,6 +28,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   activeTool: externalActiveTool,
   onToolSelect,
   onSendMessage,
+  chatId,
+  spaceId,
 }) => {
   const [inputValue, setInputValue] = useState('');
   const [internalActiveTool, setInternalActiveTool] = useState<string>('assistant');
@@ -51,11 +55,84 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   };
 
   const handleSend = () => {
-    if (inputValue.trim() && onSendMessage) {
+    const textContent = inputValue.trim();
+    
+    // Если есть текст или прикрепленные файлы, отправляем сообщение
+    if ((textContent || attachedFiles.length > 0) && onSendMessage) {
       // Отслеживаем активность пользователя
       trackActivity();
-      onSendMessage(inputValue.trim());
+      
+      // Формируем сообщение с текстом и файлами
+      let messageContent = textContent;
+      
+      // Убираем служебные сообщения о прикреплении файлов из текста
+      const fileAttachmentMessages = attachedFiles.map(f => {
+        const icon = f.file_type === 'image' ? '🖼️' : '📎';
+        return `${icon} ${f.filename} прикреплен`;
+      });
+      messageContent = messageContent
+        .split('\n')
+        .filter(line => !fileAttachmentMessages.some(msg => line.includes(msg)))
+        .join('\n')
+        .trim();
+      
+      // Добавляем HTML для изображений
+      const imageFiles = attachedFiles.filter(f => f.file_type === 'image');
+      const otherFiles = attachedFiles.filter(f => f.file_type !== 'image');
+      
+      if (imageFiles.length > 0) {
+        const imagesHtml = imageFiles.map(file => {
+          return `
+            <div class="uploaded-file-container" style="margin-top: ${messageContent ? '12px' : '0'};">
+              <div class="uploaded-file-header" style="margin-bottom: 8px; font-weight: 500;">
+                📎 ${file.filename}
+              </div>
+              <div class="uploaded-file-image">
+                <img src="/${file.file_url}" alt="${file.filename}" style="max-width: 100%; max-height: 500px; border-radius: 8px; object-fit: contain;" />
+              </div>
+              ${file.analysis_result ? `
+                <details class="uploaded-file-analysis" style="margin-top: 12px;">
+                  <summary style="cursor: pointer; color: var(--color-primary); font-weight: 500; user-select: none;">🔍 Показать анализ изображения</summary>
+                  <div style="margin-top: 8px; padding: 12px; background: var(--color-hover); border-radius: 8px; font-size: 14px; line-height: 1.6;">
+                    ${file.analysis_result}
+                  </div>
+                </details>
+              ` : ''}
+            </div>
+          `;
+        }).join('');
+        
+        // Если есть текст, добавляем его перед изображениями
+        if (messageContent) {
+          messageContent = `${messageContent}${imagesHtml}`;
+        } else {
+          messageContent = imagesHtml;
+        }
+      }
+      
+      // Добавляем информацию о других файлах (PDF/DOC)
+      if (otherFiles.length > 0) {
+        const filesInfo = otherFiles.map(file => {
+          let info = `📎 ${file.filename}`;
+          if (file.extracted_text) {
+            const preview = file.extracted_text.substring(0, 500);
+            info += `\n\n📄 Извлеченный текст:\n${preview}${file.extracted_text.length > 500 ? '...' : ''}`;
+          }
+          return info;
+        }).join('\n\n');
+        
+        messageContent = messageContent 
+          ? `${messageContent}\n\n${filesInfo}`
+          : filesInfo;
+      }
+      
+      // Отправляем сообщение
+      onSendMessage(messageContent);
+      
+      // Очищаем поле ввода и прикрепленные файлы
       setInputValue('');
+      setAttachedFiles([]);
+      
       // Фокус на поле ввода после отправки
       setTimeout(() => {
         inputRef.current?.focus();
@@ -405,6 +482,82 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     }
   };
 
+  // Состояние для прикрепленных файлов (до отправки)
+  const [attachedFiles, setAttachedFiles] = useState<Array<{
+    file_url: string;
+    filename: string;
+    file_type: string;
+    analysis_result?: string;
+    extracted_text?: string;
+  }>>([]);
+
+  // Обработчик загрузки файла
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Проверяем формат файла
+    const allowedTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'image/png',
+      'image/jpeg',
+      'image/jpg',
+      'image/gif',
+      'image/bmp',
+      'image/webp'
+    ];
+
+    const allowedExtensions = ['.pdf', '.doc', '.docx', '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp'];
+    const fileExt = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+
+    if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExt)) {
+      alert(`Неподдерживаемый формат файла. Разрешены: ${allowedExtensions.join(', ')}`);
+      return;
+    }
+
+    // Проверяем размер (50MB)
+    const maxSize = 50 * 1024 * 1024;
+    if (file.size > maxSize) {
+      alert('Файл слишком большой. Максимальный размер: 50MB');
+      return;
+    }
+
+    try {
+      console.log('📤 Загрузка файла:', file.name, file.size, 'байт');
+      
+      const result = await chatAPI.uploadFile(file, chatId, spaceId);
+      
+      if (result.success && result.file_url) {
+        console.log('✅ Файл загружен:', result);
+        
+        // Добавляем файл к списку прикрепленных файлов
+        setAttachedFiles(prev => [...prev, {
+          file_url: result.file_url!,
+          filename: result.filename || file.name,
+          file_type: result.file_type || 'unknown',
+          analysis_result: result.analysis_result,
+          extracted_text: result.extracted_text
+        }]);
+        
+        // Показываем уведомление о прикреплении файла
+        const fileIcon = result.file_type === 'image' ? '🖼️' : '📎';
+        const currentText = inputValue.trim();
+        const separator = currentText ? '\n\n' : '';
+        setInputValue(prev => prev + separator + `${fileIcon} ${result.filename || file.name} прикреплен`);
+      } else {
+        throw new Error(result.error || 'Ошибка загрузки файла');
+      }
+    } catch (error: any) {
+      console.error('❌ Ошибка загрузки файла:', error);
+      alert(error.message || 'Не удалось загрузить файл. Попробуйте еще раз.');
+    } finally {
+      // Очищаем input для возможности повторной загрузки того же файла
+      event.target.value = '';
+    }
+  };
+
   // Обработчик нажатия на кнопку микрофона
   const handleMicrophoneClick = () => {
     console.log('🖱️ Клик по кнопке микрофона, текущее состояние:', {
@@ -470,6 +623,56 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>
                       {message.content}
                     </ReactMarkdown>
+                  )
+                ) : message.role === 'user' ? (
+                  // Для пользователя: если есть HTML с изображением, рендерим его
+                  // HTML может содержать и текст, и изображения вместе
+                  message.content.includes('<img') || message.content.includes('<div class="uploaded-file') ? (
+                    <div dangerouslySetInnerHTML={{ __html: message.content }} />
+                  ) : message.image_url ? (
+                    // Если есть image_url, но нет HTML, создаем изображение
+                    <div>
+                      {/* Показываем текст, если он есть */}
+                      {message.content && !message.content.includes('прикреплен') && (
+                        <div style={{ marginBottom: '12px' }}>
+                          {message.content}
+                        </div>
+                      )}
+                      <div className="uploaded-file-container" style={{ marginBottom: '12px' }}>
+                        <div className="uploaded-file-image">
+                          <img 
+                            src={message.image_url.startsWith('/') ? message.image_url : `/${message.image_url}`} 
+                            alt={message.file_url || 'Загруженное изображение'} 
+                            style={{ 
+                              maxWidth: '100%', 
+                              maxHeight: '500px', 
+                              borderRadius: '8px', 
+                              marginTop: '8px',
+                              objectFit: 'contain'
+                            }} 
+                          />
+                        </div>
+                        {message.analysis_result && (
+                          <details className="uploaded-file-analysis" style={{ marginTop: '12px' }}>
+                            <summary style={{ cursor: 'pointer', color: 'var(--color-primary)', fontWeight: 500 }}>
+                              🔍 Показать анализ
+                            </summary>
+                            <div style={{ 
+                              marginTop: '8px', 
+                              padding: '12px', 
+                              background: 'var(--color-hover)', 
+                              borderRadius: '8px', 
+                              fontSize: '14px' 
+                            }}>
+                              {message.analysis_result}
+                            </div>
+                          </details>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    // Обычный текст
+                    message.content
                   )
                 ) : (
                   message.content
@@ -561,9 +764,34 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               >
                 <Icon src={ICONS.note} size="md" />
               </button>
-              <button className="chat-input-icon-btn" type="button">
+              <label className="chat-input-icon-btn" style={{ cursor: 'pointer', position: 'relative' }} title="Прикрепить файл">
+                <input
+                  type="file"
+                  accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.gif,.bmp,.webp"
+                  onChange={handleFileUpload}
+                  style={{ display: 'none' }}
+                />
                 <Icon src={ICONS.paperclip} size="md" />
-              </button>
+                {attachedFiles.length > 0 && (
+                  <span style={{
+                    position: 'absolute',
+                    top: '-4px',
+                    right: '-4px',
+                    background: 'var(--color-primary)',
+                    color: 'white',
+                    borderRadius: '50%',
+                    width: '18px',
+                    height: '18px',
+                    fontSize: '10px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 'bold'
+                  }}>
+                    {attachedFiles.length}
+                  </span>
+                )}
+              </label>
               <button
                 className={`chat-input-icon-btn ${isRecording ? 'chat-input-icon-btn--recording' : ''} ${isTranscribing ? 'chat-input-icon-btn--transcribing' : ''}`}
                 type="button"
@@ -577,6 +805,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 className="chat-input-icon-btn chat-input-send-btn"
                 type="button"
                 onClick={handleSend}
+                disabled={!inputValue.trim() && attachedFiles.length === 0}
               >
                 <Icon src={ICONS.send} size="md" />
               </button>
