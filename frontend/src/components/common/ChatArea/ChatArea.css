@@ -300,10 +300,19 @@
 .chat-message--assistant .chat-message-content h4,
 .chat-message--assistant .chat-message-content h5,
 .chat-message--assistant .chat-message-content h6 {
-  margin: 16px 0 8px 0;
+  margin: 20px 0 12px 0;
   font-weight: 600;
   color: var(--color-text);
-  line-height: 1.3;
+  line-height: 1.4;
+}
+
+.chat-message--assistant .chat-message-content h1:first-child,
+.chat-message--assistant .chat-message-content h2:first-child,
+.chat-message--assistant .chat-message-content h3:first-child,
+.chat-message--assistant .chat-message-content h4:first-child,
+.chat-message--assistant .chat-message-content h5:first-child,
+.chat-message--assistant .chat-message-content h6:first-child {
+  margin-top: 0;
 }
 
 .chat-message--assistant .chat-message-content h1 {
@@ -350,13 +359,51 @@
 
 .chat-message--assistant .chat-message-content ul,
 .chat-message--assistant .chat-message-content ol {
-  margin: 8px 0;
+  margin: 12px 0;
   padding-left: 24px;
 }
 
 .chat-message--assistant .chat-message-content li {
-  margin: 4px 0;
+  margin: 6px 0;
   line-height: 1.6;
+  color: var(--color-text);
+}
+
+.chat-message--assistant .chat-message-content li::marker {
+  color: var(--color-text-secondary);
+}
+
+/* Стили для HTML разметки с классами response-* */
+.chat-message--assistant .chat-message-content .response-heading,
+.chat-message--assistant .chat-message-content h4.response-heading {
+  margin: 20px 0 12px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text);
+  line-height: 1.4;
+}
+
+.chat-message--assistant .chat-message-content .response-heading:first-child {
+  margin-top: 0;
+}
+
+.chat-message--assistant .chat-message-content .response-list,
+.chat-message--assistant .chat-message-content ul.response-list {
+  margin: 12px 0;
+  padding-left: 24px;
+  list-style-type: disc;
+}
+
+.chat-message--assistant .chat-message-content .response-list-item,
+.chat-message--assistant .chat-message-content li.response-list-item {
+  margin: 8px 0;
+  line-height: 1.6;
+  color: var(--color-text);
+  padding-left: 4px;
+}
+
+.chat-message--assistant .chat-message-content .response-list-item::marker {
+  color: var(--color-primary);
 }
 
 .chat-message--assistant .chat-message-content a {
