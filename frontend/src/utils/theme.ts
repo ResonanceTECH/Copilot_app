@@ -29,18 +29,28 @@ const applyDarkTheme = () => {
 };
 
 export const applyTheme = (theme: Theme) => {
+  const root = document.documentElement;
+  let isDark = false;
+  
   if (theme === 'light') {
     applyLightTheme();
+    isDark = false;
   } else if (theme === 'dark') {
     applyDarkTheme();
+    isDark = true;
   } else {
     // Системная тема - определяем по prefers-color-scheme
     if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
       applyDarkTheme();
+      isDark = true;
     } else {
       applyLightTheme();
+      isDark = false;
     }
   }
+  
+  // Добавляем data-атрибут для CSS селекторов
+  root.setAttribute('data-theme', isDark ? 'dark' : 'light');
   
   localStorage.setItem('theme', theme);
 };
