@@ -166,6 +166,8 @@
 
 .sidebar-section {
   margin-bottom: 24px;
+  position: relative;
+  width: 100%;
 }
 
 .sidebar-section-header {
@@ -428,32 +430,44 @@
 }
 
 .sidebar-pinned-section {
-  margin-bottom: 16px;
+  margin-bottom: 4px;
   min-height: 40px;
   transition: all 0.2s ease;
+  width: 100%;
+  flex-shrink: 0;
+  display: block;
 }
 
 .sidebar-pinned-section--drag-over {
-  background: var(--color-primary-alpha);
+  background: rgba(38, 166, 65, 0.15);
   border-radius: 8px;
-  border: 2px dashed var(--color-primary);
+  border: 2px dashed #26a641;
+  padding: 8px;
+  box-sizing: border-box;
 }
 
 .sidebar-pinned-spaces {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  margin-bottom: 8px;
+  margin-bottom: 0;
+}
+
+.sidebar-pinned-section .sidebar-section {
+  margin-bottom: 0;
 }
 
 .sidebar-pinned-drop-zone {
-  padding: 20px;
+  padding: 16px;
   text-align: center;
   color: var(--color-text-secondary);
-  font-size: 12px;
+  font-size: 13px;
   border-radius: 8px;
-  border: 2px dashed var(--color-primary);
-  background: var(--color-primary-alpha);
+  background: transparent;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .sidebar-space-item {
@@ -464,7 +478,7 @@
   background: var(--color-input-bg);
   border: 1px solid var(--color-border);
   border-radius: 6px;
-  cursor: move;
+  cursor: pointer;
   text-align: left;
   transition: all 0.2s ease;
   position: relative;
@@ -496,8 +510,10 @@
 }
 
 .sidebar-space-item--pinned {
-  background: var(--color-primary-alpha);
-  border-color: var(--color-primary);
+  background: transparent;
+  border: none;
+  padding: 10px 12px;
+  cursor: pointer;
 }
 
 .sidebar-space-item--has-pinned {
@@ -529,10 +545,14 @@
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  opacity: 0.7;
+  opacity: 0;
   transition: all 0.2s ease;
   flex-shrink: 0;
   padding: 0;
+}
+
+.sidebar-space-item:hover .sidebar-space-unpin-btn {
+  opacity: 0.7;
 }
 
 .sidebar-space-unpin-btn:hover {

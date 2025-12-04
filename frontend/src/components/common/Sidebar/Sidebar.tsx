@@ -3,7 +3,6 @@ import { Icon } from '../../ui/Icon';
 import { ICONS } from '../../../utils/icons';
 import { ChatThread, Space } from '../../../types';
 import logoIcon from '../../../assets/icons/logo.svg';
-import pinIcon from '../../../assets/icons/pin.svg';
 import starIcon from '../../../assets/icons/star.svg';
 import starFilledIcon from '../../../assets/icons/star-filled.svg';
 import { ThreadContextMenu } from './ThreadContextMenu';
@@ -222,7 +221,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           const pinnedSpacesList = spaces.filter(space => pinnedSpaces.has(space.id));
 
           // Показываем секцию только если есть закрепленные пространства или идет перетаскивание
-          if (pinnedSpacesList.length === 0 && !dragOverPinnedArea) {
+          if (pinnedSpacesList.length === 0 && !dragOverPinnedArea && draggedSpaceId === null) {
             return null;
           }
 
@@ -232,15 +231,36 @@ export const Sidebar: React.FC<SidebarProps> = ({
               className={`sidebar-pinned-section ${dragOverPinnedArea ? 'sidebar-pinned-section--drag-over' : ''}`}
               onDragOver={(e) => {
                 e.preventDefault();
-                setDragOverPinnedArea(true);
+                e.stopPropagation();
+                if (draggedSpaceId !== null) {
+                  setDragOverPinnedArea(true);
+                }
+              }}
+              onDragEnter={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (draggedSpaceId !== null) {
+                  setDragOverPinnedArea(true);
+                }
               }}
               onDragLeave={(e) => {
-                if (!pinnedAreaRef.current?.contains(e.relatedTarget as Node)) {
+                e.preventDefault();
+                e.stopPropagation();
+                const rect = pinnedAreaRef.current?.getBoundingClientRect();
+                if (rect) {
+                  const x = e.clientX;
+                  const y = e.clientY;
+                  // Проверяем, что курсор действительно вышел за пределы области
+                  if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+                    setDragOverPinnedArea(false);
+                  }
+                } else {
                   setDragOverPinnedArea(false);
                 }
               }}
               onDrop={(e) => {
                 e.preventDefault();
+                e.stopPropagation();
                 setDragOverPinnedArea(false);
                 if (draggedSpaceId !== null) {
                   const pinnedSpaces = loadPinnedSpaces();
@@ -259,7 +279,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   </div>
                   <div className="sidebar-pinned-spaces">
                     {pinnedSpacesList.map(space => (
-                      <button
+                      <div
                         key={space.id}
                         className="sidebar-space-item sidebar-space-item--pinned"
                         onClick={() => {
@@ -275,7 +295,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           setDragOverPinnedArea(false);
                         }}
                       >
-                        <Icon src={ICONS.flame} size="sm" />
+                        <Icon src={starFilledIcon} size="sm" className="sidebar-thread-pin-icon" />
                         <div className="sidebar-space-content">
                           <div className="sidebar-space-name">{space.name}</div>
                           <div className="sidebar-space-meta">
@@ -296,7 +316,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         >
                           <Icon src={starFilledIcon} size="sm" className="sidebar-star-icon" />
                         </button>
-                      </button>
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -358,7 +378,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           )}
                           <span
                             className="sidebar-thread-title"
-                            onClick={(e) => {
+                            onDoubleClick={(e) => {
                               e.stopPropagation();
                               handleRename(thread.id);
                             }}
