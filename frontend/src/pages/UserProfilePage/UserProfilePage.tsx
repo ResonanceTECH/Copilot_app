@@ -55,11 +55,27 @@ export const UserProfilePage: React.FC = () => {
   const [isLoadingReferral, setIsLoadingReferral] = useState(false);
   const [referralError, setReferralError] = useState<string | null>(null);
 
+  const loadProfile = async () => {
+    setIsLoading(true);
+    try {
+      const profileData = await userAPI.getProfile();
+      setProfile(profileData);
+      setFormData({
+        name: profileData.name,
+        phone: profileData.phone || '',
+        company_name: profileData.company_name || '',
+        avatar_url: profileData.avatar_url,
+      });
+    } catch (error: any) {
+      console.error('Ошибка загрузки профиля:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (isAuthenticated) {
       loadProfile();
-      // Автоматически загружаем реферальную информацию при загрузке страницы
-      loadReferralInfo();
     }
   }, [isAuthenticated]);
 
@@ -110,18 +126,19 @@ export const UserProfilePage: React.FC = () => {
       });
     } catch (error: any) {
       console.error('Ошибка загрузки реферальной информации:', error);
-      console.error('Детали ошибки:', {
-        message: error?.message,
-        detail: error?.detail,
-        status: error?.status,
-        stack: error?.stack
-      });
 
+      // Для ошибки 404 не показываем ошибку пользователю, просто не загружаем данные
+      if (error?.status === 404) {
+        console.warn('Эндпоинт /api/user/referral не найден. Реферальная система может быть недоступна.');
+        setReferralError(null); // Не показываем ошибку
+        // Не очищаем поля - если код уже был, он останется
+        return; // Просто выходим, не показывая ошибку
+      }
+
+      // Для других ошибок показываем сообщение
       let errorMessage = 'Не удалось загрузить реферальную информацию';
 
-      if (error?.status === 404) {
-        errorMessage = 'Endpoint не найден. Проверьте, что бэкенд запущен и роут зарегистрирован.';
-      } else if (error?.status === 401) {
+      if (error?.status === 401) {
         errorMessage = 'Требуется авторизация. Пожалуйста, войдите в систему заново.';
       } else if (error?.status === 500) {
         errorMessage = 'Ошибка сервера. Проверьте логи бэкенда.';
@@ -133,8 +150,6 @@ export const UserProfilePage: React.FC = () => {
 
       setReferralError(errorMessage);
       // НЕ очищаем поля при ошибке - если код уже был сгенерирован, он должен остаться
-      // setReferralLink('');
-      // setReferralCode('');
     } finally {
       setIsLoadingReferral(false);
     }
@@ -186,25 +201,6 @@ export const UserProfilePage: React.FC = () => {
     if (theme === 'light') return 'Светлая';
     if (theme === 'dark') return 'Темный';
     return 'Система';
-  };
-
-  const loadProfile = async () => {
-    setIsLoading(true);
-    try {
-      const profileData = await userAPI.getProfile();
-      setProfile(profileData);
-      setFormData({
-        name: profileData.name,
-        phone: profileData.phone || '',
-        company_name: profileData.company_name || '',
-        avatar_url: profileData.avatar_url,
-      });
-    } catch (error: any) {
-      console.error('Ошибка загрузки профиля:', error);
-      alert(error.message || getTranslation('profileUpdateError', language));
-    } finally {
-      setIsLoading(false);
-    }
   };
 
   const handleEdit = () => {

@@ -50,7 +50,17 @@ async def get_current_user(
         print(f"❌ Ошибка преобразования user_id: {e}")
         raise credentials_exception
     
-    user = db.query(User).filter(User.id == user_id).first()
+    try:
+        user = db.query(User).filter(User.id == user_id).first()
+    except Exception as e:
+        print(f"❌ Ошибка при запросе пользователя: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Ошибка при получении пользователя: {str(e)}"
+        )
+    
     if user is None:
         print(f"❌ Пользователь с ID {user_id} не найден в БД")
         raise credentials_exception

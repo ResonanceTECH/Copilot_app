@@ -130,17 +130,21 @@ const apiRequest = async <T>(
   }
 
   // Отладочное логирование (можно убрать в продакшене)
-  if (import.meta.env.DEV) {
-    console.log(`[API] ${options.method || 'GET'} ${endpoint}`, {
-      hasToken: !!token,
-      tokenPreview: token ? `${token.substring(0, 20)}...` : null,
-    });
-  }
+  // Убрано для уменьшения шума в консоли
 
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    ...options,
-    headers,
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      ...options,
+      headers,
+    });
+  } catch (error) {
+    // Подавляем ошибки сети для 404, чтобы не засорять консоль
+    if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+      throw new ApiErrorWithStatus('Не удалось подключиться к серверу', 0);
+    }
+    throw error;
+  }
 
   // Обработка 401 ошибки с автоматическим refresh
   if (response.status === 401 && !isAuthEndpoint && retryOn401) {
@@ -185,37 +189,79 @@ export const authAPI = {
   // Регистрация
   register: async (data: RegisterRequest): Promise<AuthResponse> => {
     // Для регистрации не передаем токен и не делаем автоматический refresh
-    const response = await fetch(`${API_BASE_URL}/auth/register`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-    });
+    const url = `${API_BASE_URL}/auth/register`;
+    console.log('[API] Register request to:', url);
+    console.log('[API] Register data:', { email: data.email, name: data.name, company_name: data.company_name });
+    
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
 
-    if (!response.ok) {
-      await handleApiError(response);
+      console.log('[API] Register response status:', response.status);
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new ApiErrorWithStatus(
+            'Endpoint не найден. Проверьте, что бэкенд запущен на http://localhost:8000 и роут /api/auth/register зарегистрирован.',
+            response.status
+          );
+        }
+        await handleApiError(response);
+      }
+
+      const result = await response.json();
+      console.log('[API] Register success');
+      return result;
+    } catch (error) {
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        throw new ApiErrorWithStatus(
+          'Не удалось подключиться к серверу. Убедитесь, что бэкенд запущен на http://localhost:8000',
+          0
+        );
+      }
+      throw error;
     }
-
-    return response.json();
   },
 
   // Вход
   login: async (data: LoginRequest): Promise<AuthResponse> => {
     // Для логина не передаем токен и не делаем автоматический refresh
-    const response = await fetch(`${API_BASE_URL}/auth/login`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-    });
+    const url = `${API_BASE_URL}/auth/login`;
+    console.log('[API] Login request to:', url);
+    console.log('[API] Login data:', { email: data.email, password: '***' });
+    
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
 
-    if (!response.ok) {
-      await handleApiError(response);
+      console.log('[API] Login response status:', response.status);
+
+      if (!response.ok) {
+        await handleApiError(response);
+      }
+
+      const result = await response.json();
+      console.log('[API] Login success');
+      return result;
+    } catch (error) {
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        throw new ApiErrorWithStatus(
+          'Не удалось подключиться к серверу. Убедитесь, что бэкенд запущен на http://localhost:8000',
+          0
+        );
+      }
+      throw error;
     }
-
-    return response.json();
   },
 
   // Обновление токена

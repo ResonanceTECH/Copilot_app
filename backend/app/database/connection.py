@@ -86,9 +86,11 @@ def init_db():
     
     with engine.begin() as conn:
         # Выполняем весь скрипт целиком (DO $$ блоки должны выполняться целиком)
-                try:
+        try:
+            print("📝 Выполнение SQL-скрипта...")
             conn.execute(text(sql_script))
-                except Exception as e:
+            print("✅ SQL-скрипт выполнен успешно")
+        except Exception as e:
             # Игнорируем ошибки "уже существует" для CREATE TABLE IF NOT EXISTS и миграций
             error_str = str(e).lower()
             if ("already exists" in error_str or 
@@ -100,6 +102,8 @@ def init_db():
             else:
                 # Если это не ошибка "уже существует", пробуем выполнить по частям
                 print(f"⚠️ Ошибка выполнения SQL целиком, пробуем по частям: {e}")
+                import traceback
+                traceback.print_exc()
                 # Разделяем на части по ; но сохраняем DO $$ блоки
                 import re
                 # Находим DO $$ блоки
@@ -129,6 +133,19 @@ def init_db():
                                 "duplicate" not in error_str2 and
                                 "column" not in error_str2):
                                 print(f"⚠️ Ошибка выполнения части SQL: {e2}")
+    
+    # Проверяем, что миграции применены
+    try:
+        from sqlalchemy import inspect
+        inspector = inspect(engine)
+        columns = [col['name'] for col in inspector.get_columns('users')]
+        print(f"📊 Колонки в таблице users: {', '.join(columns)}")
+        if 'referral_code' in columns:
+            print("✅ Миграция реферальной системы применена")
+        else:
+            print("⚠️ Колонка referral_code не найдена в таблице users")
+    except Exception as e:
+        print(f"⚠️ Не удалось проверить колонки: {e}")
     
     print("✅ База данных инициализирована через SQL-скрипты")
 

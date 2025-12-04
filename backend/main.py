@@ -48,16 +48,27 @@ if os.path.exists(assets_dir):
 
 # Импортируем и подключаем роуты с префиксом /api
 try:
+    print("📦 Импорт роутов...")
     from backend.app.routes.chat_routes import router as chat_router
+    print("  ✅ chat_routes импортирован")
     from backend.app.routes.auth_routes import router as auth_router
+    print("  ✅ auth_routes импортирован")
     from backend.app.routes.user_routes import router as user_router
+    print("  ✅ user_routes импортирован")
     from backend.app.routes.notes_routes import router as notes_router
+    print("  ✅ notes_routes импортирован")
     from backend.app.routes.support_routes import router as support_router
+    print("  ✅ support_routes импортирован")
     from backend.app.routes.spaces_routes import router as spaces_router
+    print("  ✅ spaces_routes импортирован")
     from backend.app.routes.search_routes import router as search_router
+    print("  ✅ search_routes импортирован")
     from backend.app.routes.notification_routes import router as notification_router
+    print("  ✅ notification_routes импортирован")
     from backend.app.routes.public_routes import router as public_router
+    print("  ✅ public_routes импортирован")
     
+    print("🔗 Регистрация роутов...")
     app.include_router(chat_router, prefix="/api", tags=["chat"])
     app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
     app.include_router(user_router, prefix="/api/user", tags=["user"])
@@ -68,11 +79,45 @@ try:
     app.include_router(notification_router, prefix="/api/notifications", tags=["notifications"])
     app.include_router(public_router, prefix="/api/public", tags=["public"])
     
+    # Выводим список всех зарегистрированных роутов
     print("✅ Роуты успешно подключены с префиксом /api")
+    print("📋 Зарегистрированные эндпоинты user:")
+    user_routes_found = False
+    for route in user_router.routes:
+        if hasattr(route, 'path') and hasattr(route, 'methods'):
+            methods = ', '.join(route.methods) if route.methods else 'N/A'
+            print(f"   {methods} /api/user{route.path}")
+            user_routes_found = True
+    
+    if not user_routes_found:
+        print("   ⚠️ ВНИМАНИЕ: Роуты user не найдены!")
+    
+    # Проверяем, что роуты действительно зарегистрированы в приложении
+    print("\n🔍 Проверка зарегистрированных роутов в приложении:")
+    user_routes_in_app = []
+    for r in app.routes:
+        if hasattr(r, 'path'):
+            path_str = str(r.path)
+            if '/user' in path_str or path_str.startswith('/api/user'):
+                user_routes_in_app.append(r)
+    
+    if user_routes_in_app:
+        for route in user_routes_in_app:
+            if hasattr(route, 'path') and hasattr(route, 'methods'):
+                methods = ', '.join(route.methods) if route.methods else 'N/A'
+                print(f"   ✅ {methods} {route.path}")
+    else:
+        print("   ❌ Роуты /api/user/* не найдены в приложении!")
+        print("   ⚠️ КРИТИЧЕСКАЯ ОШИБКА: Роуты user не зарегистрированы!")
 except Exception as e:
-    print(f"❌ Ошибка подключения роутов: {e}")
+    print(f"❌ ОШИБКА подключения роутов: {e}")
     import traceback
     traceback.print_exc()
+    print("\n" + "="*60)
+    print("⚠️ КРИТИЧЕСКАЯ ОШИБКА: Не удалось зарегистрировать роуты!")
+    print("   Приложение может работать некорректно.")
+    print("   Проверьте логи выше для деталей.")
+    print("="*60)
 
 @app.get("/")
 async def serve_frontend():
