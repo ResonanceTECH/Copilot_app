@@ -28,10 +28,11 @@ class LocalWhisperService:
         self.download_root = download_root
         self.model: Optional[WhisperModel] = None
         self._model_loading_attempted = False
+        self._model_loading_in_progress = False
         self._loading_lock = threading.Lock()
-        # Загружаем модель в фоновом потоке только если не указан локальный путь
-        # Если указан download_root, модель будет загружена при первом использовании
-        load_async = os.getenv("WHISPER_LOAD_ASYNC", "true").lower() == "true"
+        # Модель будет загружена при первом использовании (lazy loading)
+        # Фоновая загрузка отключена по умолчанию, чтобы не блокировать старт приложения
+        load_async = os.getenv("WHISPER_LOAD_ASYNC", "false").lower() == "true"
         if load_async:
             self._load_model_async()
     
@@ -45,8 +46,12 @@ class LocalWhisperService:
         def load_in_background():
             """Загрузка модели в фоновом потоке"""
             try:
+                with self._loading_lock:
+                    self._model_loading_in_progress = True
+                
                 print(f"🔄 Загрузка модели Whisper ({self.model_size}) в фоновом режиме...")
                 print(f"⏳ Это может занять несколько минут при первом запуске...")
+                print(f"💡 Пока модель загружается, используйте Whisper API (установите USE_WHISPER_API=true и OPENAI_API_KEY)")
                 
                 model_kwargs = {
                     "device": self.device,
@@ -57,17 +62,22 @@ class LocalWhisperService:
                     model_kwargs["download_root"] = self.download_root
                 
                 # Загружаем модель (может занять время при первом запуске)
+                # Не блокируем lock во время загрузки, чтобы не блокировать проверки
+                loaded_model = WhisperModel(self.model_size, **model_kwargs)
+                
                 with self._loading_lock:
-                    self.model = WhisperModel(self.model_size, **model_kwargs)
+                    self.model = loaded_model
+                    self._model_loading_in_progress = False
                 
                 print(f"✅ Модель Whisper ({self.model_size}) загружена успешно и готова к использованию")
             except Exception as e:
                 print(f"⚠️ Ошибка загрузки модели Whisper в фоне: {e}")
-                print(f"💡 Модель попробует загрузиться при первом использовании...")
+                print(f"💡 Используйте Whisper API (установите USE_WHISPER_API=true и OPENAI_API_KEY)")
                 import traceback
                 traceback.print_exc()
                 with self._loading_lock:
                     self.model = None
+                    self._model_loading_in_progress = False
         
         # Запускаем загрузку в отдельном потоке
         thread = threading.Thread(target=load_in_background, daemon=True)
@@ -113,58 +123,91 @@ class LocalWhisperService:
         Returns:
             Распознанный текст
         """
-        # Пытаемся загрузить модель если еще не загружена (fallback)
-        if not self.model:
-            print("🔄 Попытка загрузки модели Whisper при первом использовании...")
-            # Ждем немного, возможно модель загружается в фоне
-            import time
-            waited = 0
-            max_wait = 10  # Максимум 10 секунд ожидания фоновой загрузки
-            while waited < max_wait:
-                time.sleep(1)
-                waited += 1
-                with self._loading_lock:
-                    if self.model is not None:
-                        print(f"✅ Модель загружена из фонового потока")
-                        break
-                if waited % 2 == 0:
-                    print(f"⏳ Ожидание загрузки модели... ({waited}/{max_wait} сек)")
-            
-            # Если модель все еще не загружена, пытаемся загрузить синхронно
-            with self._loading_lock:
-                if not self.model:
-                    try:
-                        print("🔄 Синхронная загрузка модели Whisper...")
-                        model_kwargs = {
-                            "device": self.device,
-                            "compute_type": self.compute_type
-                        }
-                        
-                        if self.download_root:
-                            model_kwargs["download_root"] = self.download_root
-                        
-                        self.model = WhisperModel(self.model_size, **model_kwargs)
-                        print(f"✅ Модель Whisper загружена успешно")
-                    except Exception as e:
-                        print(f"❌ Не удалось загрузить модель: {e}")
-                        import traceback
-                        traceback.print_exc()
-                        raise ValueError(
-                            f"Модель Whisper не загружена. "
-                            f"Проверьте подключение к интернету для загрузки модели из HuggingFace Hub. "
-                            f"Ошибка: {str(e)}"
-                        )
+        # Проверяем, загружена ли модель
+        with self._loading_lock:
+            model_ready = self.model is not None
+            loading_in_progress = self._model_loading_in_progress
         
-        if not self.model:
-            raise ValueError(
-                "Модель Whisper не загружена. "
-                "Проверьте подключение к интернету для первой загрузки модели."
-            )
+        # Если модель не загружена, пытаемся загрузить её синхронно
+        if not model_ready:
+            # Если идет фоновая загрузка, ждем немного (максимум 30 секунд)
+            if loading_in_progress:
+                print("🔄 Модель загружается в фоне, ожидаем...")
+                import time
+                waited = 0
+                max_wait = 30  # Ждем до 30 секунд фоновой загрузки
+                while waited < max_wait:
+                    time.sleep(1)
+                    waited += 1
+                    with self._loading_lock:
+                        if self.model is not None:
+                            print(f"✅ Модель загружена из фонового потока")
+                            model_ready = True
+                            break
+                        if not self._model_loading_in_progress:
+                            # Загрузка завершилась с ошибкой, загружаем синхронно
+                            break
+                    if waited % 5 == 0:
+                        print(f"⏳ Ожидание загрузки модели... ({waited}/{max_wait} сек)")
+            
+            # Если модель все еще не загружена, загружаем синхронно
+            if not model_ready:
+                with self._loading_lock:
+                    # Двойная проверка после получения lock
+                    if not self.model:
+                        try:
+                            print("=" * 60)
+                            print("🔄 ЗАГРУЗКА МОДЕЛИ WHISPER ПРИ ПЕРВОМ ИСПОЛЬЗОВАНИИ")
+                            print("=" * 60)
+                            print(f"📦 Модель: {self.model_size}")
+                            print(f"💻 Устройство: {self.device}")
+                            print(f"⚙️  Compute type: {self.compute_type}")
+                            if self.download_root:
+                                print(f"📁 Путь загрузки: {self.download_root}")
+                            print("⏳ Это может занять несколько минут при первом запуске...")
+                            print("=" * 60)
+                            
+                            model_kwargs = {
+                                "device": self.device,
+                                "compute_type": self.compute_type
+                            }
+                            
+                            if self.download_root:
+                                model_kwargs["download_root"] = self.download_root
+                            
+                            # Загружаем модель (блокирующая операция)
+                            print("📥 Начинаем загрузку модели из HuggingFace Hub...")
+                            self.model = WhisperModel(self.model_size, **model_kwargs)
+                            
+                            print("=" * 60)
+                            print(f"✅ МОДЕЛЬ WHISPER ЗАГРУЖЕНА УСПЕШНО!")
+                            print(f"📦 Модель: {self.model_size}")
+                            print("=" * 60)
+                        except Exception as e:
+                            print("=" * 60)
+                            print(f"❌ ОШИБКА ЗАГРУЗКИ МОДЕЛИ WHISPER")
+                            print("=" * 60)
+                            print(f"Ошибка: {e}")
+                            print(f"Тип ошибки: {type(e).__name__}")
+                            import traceback
+                            traceback.print_exc()
+                            print("=" * 60)
+                            raise ValueError(
+                                f"Модель Whisper не загружена. "
+                                f"Проверьте подключение к интернету для загрузки модели из HuggingFace Hub. "
+                                f"Ошибка: {str(e)}"
+                            )
+        
+        # Проверяем еще раз после загрузки
+        with self._loading_lock:
+            if not self.model:
+                raise ValueError("Модель Whisper не загружена после попытки загрузки")
         
         print(f"📊 Параметры транскрибации:")
         print(f"   - Размер аудио: {len(audio_bytes)} байт")
         print(f"   - Язык: {language}")
         print(f"   - Модель: {self.model_size}")
+        print(f"   - Модель загружена: ✅")
         
         # Сохраняем аудио во временный файл
         with tempfile.NamedTemporaryFile(delete=False, suffix='.webm') as tmp_file:

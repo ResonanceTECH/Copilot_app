@@ -355,15 +355,57 @@ class LLMService:
         # Используем локальный Whisper если доступен
         if self.local_whisper:
             try:
-                # Модель загрузится автоматически при первом использовании
-                return self.local_whisper.transcribe(audio_bytes, language=language)
-            except Exception as e:
+                # Модель загрузится автоматически при первом использовании в методе transcribe
+                # Выполняем транскрибацию с таймаутом (включая время на загрузку модели)
+                import threading
+                
+                result = [None]
+                error = [None]
+                
+                def transcribe_with_timeout():
+                    try:
+                        # transcribe сам загрузит модель если нужно
+                        result[0] = self.local_whisper.transcribe(audio_bytes, language=language)
+                    except Exception as e:
+                        error[0] = e
+                
+                thread = threading.Thread(target=transcribe_with_timeout, daemon=True)
+                thread.start()
+                # Увеличиваем таймаут до 300 секунд (5 минут) чтобы учесть время загрузки модели
+                thread.join(timeout=300)
+                
+                if thread.is_alive():
+                    print("⏱️ Транскрибация превысила таймаут (300 сек), переключаемся на API...")
+                    raise TimeoutError("Транскрибация превысила таймаут")
+                
+                if error[0]:
+                    raise error[0]
+                
+                if result[0] is None:
+                    raise ValueError("Транскрибация не вернула результат")
+                
+                return result[0]
+                
+            except (TimeoutError, ValueError, Exception) as e:
                 print(f"❌ Ошибка локальной транскрибации: {e}")
                 import traceback
                 traceback.print_exc()
                 # Fallback на API если локальный не сработал
                 if self.whisper_client:
                     print("🔄 Переключение на Whisper API...")
+                    try:
+                        audio_file = io.BytesIO(audio_bytes)
+                        audio_file.name = filename
+                        transcript = self.whisper_client.audio.transcriptions.create(
+                            model="whisper-1",
+                            file=audio_file,
+                            language=language
+                        )
+                        print("✅ Транскрибация через Whisper API успешна")
+                        return transcript.text
+                    except Exception as api_error:
+                        print(f"❌ Ошибка Whisper API: {api_error}")
+                        raise ValueError(f"Ошибка распознавания речи: {str(e)}. API также не сработал: {str(api_error)}")
                 else:
                     raise ValueError(f"Ошибка распознавания речи: {str(e)}")
         
@@ -391,3 +433,111 @@ class LLMService:
                 "Установите faster-whisper (pip install faster-whisper) "
                 "или установите OPENAI_API_KEY для использования API"
             )
+
+    def analyze_image(self, image_base64: str, prompt: str, mime_type: str = "image/jpeg") -> str:
+        """
+        Анализирует изображение через LLM с поддержкой vision
+        
+        Args:
+            image_base64: Изображение в формате base64 (без префикса data:)
+            prompt: Промпт для анализа изображения
+            mime_type: MIME тип изображения (image/jpeg, image/png и т.д.)
+            
+        Returns:
+            Результат анализа изображения
+        """
+        try:
+            # Формируем data URL для изображения
+            image_data_url = f"data:{mime_type};base64,{image_base64}"
+            
+            system_prompt = "Ты — эксперт по анализу изображений. Описывай содержимое изображений подробно и точно. Если на изображении есть текст, извлеки его полностью. Если это график или диаграмма, опиши данные."
+            
+            # Используем формат для vision API: content как массив объектов
+            messages = [
+                {
+                    "role": "system",
+                    "content": system_prompt
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": prompt
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": image_data_url
+                            }
+                        }
+                    ]
+                }
+            ]
+            
+            # Пробуем использовать vision-модель через OpenRouter
+            # Многие модели на OpenRouter поддерживают vision, например:
+            # - openai/gpt-4-vision-preview
+            # - google/gemini-pro-vision
+            # - anthropic/claude-3-opus
+            # - qwen/qwen-vl-plus
+            
+            # Сначала пробуем через OpenRouter с vision-моделью
+            try:
+                completion = self.client.chat.completions.create(
+                    extra_headers={
+                        "HTTP-Referer": "http://localhost:5000",
+                        "X-Title": "Business Assistant",
+                    },
+                    # Используем модель с поддержкой vision
+                    # Если модель не поддерживает vision, попробуем OpenAI API
+                    model="openai/gpt-4o-mini",  # GPT-4o-mini поддерживает vision
+                    messages=messages,
+                    temperature=0.7,
+                    max_tokens=1000
+                )
+                
+                if completion.choices and len(completion.choices) > 0:
+                    result = completion.choices[0].message.content
+                    if result:
+                        print(f"✅ Изображение проанализировано через OpenRouter")
+                        return result
+            except Exception as e:
+                print(f"⚠️ Ошибка анализа через OpenRouter vision: {e}")
+                # Fallback на OpenAI API если доступен
+                pass
+            
+            # Fallback: используем OpenAI API напрямую, если доступен
+            openai_api_key = os.getenv("OPENAI_API_KEY")
+            if openai_api_key:
+                try:
+                    openai_timeout = httpx.Timeout(60.0, connect=30.0)
+                    openai_http_client = httpx.Client(timeout=openai_timeout)
+                    openai_client = OpenAI(
+                        api_key=openai_api_key,
+                        http_client=openai_http_client
+                    )
+                    
+                    completion = openai_client.chat.completions.create(
+                        model="gpt-4o-mini",  # GPT-4o-mini поддерживает vision
+                        messages=messages,
+                        temperature=0.7,
+                        max_tokens=1000
+                    )
+                    
+                    if completion.choices and len(completion.choices) > 0:
+                        result = completion.choices[0].message.content
+                        if result:
+                            print(f"✅ Изображение проанализировано через OpenAI API")
+                            return result
+                except Exception as e:
+                    print(f"⚠️ Ошибка анализа через OpenAI API: {e}")
+            
+            # Если ничего не сработало, возвращаем сообщение об ошибке
+            return "Не удалось проанализировать изображение. Убедитесь, что настроен OPENAI_API_KEY или используется модель с поддержкой vision."
+            
+        except Exception as e:
+            print(f"❌ Ошибка анализа изображения: {e}")
+            import traceback
+            traceback.print_exc()
+            return f"Ошибка анализа изображения: {str(e)}"

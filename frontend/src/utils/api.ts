@@ -388,6 +388,50 @@ export const chatAPI = {
 
     return response.json();
   },
+
+  uploadFile: async (
+    file: File,
+    chatId?: number,
+    spaceId?: number
+  ): Promise<{
+    success: boolean;
+    file_id?: number;
+    file_url?: string;
+    filename?: string;
+    file_type?: string;
+    extracted_text?: string;
+    analysis_result?: string;
+    error?: string;
+  }> => {
+    const token = getAccessToken();
+    if (!token) {
+      throw new Error('Необходима авторизация');
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const params = new URLSearchParams();
+    if (chatId) params.append('chat_id', chatId.toString());
+    if (spaceId) params.append('space_id', spaceId.toString());
+
+    const url = `${API_BASE_URL}/chat/upload-file${params.toString() ? '?' + params.toString() : ''}`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ detail: 'Ошибка загрузки файла' }));
+      throw new Error(errorData.detail || 'Ошибка загрузки файла');
+    }
+
+    return response.json();
+  },
 };
 
 // API методы для пространств (mock версия)

@@ -11,6 +11,7 @@ from backend.app.models.note_tag import note_tags
 from backend.app.models.feedback import Feedback
 from backend.app.models.support_article import SupportArticle
 from backend.app.models.user_activity import UserActivity
+from backend.app.models.file_attachment import FileAttachment
 
 __all__ = [
     "User",
@@ -24,6 +25,7 @@ __all__ = [
     "note_tags",
     "Feedback",
     "SupportArticle",
-    "UserActivity"
+    "UserActivity",
+    "FileAttachment"
 ]
 

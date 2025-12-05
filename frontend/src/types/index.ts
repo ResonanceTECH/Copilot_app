@@ -31,6 +31,10 @@ export interface ChatMessage {
   role: 'user' | 'assistant';
   timestamp: Date;
   isLoading?: boolean; // Флаг для сообщения "Поиск и формирование ответа"
+  image_url?: string; // URL изображения или файла
+  file_url?: string; // URL загруженного файла
+  file_type?: string; // Тип файла (image, pdf, docx и т.д.)
+  analysis_result?: string; // Результат анализа (для изображений)
 }
 
 export interface TrendingCard {

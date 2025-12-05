@@ -17,6 +17,7 @@ class Message(Base):
 
     # Relationships
     chat = relationship("Chat", back_populates="messages")
+    file_attachments = relationship("FileAttachment", back_populates="message", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<Message(id={self.id}, role={self.role}, chat_id={self.chat_id})>"

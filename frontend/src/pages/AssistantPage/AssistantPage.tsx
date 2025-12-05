@@ -201,6 +201,7 @@ export const AssistantPage: React.FC = () => {
           content: msg.content,
           role: msg.role as 'user' | 'assistant',
           timestamp: new Date(msg.created_at),
+          image_url: msg.image_url,
         }));
 
         // Обновляем сообщения в состоянии
@@ -626,6 +627,7 @@ export const AssistantPage: React.FC = () => {
             onSendMessage={handleSendMessage}
             activeTool={activeTool}
             onToolSelect={setActiveTool}
+            chatId={activeThreadId ? threads.get(activeThreadId)?.chatId : undefined}
           />
         )}
       </div>

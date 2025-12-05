@@ -290,3 +290,31 @@ BEGIN
     END IF;
 END $$;
 
+-- Создание таблицы file_attachments (вложенные файлы)
+CREATE TABLE IF NOT EXISTS file_attachments (
+    id SERIAL PRIMARY KEY,
+    message_id INTEGER,
+    chat_id INTEGER,
+    space_id INTEGER,
+    user_id INTEGER NOT NULL,
+    filename VARCHAR(255) NOT NULL,
+    file_path VARCHAR(500) NOT NULL,
+    file_type VARCHAR(50) NOT NULL,
+    file_size BIGINT NOT NULL,
+    mime_type VARCHAR(100),
+    extracted_text TEXT,
+    analysis_result TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_file_attachments_message FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE,
+    CONSTRAINT fk_file_attachments_chat FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE,
+    CONSTRAINT fk_file_attachments_space FOREIGN KEY (space_id) REFERENCES spaces(id) ON DELETE CASCADE,
+    CONSTRAINT fk_file_attachments_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Создание индексов для file_attachments
+CREATE INDEX IF NOT EXISTS idx_file_attachments_message_id ON file_attachments(message_id);
+CREATE INDEX IF NOT EXISTS idx_file_attachments_chat_id ON file_attachments(chat_id);
+CREATE INDEX IF NOT EXISTS idx_file_attachments_space_id ON file_attachments(space_id);
+CREATE INDEX IF NOT EXISTS idx_file_attachments_user_id ON file_attachments(user_id);
+CREATE INDEX IF NOT EXISTS idx_file_attachments_created_at ON file_attachments(created_at);
+
