@@ -32,7 +32,8 @@ services:
       - whisper_models:/app/models
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "python3 -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:9000/health\", timeout=5)' || exit 1"]
+      # Проверяем доступность через корневой путь (сервис возвращает 307 редирект на /docs)
+      test: ["CMD-SHELL", "python3 -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:9000/\", timeout=5)' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -47,22 +48,21 @@ services:
     #           count: 1
     #           capabilities: [gpu]
 
-  deepseek:
-    image: ai/deepseek-r1-distill-llama:8B-Q4_0
-    container_name: copilot_deepseek
+  ollama:
+    image: ollama/ollama:latest
+    container_name: copilot_ollama
     ports:
-      - "8001:8000"
-    environment:
-      - MODEL_NAME=deepseek-r1-distill-llama-8B-Q4_0
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
     restart: unless-stopped
-    # Healthcheck для OpenAI-совместимого API
-    # Проверяем доступность через /v1/models endpoint
     healthcheck:
-      test: ["CMD-SHELL", "python3 -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8000/v1/models\", timeout=5)' || exit 1"]
+      # Проверяем доступность API через простой endpoint
+      test: ["CMD", "ollama", "list"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 120s
+      start_period: 30s
     # Раскомментируйте секцию deploy ниже, если у вас есть GPU
     # Для CPU-only режима оставьте секцию deploy закомментированной
     # deploy:
@@ -83,8 +83,9 @@ services:
     environment:
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
       - DATABASE_URL=postgresql://copilot_user:copilot_pass@db:5432/copilot_db
-      - DEEPSEEK_API_URL=http://deepseek:8000
-      - USE_LOCAL_DEEPSEEK=${USE_LOCAL_DEEPSEEK:-false}
+      - OLLAMA_API_URL=http://ollama:11434
+      - USE_OLLAMA=${USE_OLLAMA:-false}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-deepseek-r1-distill-llama}
       - WHISPER_API_URL=http://whisper:9000
       - USE_WHISPER_CONTAINER=${USE_WHISPER_CONTAINER:-false}
     env_file:
@@ -99,14 +100,8 @@ services:
         condition: service_healthy
       whisper:
         condition: service_healthy
-      deepseek:
+      ollama:
         condition: service_healthy
-    # Если healthcheck для deepseek не работает, используйте:
-    # depends_on:
-    #   db:
-    #     condition: service_healthy
-    #   deepseek:
-    #     condition: service_started
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
@@ -119,4 +114,5 @@ volumes:
   postgres_data:
   whisper_cache:
   whisper_models:
+  ollama_models:
 

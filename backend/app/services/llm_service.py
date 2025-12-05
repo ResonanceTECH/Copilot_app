@@ -15,18 +15,22 @@ class LLMService:
         timeout = httpx.Timeout(60.0, connect=30.0)  # 60 сек на запрос, 30 сек на подключение
         http_client = httpx.Client(timeout=timeout)
         
-        # Проверяем, использовать ли локальный DeepSeek контейнер
-        use_local_deepseek = os.getenv("USE_LOCAL_DEEPSEEK", "false").lower() == "true"
-        deepseek_api_url = os.getenv("DEEPSEEK_API_URL", "http://deepseek:8000")
+        # Проверяем, использовать ли Ollama
+        use_ollama = os.getenv("USE_OLLAMA", "false").lower() == "true"
+        ollama_api_url = os.getenv("OLLAMA_API_URL", "http://ollama:11434")
+        ollama_model = os.getenv("OLLAMA_MODEL", "deepseek-r1-distill-llama")
         
-        if use_local_deepseek:
-            # Использование локального DeepSeek контейнера
+        if use_ollama:
+            # Использование Ollama (OpenAI-совместимый API)
+            # Ollama предоставляет OpenAI-совместимый API на /v1/chat/completions
+            ollama_base_url = f"{ollama_api_url}/v1" if not ollama_api_url.endswith("/v1") else ollama_api_url
             self.client = OpenAI(
-                base_url=deepseek_api_url,
-                api_key="not-needed",  # Локальные модели обычно не требуют API ключ
+                base_url=ollama_base_url,
+                api_key="ollama",  # Ollama требует любой API ключ, но не проверяет его
                 http_client=http_client
             )
-            print(f"✅ Используется локальный DeepSeek (URL: {deepseek_api_url})")
+            self.ollama_model = ollama_model
+            print(f"✅ Используется Ollama (URL: {ollama_base_url}, модель: {ollama_model})")
         else:
             # Использование OpenRouter API
             self.client = OpenAI(
@@ -34,6 +38,7 @@ class LLMService:
                 api_key=os.getenv("OPENROUTER_API_KEY"),
                 http_client=http_client
             )
+            self.ollama_model = None
             print("✅ Используется OpenRouter API")
         
         # Настройка Whisper: контейнер, API или локальный
@@ -226,11 +231,11 @@ class LLMService:
             )
 
             # Определяем модель в зависимости от используемого API
-            use_local_deepseek = os.getenv("USE_LOCAL_DEEPSEEK", "false").lower() == "true"
-            model_name = "deepseek-r1-distill-llama" if use_local_deepseek else "tngtech/deepseek-r1t2-chimera:free"
+            use_ollama = os.getenv("USE_OLLAMA", "false").lower() == "true"
             
-            # Для локального DeepSeek не нужны extra_headers
-            if use_local_deepseek:
+            if use_ollama:
+                # Использование Ollama
+                model_name = self.ollama_model
                 completion = self.client.chat.completions.create(
                     model=model_name,
                     messages=messages,
@@ -238,6 +243,8 @@ class LLMService:
                     max_tokens=1000
                 )
             else:
+                # Использование OpenRouter API
+                model_name = "tngtech/deepseek-r1t2-chimera:free"
                 completion = self.client.chat.completions.create(
                     extra_headers={
                         "HTTP-Referer": "http://localhost:5000",
@@ -321,11 +328,11 @@ class LLMService:
             summary_prompt += conversation_text
 
             # Определяем модель в зависимости от используемого API
-            use_local_deepseek = os.getenv("USE_LOCAL_DEEPSEEK", "false").lower() == "true"
-            model_name = "deepseek-r1-distill-llama" if use_local_deepseek else "tngtech/deepseek-r1t2-chimera:free"
+            use_ollama = os.getenv("USE_OLLAMA", "false").lower() == "true"
             
-            # Для локального DeepSeek не нужны extra_headers
-            if use_local_deepseek:
+            if use_ollama:
+                # Использование Ollama
+                model_name = self.ollama_model
                 completion = self.client.chat.completions.create(
                     model=model_name,
                     messages=[
@@ -336,6 +343,8 @@ class LLMService:
                     max_tokens=300
                 )
             else:
+                # Использование OpenRouter API
+                model_name = "tngtech/deepseek-r1t2-chimera:free"
                 completion = self.client.chat.completions.create(
                     extra_headers={
                         "HTTP-Referer": "http://localhost:5000",
