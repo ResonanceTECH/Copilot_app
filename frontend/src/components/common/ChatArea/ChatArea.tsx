@@ -45,14 +45,15 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   const reportMenuRef = useRef<HTMLDivElement>(null);
   const { language } = useLanguage();
 
-  const activeTool = externalActiveTool !== undefined ? externalActiveTool : internalActiveTool;
-  const handleToolSelect = (tool: string) => {
+  // activeTool и handleToolSelect могут использоваться в будущем
+  void (externalActiveTool !== undefined ? externalActiveTool : internalActiveTool);
+  void ((tool: string) => {
     if (onToolSelect) {
       onToolSelect(tool);
     } else {
       setInternalActiveTool(tool);
     }
-  };
+  });
 
   const handleSend = () => {
     const textContent = inputValue.trim();

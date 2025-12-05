@@ -4,7 +4,6 @@ import { ICONS } from '../../../utils/icons';
 import { searchAPI } from '../../../utils/api';
 import type { SearchResults, SearchChatItem, SearchNoteItem, SearchMessageItem } from '../../../types';
 import { useLanguage } from '../../../contexts/LanguageContext';
-import { getTranslation } from '../../../utils/i18n';
 import './SearchPanel.css';
 
 interface SearchPanelProps {
@@ -24,7 +23,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const { language } = useLanguage();
+  const { language: _language } = useLanguage();
 
   // Фокус на поле ввода при открытии
   useEffect(() => {

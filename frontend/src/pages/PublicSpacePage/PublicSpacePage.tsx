@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { spacesAPI, chatAPI } from '../../utils/api';
 import { Header } from '../../components/common/Header';
 import { Icon } from '../../components/ui/Icon';
 import { ICONS } from '../../utils/icons';
@@ -197,13 +196,6 @@ export const PublicSpacePage: React.FC<PublicSpacePageProps> = ({ publicToken })
       alert(err.message || 'Ошибка при отправке сообщения');
     } finally {
       setIsSending(false);
-    }
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
     }
   };
 

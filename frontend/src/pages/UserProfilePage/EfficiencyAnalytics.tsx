@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   loadActivitiesFromAPI,
-  type ActivityRecord,
 } from '../../utils/activityTracker';
 import './EfficiencyAnalytics.css';
 

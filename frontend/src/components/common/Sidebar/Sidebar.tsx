@@ -216,6 +216,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Секция закрепленных пространств */}
         {!isCollapsed && (() => {
           // Используем pinnedSpacesUpdate для принудительного обновления
+          // @ts-ignore - намеренно неиспользуемая переменная для реактивности
           const _ = pinnedSpacesUpdate;
           const pinnedSpaces = loadPinnedSpaces();
           const pinnedSpacesList = spaces.filter(space => pinnedSpaces.has(space.id));
@@ -464,6 +465,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   {spaces.length > 0 ? (
                     spaces.map(space => {
                       // Используем pinnedSpacesUpdate для принудительного обновления
+                      // @ts-ignore - намеренно неиспользуемая переменная для реактивности
                       const _ = pinnedSpacesUpdate;
                       const isPinned = loadPinnedSpaces().has(space.id);
                       return (

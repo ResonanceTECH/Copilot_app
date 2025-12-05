@@ -78,6 +78,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: copilot_app
+    # Порт оставляем для прямого доступа к API (опционально)
     ports:
       - "8000:8000"
     environment:
@@ -109,6 +110,24 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: copilot_frontend
+    ports:
+      - "80:80"
+    depends_on:
+      app:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
 volumes:
   postgres_data:

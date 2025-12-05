@@ -4,7 +4,6 @@ import { ICONS } from '../../../utils/icons';
 import { spacesAPI, notificationAPI } from '../../../utils/api';
 import { NotificationSettings, Space, Notification } from '../../../types';
 import { useLanguage } from '../../../contexts/LanguageContext';
-import { getTranslation } from '../../../utils/i18n';
 import './NotificationPanel.css';
 
 interface NotificationPanelProps {
@@ -24,7 +23,7 @@ export const NotificationPanel: React.FC<NotificationPanelProps> = ({ onClose })
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const { language } = useLanguage();
+  const { language: _language } = useLanguage();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
