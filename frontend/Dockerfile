@@ -21,12 +21,12 @@ FROM nginx:alpine
 # Копируем собранные файлы из builder
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Копируем конфигурацию nginx
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Копируем шаблон конфигурации nginx
+# nginx:alpine автоматически обрабатывает шаблоны из /etc/nginx/templates/
+COPY nginx.conf.template /etc/nginx/templates/default.conf.template
 
 # Открываем порт 80
 EXPOSE 80
 
-# Запускаем nginx
-CMD ["nginx", "-g", "daemon off;"]
+# nginx:alpine автоматически запускает envsubst для шаблонов при старте
 

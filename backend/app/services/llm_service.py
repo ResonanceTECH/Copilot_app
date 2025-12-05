@@ -11,6 +11,8 @@ load_dotenv()
 
 class LLMService:
     def __init__(self):
+        # Получаем URL приложения из переменных окружения
+        self.app_url = os.getenv("APP_URL", "http://localhost")
         # Увеличиваем таймауты для медленных соединений
         timeout = httpx.Timeout(60.0, connect=30.0)  # 60 сек на запрос, 30 сек на подключение
         http_client = httpx.Client(timeout=timeout)
@@ -247,7 +249,7 @@ class LLMService:
                 model_name = "tngtech/deepseek-r1t2-chimera:free"
                 completion = self.client.chat.completions.create(
                     extra_headers={
-                        "HTTP-Referer": "http://localhost:5000",
+                        "HTTP-Referer": self.app_url,
                         "X-Title": "Business Assistant",
                     },
                     model=model_name,
@@ -347,7 +349,7 @@ class LLMService:
                 model_name = "tngtech/deepseek-r1t2-chimera:free"
                 completion = self.client.chat.completions.create(
                     extra_headers={
-                        "HTTP-Referer": "http://localhost:5000",
+                        "HTTP-Referer": self.app_url,
                         "X-Title": "Business Assistant",
                     },
                     model=model_name,
@@ -552,7 +554,7 @@ class LLMService:
             try:
                 completion = self.client.chat.completions.create(
                     extra_headers={
-                        "HTTP-Referer": "http://localhost:5000",
+                        "HTTP-Referer": self.app_url,
                         "X-Title": "Business Assistant",
                     },
                     # Используем модель с поддержкой vision

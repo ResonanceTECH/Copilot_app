@@ -61,10 +61,12 @@ except Exception as e:
 @app.get("/")
 async def root():
     """Корневой endpoint - Frontend доступен через nginx на порту 80"""
+    import os
+    app_url = os.getenv("APP_URL", "http://localhost")
     return {
         "message": "Business Assistant API",
         "docs": "/api/docs",
-        "frontend": "http://localhost (через nginx)"
+        "frontend": f"{app_url} (через nginx)"
     }
 
 @app.get("/api/health")
@@ -74,9 +76,10 @@ async def health_check():
 
 if __name__ == "__main__":
     import uvicorn
+    app_url = os.getenv("APP_URL", "http://localhost")
     print("🚀 Запуск Business Assistant...")
-    print("🌐 Frontend: http://localhost (через nginx)")
-    print("📖 Документация API: http://localhost:8000/api/docs")
-    print("🔧 API endpoints: http://localhost:8000/api/*")
+    print(f"🌐 Frontend: {app_url} (через nginx)")
+    print(f"📖 Документация API: {app_url}/api/docs")
+    print(f"🔧 API endpoints: {app_url}/api/*")
     uvicorn.run(app, host="0.0.0.0", port=8000)
 
