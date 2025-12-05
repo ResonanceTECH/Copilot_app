@@ -15,10 +15,12 @@ services:
       - ./backend/app/database/init.sql:/docker-entrypoint-initdb.d/01-init.sql
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U copilot_user"]
+      # Проверяем готовность БД и возможность выполнить запрос
+      test: ["CMD-SHELL", "pg_isready -U copilot_user -d copilot_db && psql -U copilot_user -d copilot_db -c 'SELECT 1' > /dev/null 2>&1"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
 
   whisper:
     image: onerahmet/openai-whisper-asr-webservice:latest
