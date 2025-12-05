@@ -66,19 +66,14 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       // Формируем сообщение с текстом и файлами
       let messageContent = textContent;
       
-      // Убираем служебные сообщения о прикреплении файлов из текста
-      // Убираем только строки, которые ТОЛЬКО содержат сообщение о прикреплении
-      const fileAttachmentMessages = attachedFiles.map(f => {
-        const icon = f.file_type === 'image' ? '🖼️' : '📎';
-        return `${icon} ${f.filename} прикреплен`;
-      });
-      
-      // Разбиваем на строки и фильтруем только те, которые полностью совпадают с сообщением о прикреплении
+      // Убираем любые упоминания о прикреплении файлов из текста
+      // Фильтруем строки, содержащие "прикреплен" или эмодзи с названием файла
       const lines = messageContent.split('\n');
       const filteredLines = lines.filter(line => {
         const trimmedLine = line.trim();
-        // Убираем только строки, которые точно совпадают с сообщением о прикреплении
-        return !fileAttachmentMessages.some(msg => trimmedLine === msg.trim());
+        // Убираем строки, содержащие "прикреплен" или паттерны типа "📎 файл прикреплен"
+        return !trimmedLine.toLowerCase().includes('прикреплен') && 
+               !trimmedLine.match(/^[📎🖼️📄📝]\s+.*прикреплен/i);
       });
       messageContent = filteredLines.join('\n').trim();
       
@@ -89,22 +84,21 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       if (imageFiles.length > 0) {
         const imagesHtml = imageFiles.map(file => {
           return `
-            <div class="uploaded-file-container" style="margin-top: ${messageContent ? '12px' : '0'};">
-              <div class="uploaded-file-header" style="margin-bottom: 8px; font-weight: 500;">
-                📎 ${file.filename}
-              </div>
-              <div class="uploaded-file-image">
-                <img src="/${file.file_url}" alt="${file.filename}" style="max-width: 100%; max-height: 500px; border-radius: 8px; object-fit: contain;" />
-              </div>
-              ${file.analysis_result ? `
-                <details class="uploaded-file-analysis" style="margin-top: 12px;">
-                  <summary style="cursor: pointer; color: var(--color-primary); font-weight: 500; user-select: none;">🔍 Показать анализ изображения</summary>
-                  <div style="margin-top: 8px; padding: 12px; background: var(--color-hover); border-radius: 8px; font-size: 14px; line-height: 1.6;">
-                    ${file.analysis_result}
-                  </div>
-                </details>
-              ` : ''}
+            <div class="message-file-card" style="margin-top: ${messageContent ? '12px' : '0'};">
+              <div class="message-file-icon">IMG</div>
+              <div class="message-file-name">${file.filename}</div>
             </div>
+            <div class="uploaded-file-image" style="margin-top: 8px;">
+              <img src="/${file.file_url}" alt="${file.filename}" style="max-width: 100%; max-height: 500px; border-radius: 8px; object-fit: contain;" />
+            </div>
+            ${file.analysis_result ? `
+              <details class="uploaded-file-analysis" style="margin-top: 12px;">
+                <summary style="cursor: pointer; color: var(--color-primary); font-weight: 500; user-select: none;">🔍 Показать анализ изображения</summary>
+                <div style="margin-top: 8px; padding: 12px; background: var(--color-hover); border-radius: 8px; font-size: 14px; line-height: 1.6;">
+                  ${file.analysis_result}
+                </div>
+              </details>
+            ` : ''}
           `;
         }).join('');
         
@@ -116,14 +110,14 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         }
       }
       
-      // Добавляем HTML для других файлов (PDF/DOC) - только файл, без извлеченного текста
+      // Добавляем HTML для других файлов (PDF/DOC) - компактные карточки
       if (otherFiles.length > 0) {
         const filesHtml = otherFiles.map(file => {
+          const fileIcon = file.file_type === 'pdf' ? 'PDF' : file.file_type === 'document' ? 'DOC' : 'FILE';
           return `
-            <div class="uploaded-file-container" style="margin-top: ${messageContent ? '12px' : '0'};">
-              <div class="uploaded-file-header" style="margin-bottom: 8px; font-weight: 500;">
-                📎 <a href="/${file.file_url}" target="_blank" style="color: var(--color-primary); text-decoration: none;">${file.filename}</a>
-              </div>
+            <div class="message-file-card" style="margin-top: ${messageContent ? '12px' : '0'};">
+              <div class="message-file-icon">${fileIcon}</div>
+              <div class="message-file-name">${file.filename}</div>
             </div>
           `;
         }).join('');
@@ -558,12 +552,6 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
           analysis_result: result.analysis_result,
           extracted_text: result.extracted_text
         }]);
-        
-        // Показываем уведомление о прикреплении файла
-        const fileIcon = result.file_type === 'image' ? '🖼️' : '📎';
-        const currentText = inputValue.trim();
-        const separator = currentText ? '\n\n' : '';
-        setInputValue(prev => prev + separator + `${fileIcon} ${result.filename || file.name} прикреплен`);
       } else {
         throw new Error(result.error || 'Ошибка загрузки файла');
       }
@@ -574,6 +562,23 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       // Очищаем input для возможности повторной загрузки того же файла
       event.target.value = '';
     }
+  };
+
+  // Удаление прикрепленного файла
+  const handleRemoveFile = (index: number) => {
+    setAttachedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Получение иконки для типа файла
+  const getFileIcon = (fileType: string) => {
+    if (fileType === 'image') {
+      return '🖼️';
+    } else if (fileType === 'pdf') {
+      return '📄';
+    } else if (fileType === 'document') {
+      return '📝';
+    }
+    return '📎';
   };
 
   // Обработчик нажатия на кнопку микрофона
@@ -632,7 +637,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               key={message.id}
               className={`chat-message chat-message--${message.role} ${message.isLoading ? 'chat-message--loading' : ''}`}
             >
-              <div className="chat-message-content">
+              <div className="chat-message-wrapper">
+                <div className="chat-message-content">
                 {message.role === 'assistant' && !message.isLoading ? (
                   // Проверяем, содержит ли контент HTML теги
                   message.content.includes('<div') || message.content.includes('<img') || message.content.includes('<p') ? (
@@ -643,57 +649,60 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                   </ReactMarkdown>
                   )
                 ) : message.role === 'user' ? (
-                  // Для пользователя: если есть HTML с изображением, рендерим его
-                  // HTML может содержать и текст, и изображения вместе
-                  message.content.includes('<img') || message.content.includes('<div class="uploaded-file') ? (
-                    <div dangerouslySetInnerHTML={{ __html: message.content }} />
-                  ) : message.image_url ? (
-                    // Если есть image_url, но нет HTML, создаем изображение
-                    <div>
-                      {/* Показываем текст, если он есть */}
-                      {message.content && !message.content.includes('прикреплен') && (
-                        <div style={{ marginBottom: '12px' }}>
-                          {message.content}
-                        </div>
-                      )}
-                      <div className="uploaded-file-container" style={{ marginBottom: '12px' }}>
-                        <div className="uploaded-file-image">
-                          <img 
-                            src={message.image_url.startsWith('/') ? message.image_url : `/${message.image_url}`} 
-                            alt={message.file_url || 'Загруженное изображение'} 
-                            style={{ 
-                              maxWidth: '100%', 
-                              maxHeight: '500px', 
-                              borderRadius: '8px', 
-                              marginTop: '8px',
-                              objectFit: 'contain'
-                            }} 
-                          />
-                        </div>
-                        {message.analysis_result && (
-                          <details className="uploaded-file-analysis" style={{ marginTop: '12px' }}>
-                            <summary style={{ cursor: 'pointer', color: 'var(--color-primary)', fontWeight: 500 }}>
-                              🔍 Показать анализ
-                            </summary>
-                            <div style={{ 
-                              marginTop: '8px', 
-                              padding: '12px', 
-                              background: 'var(--color-hover)', 
-                              borderRadius: '8px', 
-                              fontSize: '14px' 
-                            }}>
-                              {message.analysis_result}
-                            </div>
-                          </details>
+                  (() => {
+                    // Извлекаем карточки файлов из HTML контента
+                    const fileCards: Array<{ icon: string; filename: string }> = [];
+                    let cleanedContent = message.content;
+                    
+                    // Ищем карточки файлов в HTML
+                    const fileCardRegex = /<div class="message-file-card"[^>]*>[\s\S]*?<div class="message-file-icon">([^<]+)<\/div>[\s\S]*?<div class="message-file-name">([^<]+)<\/div>[\s\S]*?<\/div>/g;
+                    let match;
+                    const matches: string[] = [];
+                    while ((match = fileCardRegex.exec(message.content)) !== null) {
+                      fileCards.push({
+                        icon: match[1].trim(),
+                        filename: match[2].trim()
+                      });
+                      matches.push(match[0]);
+                    }
+                    
+                    // Удаляем все карточки файлов из контента
+                    matches.forEach(cardHtml => {
+                      cleanedContent = cleanedContent.replace(cardHtml, '');
+                    });
+                    
+                    // Очищаем пустые строки и пробелы
+                    cleanedContent = cleanedContent.trim();
+                    
+                    // Проверяем, есть ли изображения или другой HTML контент
+                    const hasHtmlContent = cleanedContent.includes('<img') || 
+                                          cleanedContent.includes('<div class="uploaded-file') ||
+                                          cleanedContent.includes('<div');
+                    
+                    return (
+                      <>
+                        {/* Текст сообщения или HTML контент (изображения и т.д.) */}
+                        {cleanedContent && 
+                         !cleanedContent.toLowerCase().includes('прикреплен') && 
+                         !cleanedContent.match(/[📎🖼️📄📝]\s+.*прикреплен/i) && (
+                          <div>
+                            {hasHtmlContent ? (
+                              <div dangerouslySetInnerHTML={{ __html: cleanedContent }} />
+                            ) : (
+                              cleanedContent
+                            )}
+                          </div>
                         )}
-                      </div>
-                    </div>
-                  ) : (
-                    // Обычный текст
-                    message.content
-                  )
+                      </>
+                    );
+                  })()
                 ) : (
-                  message.content
+                  // Обычный текст - фильтруем сообщения о прикреплении
+                  message.content && 
+                  !message.content.toLowerCase().includes('прикреплен') && 
+                  !message.content.match(/[📎🖼️📄📝]\s+.*прикреплен/i) 
+                    ? message.content 
+                    : ''
                 )}
                 {!message.isLoading && message.timestamp && (
                   <div className="chat-message-timestamp">
@@ -755,6 +764,29 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                   </div>
                 )}
               </div>
+              {/* Карточки файлов рядом с сообщением пользователя */}
+              {message.role === 'user' && (() => {
+                const fileCards: Array<{ icon: string; filename: string }> = [];
+                const fileCardRegex = /<div class="message-file-card"[^>]*>[\s\S]*?<div class="message-file-icon">([^<]+)<\/div>[\s\S]*?<div class="message-file-name">([^<]+)<\/div>[\s\S]*?<\/div>/g;
+                let match;
+                while ((match = fileCardRegex.exec(message.content)) !== null) {
+                  fileCards.push({
+                    icon: match[1].trim(),
+                    filename: match[2].trim()
+                  });
+                }
+                return fileCards.length > 0 ? (
+                  <div className="message-files-container">
+                    {fileCards.map((file, idx) => (
+                      <div key={idx} className="message-file-card">
+                        <div className="message-file-icon">{file.icon}</div>
+                        <div className="message-file-name">{file.filename}</div>
+                      </div>
+                    ))}
+                  </div>
+                ) : null;
+              })()}
+              </div>
             </div>
           ))}
           <div ref={messagesEndRef} />
@@ -763,6 +795,36 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
       <div className="chat-input-section">
         <div className="chat-input-wrapper">
+          {attachedFiles.length > 0 && (
+            <div className="chat-attached-files">
+              {attachedFiles.map((file, index) => (
+                <div key={`${file.file_url}-${index}`} className="chat-attached-file-card">
+                  <div className="chat-attached-file-icon" aria-hidden="true">
+                    <span className="chat-attached-file-icon-emoji">{getFileIcon(file.file_type)}</span>
+                  </div>
+                  <div className="chat-attached-file-info">
+                    <div className="chat-attached-file-name" title={file.filename}>
+                      {file.filename}
+                    </div>
+                    <div className="chat-attached-file-type">
+                      {file.file_type === 'image' ? 'Изображение' : 
+                       file.file_type === 'pdf' ? 'PDF документ' : 
+                       file.file_type === 'document' ? 'Документ' : 'Файл'}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="chat-attached-file-remove"
+                    onClick={() => handleRemoveFile(index)}
+                    title="Удалить файл"
+                    aria-label={`Удалить файл ${file.filename}`}
+                  >
+                    <Icon src={ICONS.close} size="sm" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
           <div className="chat-input-container">
             <textarea
               ref={inputRef}

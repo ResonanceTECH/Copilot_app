@@ -188,7 +188,7 @@ export const PanelToggle: React.FC<PanelToggleProps> = ({
         }}
         title="Нижняя панель"
       >
-        <Icon src={bottomBarIcon} size="sm" />
+        <Icon src={bottomBarIcon} size="sm" className="panel-toggle-bottom-icon" />
       </button>
     </div>
   );

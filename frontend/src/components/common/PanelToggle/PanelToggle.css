@@ -35,3 +35,13 @@
   background: var(--color-primary-hover);
 }
 
+/* Иконка нижней панели - серая в светлой теме */
+[data-theme="light"] .panel-toggle-bottom-icon {
+  filter: brightness(0) saturate(100%) invert(40%);
+}
+
+/* Иконка нижней панели - белая когда кнопка активна в светлой теме */
+[data-theme="light"] .panel-toggle-btn--active .panel-toggle-bottom-icon {
+  filter: none;
+}
+
