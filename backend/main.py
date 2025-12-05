@@ -1,6 +1,5 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
@@ -25,13 +24,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Подключаем статические файлы из static
-import os
-static_dir = os.path.join(os.path.dirname(__file__), "static")
-if os.path.exists(static_dir):
-    app.mount("/static", StaticFiles(directory=static_dir), name="static")
-
 # Подключаем статические файлы из assets (графики)
+import os
 assets_dir = os.path.join(os.path.dirname(__file__), "assets")
 if os.path.exists(assets_dir):
     app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
@@ -65,13 +59,13 @@ except Exception as e:
     traceback.print_exc()
 
 @app.get("/")
-async def serve_frontend():
-    """Главная страница - веб-интерфейс"""
-    import os
-    static_html = os.path.join(os.path.dirname(__file__), "static", "index.html")
-    if os.path.exists(static_html):
-        return FileResponse(static_html)
-    return {"message": "Frontend not found"}
+async def root():
+    """Корневой endpoint - Frontend доступен через nginx на порту 80"""
+    return {
+        "message": "Business Assistant API",
+        "docs": "/api/docs",
+        "frontend": "http://localhost (через nginx)"
+    }
 
 @app.get("/api/health")
 async def health_check():
@@ -81,7 +75,7 @@ async def health_check():
 if __name__ == "__main__":
     import uvicorn
     print("🚀 Запуск Business Assistant...")
-    print("🌐 Веб-интерфейс: http://localhost:8000")
+    print("🌐 Frontend: http://localhost (через nginx)")
     print("📖 Документация API: http://localhost:8000/api/docs")
     print("🔧 API endpoints: http://localhost:8000/api/*")
     uvicorn.run(app, host="0.0.0.0", port=8000)
