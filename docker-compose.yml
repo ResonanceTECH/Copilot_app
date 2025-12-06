@@ -86,7 +86,8 @@ services:
     environment:
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
       - DATABASE_URL=postgresql://copilot_user:copilot_pass@db:5432/copilot_db
-      - APP_URL=${APP_URL:-http://localhost}
+      - APP_URL=${APP_URL:-https://localhost}
+      - ENABLE_SSL=${ENABLE_SSL:-false}
       - OLLAMA_API_URL=http://ollama:11434
       - USE_OLLAMA=${USE_OLLAMA:-false}
       - OLLAMA_MODEL=${OLLAMA_MODEL:-deepseek-r1-distill-llama}
@@ -121,8 +122,14 @@ services:
     container_name: copilot_frontend
     ports:
       - "80:80"
+      - "443:443"
     environment:
       - APP_DOMAIN=${APP_DOMAIN:-localhost}
+    # Volumes для Let's Encrypt сертификатов (для продакшена через nip.io)
+    # Раскомментируйте volumes, когда настроите SSL через nip.io:
+    # volumes:
+    #   - certbot_certs:/etc/letsencrypt:ro
+    #   - certbot_www:/var/www/certbot:ro
     depends_on:
       app:
         condition: service_healthy
@@ -134,9 +141,23 @@ services:
       retries: 3
       start_period: 10s
 
+  # Certbot для автоматического обновления SSL сертификатов
+  # Раскомментируйте, когда настроите SSL для продакшена
+  # certbot:
+  #   image: certbot/certbot:latest
+  #   container_name: copilot_certbot
+  #   volumes:
+  #     - certbot_certs:/etc/letsencrypt
+  #     - certbot_www:/var/www/certbot
+  #   entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+  #   restart: unless-stopped
+
 volumes:
   postgres_data:
   whisper_cache:
   whisper_models:
   ollama_models:
+  # Раскомментируйте, когда настроите SSL для продакшена
+  # certbot_certs:
+  # certbot_www:
 

@@ -1,8 +1,49 @@
+# HTTP сервер - редирект на HTTPS
 server {
     listen 80;
     server_name ${APP_DOMAIN};
+    
+    # Для Let's Encrypt ACME challenge (для продакшена)
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+    
+    # Редирект на HTTPS
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+# HTTPS сервер
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name ${APP_DOMAIN};
     root /usr/share/nginx/html;
     index index.html;
+
+    # SSL сертификаты
+    # Для localhost используем самоподписанный сертификат
+    # Для продакшена (через nip.io) используем Let's Encrypt
+    # Проверяем наличие Let's Encrypt сертификата, иначе используем самоподписанный
+    set $ssl_cert /etc/nginx/ssl/localhost.crt;
+    set $ssl_key /etc/nginx/ssl/localhost.key;
+    
+    # Если используется nip.io или другой домен, пытаемся использовать Let's Encrypt
+    # Для localhost всегда используем самоподписанный
+    ssl_certificate /etc/nginx/ssl/localhost.crt;
+    ssl_certificate_key /etc/nginx/ssl/localhost.key;
+    
+    # Альтернатива: если настроен Let's Encrypt для продакшена, раскомментируйте:
+    # ssl_certificate /etc/letsencrypt/live/${APP_DOMAIN}/fullchain.pem;
+    # ssl_certificate_key /etc/letsencrypt/live/${APP_DOMAIN}/privkey.pem;
+    
+    # SSL настройки
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
 
     # Gzip compression
     gzip on;
@@ -14,6 +55,7 @@ server {
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-XSS-Protection "1; mode=block" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
 
     # Проксирование API запросов к backend
     location /api {
@@ -34,14 +76,11 @@ server {
     }
 
     # Статические файлы frontend (включая assets)
-    # Сначала проверяем наличие файла в frontend, затем проксируем к backend
     location /assets {
-        # Сначала пытаемся найти файл в статике frontend
         try_files $uri @backend_assets;
     }
 
-    # Проксирование статических файлов backend (графики, аудио)
-    # Используется только если файл не найден в frontend
+    # Проксирование статических файлов backend
     location @backend_assets {
         proxy_pass http://app:8000;
         proxy_http_version 1.1;
