@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Icon } from '../../ui/Icon';
 import { ICONS } from '../../../utils/icons';
 import './FeedbackModal.css';
@@ -6,7 +6,7 @@ import './FeedbackModal.css';
 interface FeedbackModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (selectedReasons: string[], feedback: string) => void;
+  onSubmit: (selectedReasons: string[], feedback: string) => Promise<void>;
 }
 
 type FeedbackReason =
@@ -33,6 +33,16 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
 }) => {
   const [selectedReasons, setSelectedReasons] = useState<string[]>([]);
   const [feedback, setFeedback] = useState('');
+  const [isSubmitted, setIsSubmitted] = useState(false);
+
+  // Сбрасываем состояние при открытии модального окна
+  useEffect(() => {
+    if (isOpen) {
+      setIsSubmitted(false);
+      setSelectedReasons([]);
+      setFeedback('');
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -44,16 +54,27 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
     );
   };
 
-  const handleSubmit = () => {
-    onSubmit(selectedReasons, feedback);
-    setSelectedReasons([]);
-    setFeedback('');
-    onClose();
+  const handleSubmit = async () => {
+    try {
+      await onSubmit(selectedReasons, feedback);
+      setIsSubmitted(true);
+      // Закрываем модальное окно через 2 секунды после показа сообщения об успехе
+      setTimeout(() => {
+        setSelectedReasons([]);
+        setFeedback('');
+        setIsSubmitted(false);
+        onClose();
+      }, 2000);
+    } catch (error) {
+      console.error('Ошибка при отправке обратной связи:', error);
+      // Можно показать сообщение об ошибке
+    }
   };
 
   const handleCancel = () => {
     setSelectedReasons([]);
     setFeedback('');
+    setIsSubmitted(false);
     onClose();
   };
 
@@ -65,48 +86,57 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
         </button>
 
         <h2 className="feedback-modal-title">Помогите нам стать лучше</h2>
-        <p className="feedback-modal-description">
-          Предоставьте дополнительную обратную связь о данном answer. Выберите все подходящее.
-        </p>
+        {isSubmitted ? (
+          <div className="feedback-modal-success">
+            <div className="feedback-modal-success-icon">✓</div>
+            <p className="feedback-modal-success-message">Ваше обращение принято</p>
+          </div>
+        ) : (
+          <>
+            <p className="feedback-modal-description">
+              Предоставьте дополнительную обратную связь о данном answer. Выберите все подходящее.
+            </p>
 
-        <div className="feedback-modal-reasons">
-          {feedbackReasons.map((reason) => (
-            <button
-              key={reason.id}
-              className={`feedback-modal-reason-btn ${selectedReasons.includes(reason.id) ? 'selected' : ''}`}
-              onClick={() => handleReasonToggle(reason.id)}
-            >
-              <Icon src={reason.icon} size="sm" />
-              <span>{reason.label}</span>
-            </button>
-          ))}
-        </div>
+            <div className="feedback-modal-reasons">
+              {feedbackReasons.map((reason) => (
+                <button
+                  key={reason.id}
+                  className={`feedback-modal-reason-btn ${selectedReasons.includes(reason.id) ? 'selected' : ''}`}
+                  onClick={() => handleReasonToggle(reason.id)}
+                >
+                  <Icon src={reason.icon} size="sm" />
+                  <span>{reason.label}</span>
+                </button>
+              ))}
+            </div>
 
-        <div className="feedback-modal-textarea-wrapper">
-          <label className="feedback-modal-label">
-            Как можно улучшить ответ? (optional)
-          </label>
-          <textarea
-            className="feedback-modal-textarea"
-            placeholder="Ваши отзывы..."
-            value={feedback}
-            onChange={(e) => setFeedback(e.target.value)}
-            rows={4}
-          />
-        </div>
+            <div className="feedback-modal-textarea-wrapper">
+              <label className="feedback-modal-label">
+                Как можно улучшить ответ? (optional)
+              </label>
+              <textarea
+                className="feedback-modal-textarea"
+                placeholder="Ваши отзывы..."
+                value={feedback}
+                onChange={(e) => setFeedback(e.target.value)}
+                rows={4}
+              />
+            </div>
 
-        <div className="feedback-modal-actions">
-          <button className="feedback-modal-cancel-btn" onClick={handleCancel}>
-            Отмена
-          </button>
-          <button
-            className="feedback-modal-submit-btn"
-            onClick={handleSubmit}
-            disabled={selectedReasons.length === 0 && !feedback.trim()}
-          >
-            Отправить
-          </button>
-        </div>
+            <div className="feedback-modal-actions">
+              <button className="feedback-modal-cancel-btn" onClick={handleCancel}>
+                Отмена
+              </button>
+              <button
+                className="feedback-modal-submit-btn"
+                onClick={handleSubmit}
+                disabled={selectedReasons.length === 0 && !feedback.trim()}
+              >
+                Отправить
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

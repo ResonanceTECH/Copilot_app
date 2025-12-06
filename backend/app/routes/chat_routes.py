@@ -19,6 +19,7 @@ from backend.app.models.file_attachment import FileAttachment
 from backend.ml.services.file_analysis_service import FileAnalysisService
 from backend.ml.models.business_classifier import EnhancedBusinessClassifier
 from backend.app.models.user_activity import UserActivity
+from backend.app.models.message_feedback import MessageFeedback
 from backend.app.services.llm_service import LLMService
 from backend.app.services.cache_service import CacheService
 from backend.app.services.formatting_service import FormattingService
@@ -1435,3 +1436,70 @@ async def ask_question_legacy(
         "response": response.response,
         "error": response.error
     }
+
+
+class MessageFeedbackRequest(BaseModel):
+    message_id: int
+    reasons: List[str]
+    feedback_text: Optional[str] = None
+
+
+class MessageFeedbackResponse(BaseModel):
+    success: bool
+    message: str
+    feedback_id: Optional[int] = None
+
+
+@router.post("/message/feedback", response_model=MessageFeedbackResponse, status_code=201)
+async def submit_message_feedback(
+    request: MessageFeedbackRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Отправка обратной связи по сообщению ассистента"""
+    try:
+        # Проверяем, что сообщение существует
+        message = db.query(Message).filter(Message.id == request.message_id).first()
+        if not message:
+            raise HTTPException(status_code=404, detail="Сообщение не найдено")
+        
+        # Проверяем, что сообщение принадлежит ассистенту
+        if message.role != 'assistant':
+            raise HTTPException(status_code=400, detail="Обратная связь можно оставить только для сообщений ассистента")
+        
+        # Проверяем, что чат принадлежит пользователю
+        chat = db.query(Chat).filter(Chat.id == message.chat_id).first()
+        if not chat:
+            raise HTTPException(status_code=404, detail="Чат не найден")
+        
+        if chat.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Нет доступа к этому чату")
+        
+        # Проверяем, что reasons не пустой
+        if not request.reasons or len(request.reasons) == 0:
+            raise HTTPException(status_code=400, detail="Необходимо указать хотя бы одну причину")
+        
+        # Создаем запись обратной связи
+        feedback = MessageFeedback(
+            message_id=request.message_id,
+            user_id=current_user.id,
+            chat_id=message.chat_id,
+            reasons=request.reasons,
+            feedback_text=request.feedback_text
+        )
+        
+        db.add(feedback)
+        db.commit()
+        db.refresh(feedback)
+        
+        return MessageFeedbackResponse(
+            success=True,
+            message="Обратная связь успешно отправлена",
+            feedback_id=feedback.id
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Ошибка при сохранении обратной связи: {str(e)}")

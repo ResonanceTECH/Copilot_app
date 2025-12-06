@@ -389,6 +389,22 @@ export const chatAPI = {
     return response.json();
   },
 
+  // Отправка обратной связи по сообщению
+  submitFeedback: async (messageId: number, reasons: string[], feedbackText?: string): Promise<{
+    success: boolean;
+    message: string;
+    feedback_id?: number;
+  }> => {
+    return apiRequest('/message/feedback', {
+      method: 'POST',
+      body: JSON.stringify({
+        message_id: messageId,
+        reasons: reasons,
+        feedback_text: feedbackText || null,
+      }),
+    });
+  },
+
   uploadFile: async (
     file: File,
     chatId?: number,

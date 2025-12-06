@@ -214,6 +214,26 @@ CREATE INDEX IF NOT EXISTS idx_feedback_user_id ON feedback(user_id);
 CREATE INDEX IF NOT EXISTS idx_feedback_created_at ON feedback(created_at);
 CREATE INDEX IF NOT EXISTS idx_feedback_status ON feedback(status);
 
+-- Создание таблицы message_feedback (обратная связь по сообщениям)
+CREATE TABLE IF NOT EXISTS message_feedback (
+    id SERIAL PRIMARY KEY,
+    message_id INTEGER NOT NULL,
+    user_id INTEGER,
+    chat_id INTEGER NOT NULL,
+    reasons JSONB NOT NULL,
+    feedback_text TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_message_feedback_message FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE,
+    CONSTRAINT fk_message_feedback_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+    CONSTRAINT fk_message_feedback_chat FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE
+);
+
+-- Создание индексов для message_feedback
+CREATE INDEX IF NOT EXISTS idx_message_feedback_message_id ON message_feedback(message_id);
+CREATE INDEX IF NOT EXISTS idx_message_feedback_user_id ON message_feedback(user_id);
+CREATE INDEX IF NOT EXISTS idx_message_feedback_chat_id ON message_feedback(chat_id);
+CREATE INDEX IF NOT EXISTS idx_message_feedback_created_at ON message_feedback(created_at);
+
 -- Создание таблицы support_articles (справочные статьи)
 CREATE TABLE IF NOT EXISTS support_articles (
     id SERIAL PRIMARY KEY,

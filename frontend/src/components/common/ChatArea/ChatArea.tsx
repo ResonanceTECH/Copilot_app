@@ -224,10 +224,20 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   };
 
   // Обработка отправки обратной связи
-  const handleFeedbackSubmit = (messageId: string, selectedReasons: string[], feedback: string) => {
-    console.log(`🚩 Обратная связь для сообщения ${messageId}:`, { selectedReasons, feedback });
-    // Здесь можно добавить логику отправки обратной связи на бэкенд
-    // Например: chatAPI.submitFeedback(messageId, { reasons: selectedReasons, text: feedback });
+  const handleFeedbackSubmit = async (messageId: string, selectedReasons: string[], feedback: string) => {
+    // Конвертируем messageId в число (в backend это integer)
+    const messageIdNum = parseInt(messageId, 10);
+    if (isNaN(messageIdNum)) {
+      throw new Error('Неверный ID сообщения');
+    }
+
+    const response = await chatAPI.submitFeedback(messageIdNum, selectedReasons, feedback);
+
+    if (!response.success) {
+      throw new Error(response.message || 'Ошибка при отправке обратной связи');
+    }
+
+    console.log('✅ Обратная связь успешно отправлена:', response);
   };
 
   // Закрытие меню при клике вне его
