@@ -34,7 +34,7 @@
 .spaces-list-toggle {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 2px;
   cursor: pointer;
   font-size: 14px;
   color: var(--color-text-secondary);
@@ -42,6 +42,17 @@
 
 .spaces-list-toggle input[type="checkbox"] {
   cursor: pointer;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
+  margin: 0;
+  flex-shrink: 0;
+  accent-color: var(--color-primary);
+}
+
+.spaces-list-toggle span {
+  margin-left: 0;
 }
 
 .spaces-list-create-btn {
@@ -422,5 +433,302 @@
 
 .spaces-list-modal-actions button[type="submit"]:hover {
   background: var(--color-primary-hover);
+}
+
+/* Планшеты */
+@media (max-width: 1024px) and (min-width: 769px) {
+  .spaces-list-content {
+    padding: 24px 32px;
+  }
+
+  .spaces-list-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .spaces-list-header h1 {
+    font-size: 28px;
+  }
+
+  .spaces-list-controls {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .spaces-list-create-btn {
+    padding: 9px 18px;
+    font-size: 13px;
+  }
+
+  .spaces-grid {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+    margin-bottom: 24px;
+  }
+
+  .spaces-grid-card {
+    padding: 18px;
+  }
+
+  .spaces-grid-card-title {
+    font-size: 16px;
+  }
+
+  .spaces-grid-card-description {
+    font-size: 13px;
+    margin-bottom: 14px;
+  }
+
+  .spaces-grid-card-stats {
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+
+  .spaces-grid-card-stat-value {
+    font-size: 18px;
+  }
+
+  .spaces-grid-card-stat-label {
+    font-size: 11px;
+  }
+
+  .spaces-grid-card-menu-btn {
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    min-height: 28px;
+  }
+
+  .spaces-grid-card-action-btn {
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    min-height: 28px;
+  }
+
+  .spaces-list-pagination {
+    margin-top: 24px;
+    gap: 12px;
+  }
+
+  .spaces-list-pagination-btn {
+    padding: 7px 14px;
+    font-size: 13px;
+  }
+}
+
+/* Мобильные */
+@media (max-width: 768px) {
+  .spaces-list-content {
+    padding: 16px;
+    overflow-y: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .spaces-list-content::-webkit-scrollbar {
+    display: none;
+  }
+
+  .spaces-list-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  .spaces-list-header h1 {
+    font-size: 24px;
+  }
+
+  .spaces-list-controls {
+    width: 100%;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .spaces-list-toggle {
+    font-size: 14px;
+    width: 100%;
+    gap: 2px;
+    justify-content: flex-start;
+  }
+
+  .spaces-list-create-btn {
+    width: 100%;
+    justify-content: center;
+    padding: 12px 20px;
+    font-size: 14px;
+    min-height: 44px;
+  }
+
+  .spaces-list-loading,
+  .spaces-list-empty {
+    padding: 48px 16px;
+  }
+
+  .spaces-list-empty p {
+    font-size: 15px;
+  }
+
+  .spaces-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  .spaces-grid-card {
+    padding: 16px;
+    border-radius: 12px;
+  }
+
+  .spaces-grid-card-header {
+    margin-bottom: 12px;
+  }
+
+  .spaces-grid-card-title {
+    font-size: 16px;
+    line-height: 1.4;
+  }
+
+  .spaces-grid-card-menu-btn {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    min-height: 36px;
+    border-radius: 8px;
+  }
+
+  .spaces-grid-card-menu-dropdown {
+    min-width: 200px;
+    right: 0;
+    left: auto;
+  }
+
+  .spaces-grid-card-menu-dropdown button {
+    padding: 10px 14px;
+    font-size: 14px;
+    min-height: 44px;
+  }
+
+  .spaces-grid-card-description {
+    font-size: 14px;
+    margin-bottom: 14px;
+    line-height: 1.5;
+  }
+
+  .spaces-grid-card-stats {
+    gap: 20px;
+    margin-bottom: 14px;
+  }
+
+  .spaces-grid-card-stat {
+    gap: 6px;
+  }
+
+  .spaces-grid-card-stat-value {
+    font-size: 20px;
+  }
+
+  .spaces-grid-card-stat-label {
+    font-size: 12px;
+  }
+
+  .spaces-grid-card-tags {
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+
+  .spaces-grid-card-tag {
+    padding: 5px 12px;
+    font-size: 12px;
+    border-radius: 10px;
+  }
+
+  .spaces-grid-card-footer {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    min-height: auto;
+  }
+
+  .spaces-grid-card-date {
+    font-size: 12px;
+    width: 100%;
+  }
+
+  .spaces-grid-card-footer-right {
+    width: 100%;
+    justify-content: flex-start;
+    margin-left: 0;
+  }
+
+  .spaces-grid-card-actions {
+    opacity: 1;
+    gap: 6px;
+  }
+
+  .spaces-grid-card-action-btn {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    min-height: 36px;
+    border-radius: 8px;
+  }
+
+  .spaces-list-pagination {
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 20px;
+  }
+
+  .spaces-list-pagination-btn {
+    width: 100%;
+    padding: 12px 20px;
+    font-size: 14px;
+    min-height: 44px;
+  }
+
+  .spaces-list-pagination-info {
+    font-size: 14px;
+    text-align: center;
+  }
+
+  .spaces-list-modal {
+    width: 95%;
+    max-width: 100%;
+    padding: 20px;
+    border-radius: 16px 16px 0 0;
+    margin-top: auto;
+  }
+
+  .spaces-list-modal h3 {
+    font-size: 18px;
+    margin-bottom: 16px;
+  }
+
+  .spaces-list-modal input,
+  .spaces-list-modal textarea {
+    padding: 12px;
+    font-size: 16px; /* Предотвращает зум на iOS */
+    margin-bottom: 12px;
+    border-radius: 10px;
+  }
+
+  .spaces-list-modal-actions {
+    flex-direction: column-reverse;
+    gap: 10px;
+    margin-top: 16px;
+  }
+
+  .spaces-list-modal-actions button {
+    width: 100%;
+    padding: 12px 20px;
+    font-size: 14px;
+    min-height: 44px;
+  }
 }
 
