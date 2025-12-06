@@ -1,0 +1,155 @@
+.create-tag-block {
+  position: absolute;
+  z-index: 1000;
+  background: var(--color-sidebar-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  min-width: 350px;
+  max-width: 400px;
+  transform: translateX(-50%) translateY(calc(-100% - 8px));
+  left: 0;
+  bottom: 100%;
+}
+
+.create-tag-block-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.create-tag-block-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.create-tag-block-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  transition: all 0.2s ease;
+  padding: 0;
+}
+
+.create-tag-block-close:hover {
+  background: var(--color-hover);
+  color: var(--color-text);
+}
+
+.create-tag-block-field {
+  margin-bottom: 16px;
+}
+
+.create-tag-block-field label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.create-tag-block-field input[type="text"] {
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--color-input-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  color: var(--color-text);
+  font-size: 14px;
+  font-family: inherit;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.create-tag-block-field input[type="text"]:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.create-tag-block-color-input {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.create-tag-block-color-input input[type="color"] {
+  width: 45px;
+  height: 36px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  cursor: pointer;
+  padding: 0;
+  background: none;
+}
+
+.create-tag-block-color-input input[type="text"] {
+  flex: 1;
+}
+
+.create-tag-block-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border);
+}
+
+.create-tag-block-actions button {
+  padding: 8px 20px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: var(--color-input-bg);
+  color: var(--color-text);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.create-tag-block-actions button[type="button"] {
+  background: var(--color-input-bg);
+}
+
+.create-tag-block-actions button[type="button"]:hover:not(:disabled) {
+  background: var(--color-hover);
+}
+
+.create-tag-block-actions button[type="submit"] {
+  background: var(--color-primary);
+  color: var(--color-text-on-primary);
+  border-color: var(--color-primary);
+}
+
+.create-tag-block-actions button[type="submit"]:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+
+.create-tag-block-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Адаптивность для планшетов и мобильных */
+@media (max-width: 768px) {
+  .create-tag-block {
+    min-width: 90%;
+    max-width: 90%;
+    padding: 16px;
+  }
+}

@@ -12,6 +12,7 @@ import { trackActivity } from '../../../utils/activityTracker';
 import { chatAPI } from '../../../utils/api';
 import { FeedbackModal } from './FeedbackModal';
 import { TagSelector } from './TagSelector';
+import { CreateTagBlock } from './CreateTagBlock';
 import './ChatArea.css';
 
 // Компонент анимации печатания
@@ -65,8 +66,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   const [showReportMenu, setShowReportMenu] = useState<string | null>(null);
   const [showFeedbackModal, setShowFeedbackModal] = useState<string | null>(null);
   const [showTagSelector, setShowTagSelector] = useState<string | null>(null);
+  const [showCreateTagBlock, setShowCreateTagBlock] = useState<string | null>(null);
   const [editingMessageTags, setEditingMessageTags] = useState<number[]>([]);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const tagButtonRefs = useRef<Record<string, HTMLButtonElement>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -289,6 +292,44 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       console.error('Ошибка при удалении тега:', error);
       alert('Ошибка при удалении тега. Попробуйте позже.');
     }
+  };
+
+  // Обработка создания нового тега и присвоения его сообщению
+  const handleTagCreated = async (messageId: string, tagId: number) => {
+    if (!spaceId) {
+      console.error('SpaceId не указан');
+      return;
+    }
+
+    try {
+      const messageIdNum = parseInt(messageId, 10);
+      if (isNaN(messageIdNum)) {
+        throw new Error('Неверный ID сообщения');
+      }
+
+      // Получаем текущие теги сообщения и добавляем новый
+      const currentTagIds = editingMessageTags;
+      const newTagIds = [...currentTagIds, tagId];
+
+      const response = await chatAPI.assignTagsToMessage(messageIdNum, newTagIds);
+
+      if (response.success) {
+        console.log('✅ Тег успешно создан и присвоен сообщению:', response);
+        setShowCreateTagBlock(null);
+        setEditingMessageTags([]);
+        // Обновление будет при следующей загрузке сообщений
+      }
+    } catch (error) {
+      console.error('Ошибка при присвоении созданного тега:', error);
+      alert('Ошибка при присвоении тега сообщению. Попробуйте позже.');
+    }
+  };
+
+  // Обработка клика на кнопку добавления тега
+  const handleAddTagClick = (messageId: string, event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    setShowCreateTagBlock(showCreateTagBlock === messageId ? null : messageId);
+    setEditingMessageTags(messages.find(m => m.id === messageId)?.tags?.map(t => t.id) || []);
   };
 
   // Закрытие меню при клике вне его
@@ -849,16 +890,30 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                       >
                         <Icon src={ICONS.copy} size="sm" />
                       </button>
-                      <button
-                        className="chat-message-action-btn"
-                        onClick={() => {
-                          setShowTagSelector(message.id);
-                          setEditingMessageTags(message.tags?.map(t => t.id) || []);
-                        }}
-                        title="Добавить тег"
-                      >
-                        <Icon src={ICONS.plus} size="sm" />
-                      </button>
+                      <div style={{ position: 'relative', display: 'inline-block' }}>
+                        <button
+                          ref={(el) => {
+                            if (el) tagButtonRefs.current[message.id] = el;
+                          }}
+                          className="chat-message-action-btn"
+                          onClick={(e) => handleAddTagClick(message.id, e)}
+                          title="Добавить тег"
+                        >
+                          <Icon src={ICONS.plus} size="sm" />
+                        </button>
+                        {showCreateTagBlock === message.id && spaceId && (
+                          <CreateTagBlock
+                            spaceId={spaceId}
+                            onClose={() => {
+                              setShowCreateTagBlock(null);
+                              setEditingMessageTags([]);
+                            }}
+                            onTagCreated={(tagId) => {
+                              handleTagCreated(message.id, tagId);
+                            }}
+                          />
+                        )}
+                      </div>
                       <button
                         className="chat-message-action-btn"
                         onClick={() => handleReaction(message.id, 'like')}
@@ -883,17 +938,6 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                         </button>
                         {showReportMenu === message.id && (
                           <div className="chat-message-menu-dropdown">
-                            <button
-                              className="chat-message-menu-item"
-                              onClick={() => {
-                                setShowReportMenu(null);
-                                setShowTagSelector(message.id);
-                                setEditingMessageTags(message.tags?.map(t => t.id) || []);
-                              }}
-                            >
-                              <Icon src={ICONS.flag} size="sm" />
-                              <span>Теги</span>
-                            </button>
                             <button
                               className="chat-message-menu-item"
                               onClick={() => handleReport(message.id)}

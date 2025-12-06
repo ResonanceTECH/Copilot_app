@@ -240,7 +240,7 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
                 if (!wasDoubleClick) {
                   setTimeout(() => {
                     if (editingIconThreadId !== thread.id && doubleClickTimerRef.current[thread.id] === undefined) {
-                      onThreadSelect?.(thread.id);
+                onThreadSelect?.(thread.id);
                     }
                   }, 300);
                 }

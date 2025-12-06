@@ -17,6 +17,7 @@ interface ThreadData {
   thread: ChatThread;
   messages: ChatMessage[];
   chatId?: number; // ID чата из бэкенда
+  spaceId?: number; // ID пространства
 }
 
 export const AssistantPage: React.FC = () => {
@@ -73,6 +74,7 @@ export const AssistantPage: React.FC = () => {
                 },
                 messages: [],
                 chatId: chat.id,
+                spaceId: chat.space_id,
               });
             });
           }
@@ -151,6 +153,7 @@ export const AssistantPage: React.FC = () => {
         thread: newThread,
         messages: [],
         chatId: chatData.id,
+        spaceId: chatData.space_id,
       };
 
       setThreads((prev) => {
@@ -551,6 +554,7 @@ export const AssistantPage: React.FC = () => {
           thread: newThread,
           messages: [],
           chatId: chatData.id,
+          spaceId: chatData.space_id,
         };
 
         setThreads((prev) => {
@@ -605,20 +609,20 @@ export const AssistantPage: React.FC = () => {
             className={`sidebar-overlay ${isMobileMenuOpen ? 'sidebar-overlay--visible' : ''}`}
             onClick={() => setIsMobileMenuOpen(false)}
           />
-          <Sidebar
-            threads={getThreadsList()}
-            activeThreadId={activeThreadId}
-            isCollapsed={isSidebarCollapsed}
-            onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-            onNewThread={handleNewThread}
-            onThreadSelect={handleThreadSelect}
-            onThreadDelete={handleThreadDelete}
-            onThreadRename={handleThreadRename}
-            onThreadPin={handleThreadPin}
-            onSettingsClick={() => setShowSupportPanel(true)}
+        <Sidebar
+          threads={getThreadsList()}
+          activeThreadId={activeThreadId}
+          isCollapsed={isSidebarCollapsed}
+          onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          onNewThread={handleNewThread}
+          onThreadSelect={handleThreadSelect}
+          onThreadDelete={handleThreadDelete}
+          onThreadRename={handleThreadRename}
+          onThreadPin={handleThreadPin}
+          onSettingsClick={() => setShowSupportPanel(true)}
             isMobileMenuOpen={isMobileMenuOpen}
             onMobileMenuClose={() => setIsMobileMenuOpen(false)}
-          />
+        />
         </>
       )}
       <div className={`assistant-main ${panelMode === 'bottom' ? 'assistant-main--full-width' : ''} ${isSidebarCollapsed && panelMode === 'sidebar' ? 'assistant-main--sidebar-collapsed' : ''}`}>
@@ -641,6 +645,7 @@ export const AssistantPage: React.FC = () => {
             activeTool={activeTool}
             onToolSelect={setActiveTool}
             chatId={activeThreadId ? threads.get(activeThreadId)?.chatId : undefined}
+            spaceId={activeThreadId ? threads.get(activeThreadId)?.spaceId : undefined}
           />
         )}
       </div>
