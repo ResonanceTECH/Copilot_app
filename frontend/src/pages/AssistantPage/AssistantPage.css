@@ -25,4 +25,70 @@
   transition: margin-left 0.3s ease;
 }
 
+/* Overlay для мобильного меню */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 998;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.sidebar-overlay--visible {
+  opacity: 1;
+  pointer-events: all;
+}
+
+/* Адаптивность для планшетов (768px - 1024px) */
+@media (max-width: 1024px) and (min-width: 769px) {
+  .assistant-main--sidebar-collapsed {
+    margin-left: 0;
+  }
+
+  /* Отступ для чата выше BottomPanel на планшетах */
+  .assistant-main--full-width {
+    padding-bottom: 0;
+  }
+
+  .assistant-main--full-width .chat-area {
+    padding-bottom: 72px; /* Высота BottomPanel на планшетах */
+  }
+}
+
+/* Адаптивность для мобильных устройств (< 768px) */
+@media (max-width: 768px) {
+  .assistant-main {
+    margin-left: 0 !important;
+    width: 100%;
+  }
+
+  .assistant-main--full-width {
+    padding-bottom: 0;
+  }
+
+  /* Отступ для чата выше BottomPanel на мобильных */
+  .assistant-main--full-width .chat-area {
+    padding-bottom: 80px; /* Высота BottomPanel на мобильных (10px*2 padding + 8px*2 tools padding + 44px кнопка) */
+  }
+
+  .assistant-main--sidebar-collapsed {
+    margin-left: 0 !important;
+  }
+
+  .sidebar-overlay {
+    display: block;
+  }
+
+  /* Предотвращаем скролл body когда открыто меню */
+  body:has(.sidebar-overlay--visible) {
+    overflow: hidden;
+  }
+}
+
 

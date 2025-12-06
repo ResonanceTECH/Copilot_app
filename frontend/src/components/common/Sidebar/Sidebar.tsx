@@ -6,6 +6,7 @@ import logoIcon from '../../../assets/icons/logo.svg';
 import starIcon from '../../../assets/icons/star.svg';
 import starFilledIcon from '../../../assets/icons/star-filled.svg';
 import { ThreadContextMenu } from './ThreadContextMenu';
+import { SpaceContextMenu } from './SpaceContextMenu';
 import { SearchPanel } from '../SearchPanel';
 import { useLanguage } from '../../../contexts/LanguageContext';
 import { getTranslation } from '../../../utils/i18n';
@@ -23,6 +24,8 @@ interface SidebarProps {
   onThreadRename?: (threadId: string, newTitle: string) => void;
   onThreadPin?: (threadId: string) => void;
   onSettingsClick?: () => void;
+  isMobileMenuOpen?: boolean;
+  onMobileMenuClose?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -36,21 +39,31 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onThreadRename,
   onThreadPin,
   onSettingsClick,
+  isMobileMenuOpen = false,
+  onMobileMenuClose,
 }) => {
   const [contextMenu, setContextMenu] = useState<{
     threadId: string;
     position: { x: number; y: number };
   } | null>(null);
+  const [spaceContextMenu, setSpaceContextMenu] = useState<{
+    spaceId: number;
+    position: { x: number; y: number };
+  } | null>(null);
   const [editingThreadId, setEditingThreadId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
+  const [editingSpaceId, setEditingSpaceId] = useState<number | null>(null);
+  const [editingSpaceName, setEditingSpaceName] = useState('');
   const [spaces, setSpaces] = useState<Space[]>([]);
   const [showSpaces, setShowSpaces] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [hoveredThreadId, setHoveredThreadId] = useState<string | null>(null);
+  const [hoveredSpaceId, setHoveredSpaceId] = useState<number | null>(null);
   const [draggedSpaceId, setDraggedSpaceId] = useState<number | null>(null);
   const [dragOverPinnedArea, setDragOverPinnedArea] = useState(false);
   const [pinnedSpacesUpdate, setPinnedSpacesUpdate] = useState(0); // Для принудительного обновления
   const contextMenuRef = useRef<HTMLDivElement>(null);
+  const spaceContextMenuRef = useRef<HTMLDivElement>(null);
   const pinnedAreaRef = useRef<HTMLDivElement>(null);
   const { language } = useLanguage();
 
@@ -133,15 +146,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
       if (contextMenuRef.current && !contextMenuRef.current.contains(event.target as Node)) {
         setContextMenu(null);
       }
+      if (spaceContextMenuRef.current && !spaceContextMenuRef.current.contains(event.target as Node)) {
+        setSpaceContextMenu(null);
+      }
     };
 
-    if (contextMenu) {
+    if (contextMenu || spaceContextMenu) {
       document.addEventListener('mousedown', handleClickOutside);
       return () => {
         document.removeEventListener('mousedown', handleClickOutside);
       };
     }
-  }, [contextMenu]);
+  }, [contextMenu, spaceContextMenu]);
 
   // Горячие клавиши
   useEffect(() => {
@@ -154,9 +170,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
         if (contextMenu) {
           setContextMenu(null);
         }
+        if (spaceContextMenu) {
+          setSpaceContextMenu(null);
+        }
         if (editingThreadId) {
           setEditingThreadId(null);
           setEditingTitle('');
+        }
+        if (editingSpaceId) {
+          setEditingSpaceId(null);
+          setEditingSpaceName('');
         }
       }
     };
@@ -165,10 +188,108 @@ export const Sidebar: React.FC<SidebarProps> = ({
     return () => {
       window.removeEventListener('keydown', handleKeyPress);
     };
-  }, [onNewThread, contextMenu, editingThreadId]);
+  }, [onNewThread, contextMenu, spaceContextMenu, editingThreadId, editingSpaceId]);
+
+  // Обработчики для пространств
+  const handleSpaceMenuClick = (e: React.MouseEvent, spaceId: number) => {
+    e.stopPropagation();
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setSpaceContextMenu({
+      spaceId,
+      position: {
+        x: rect.right - 180,
+        y: rect.bottom + 4,
+      },
+    });
+  };
+
+  const handleSpaceRename = async (spaceId: number) => {
+    const space = spaces.find(s => s.id === spaceId);
+    if (space) {
+      setEditingSpaceId(spaceId);
+      setEditingSpaceName(space.name);
+    }
+  };
+
+  const handleSpaceRenameSubmit = async (e: React.FormEvent, spaceId: number) => {
+    e.stopPropagation();
+    if (editingSpaceName.trim()) {
+      try {
+        await spacesAPI.updateSpace(spaceId, { name: editingSpaceName.trim() });
+        // Обновляем список пространств
+        const response = await spacesAPI.getSpaces();
+        setSpaces(response.spaces);
+        setEditingSpaceId(null);
+        setEditingSpaceName('');
+      } catch (error: any) {
+        console.error('Ошибка переименования пространства:', error);
+        alert(error.message || 'Ошибка при переименовании пространства');
+      }
+    } else {
+      setEditingSpaceId(null);
+      setEditingSpaceName('');
+    }
+  };
+
+  const handleSpaceRenameCancel = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingSpaceId(null);
+    setEditingSpaceName('');
+  };
+
+  const handleSpaceKeyDown = (e: React.KeyboardEvent, spaceId: number) => {
+    if (e.key === 'Enter') {
+      handleSpaceRenameSubmit(e, spaceId);
+    } else if (e.key === 'Escape') {
+      handleSpaceRenameCancel(e as any);
+    }
+  };
+
+  const handleSpaceDelete = async (spaceId: number) => {
+    const space = spaces.find(s => s.id === spaceId);
+    if (!space) return;
+
+    if (!confirm(`Вы уверены, что хотите удалить пространство "${space.name}"?`)) {
+      return;
+    }
+
+    try {
+      await spacesAPI.deleteSpace(spaceId);
+      // Обновляем список пространств
+      const response = await spacesAPI.getSpaces();
+      setSpaces(response.spaces);
+      // Удаляем из закрепленных, если было закреплено
+      const pinnedSpaces = loadPinnedSpaces();
+      pinnedSpaces.delete(spaceId);
+      savePinnedSpaces(pinnedSpaces);
+      setPinnedSpacesUpdate(prev => prev + 1);
+    } catch (error: any) {
+      console.error('Ошибка удаления пространства:', error);
+      alert(error.message || 'Ошибка при удалении пространства');
+    }
+  };
+
+  const handleSpaceUnpin = (spaceId: number) => {
+    const pinnedSpaces = loadPinnedSpaces();
+    pinnedSpaces.delete(spaceId);
+    savePinnedSpaces(pinnedSpaces);
+    setPinnedSpacesUpdate(prev => prev + 1);
+  };
+
+  const handleSpacePin = (spaceId: number) => {
+    const pinnedSpaces = loadPinnedSpaces();
+    pinnedSpaces.add(spaceId);
+    savePinnedSpaces(pinnedSpaces);
+    setPinnedSpacesUpdate(prev => prev + 1);
+  };
+
+  // Проверка, является ли устройство мобильным или планшетом
+  const isMobileOrTablet = () => {
+    return window.innerWidth <= 1024;
+  };
 
   return (
-    <aside className={`sidebar ${isCollapsed ? 'sidebar--collapsed' : ''}`}>
+    <aside className={`sidebar ${isCollapsed ? 'sidebar--collapsed' : ''} ${isMobileMenuOpen ? 'sidebar--mobile-open' : ''}`}>
       <div className="sidebar-header">
         <div className="sidebar-logo">
           <img src={logoIcon} alt={getTranslation('aiAssistant', language)} className="sidebar-logo-icon" />
@@ -186,7 +307,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
             <button
               className="sidebar-collapse-btn"
-              onClick={onToggleCollapse}
+              onClick={() => {
+                onToggleCollapse?.();
+                onMobileMenuClose?.();
+              }}
               title={getTranslation('settings', language)}
             >
               <Icon src={ICONS.menu} size="sm" />
@@ -196,7 +320,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <>
             <button
               className="sidebar-collapse-btn"
-              onClick={onToggleCollapse}
+              onClick={() => {
+                onToggleCollapse?.();
+                onMobileMenuClose?.();
+              }}
               title={getTranslation('settings', language)}
             >
               <Icon src={ICONS.menu} size="sm" />
@@ -284,8 +411,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         key={space.id}
                         className="sidebar-space-item sidebar-space-item--pinned"
                         onClick={() => {
-                          window.location.href = `/spaces/${space.id}`;
+                          if (!editingSpaceId || editingSpaceId !== space.id) {
+                            window.location.href = `/spaces/${space.id}`;
+                          }
                         }}
+                        onMouseEnter={() => setHoveredSpaceId(space.id)}
+                        onMouseLeave={() => setHoveredSpaceId(null)}
                         draggable
                         onDragStart={(e) => {
                           setDraggedSpaceId(space.id);
@@ -296,27 +427,53 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           setDragOverPinnedArea(false);
                         }}
                       >
-                        <Icon src={starFilledIcon} size="sm" className="sidebar-thread-pin-icon" />
-                        <div className="sidebar-space-content">
-                          <div className="sidebar-space-name">{space.name}</div>
-                          <div className="sidebar-space-meta">
-                            {space.chats_count} чатов • {space.notes_count} файлов
-                          </div>
-                        </div>
-                        <button
-                          className="sidebar-space-unpin-btn"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const pinnedSpaces = loadPinnedSpaces();
-                            pinnedSpaces.delete(space.id);
-                            savePinnedSpaces(pinnedSpaces);
-                            // Принудительно обновляем компонент
-                            setPinnedSpacesUpdate(prev => prev + 1);
-                          }}
-                          title="Открепить"
-                        >
-                          <Icon src={starFilledIcon} size="sm" className="sidebar-star-icon" />
-                        </button>
+                        {editingSpaceId === space.id ? (
+                          <input
+                            type="text"
+                            className="sidebar-space-edit"
+                            value={editingSpaceName}
+                            onChange={(e) => setEditingSpaceName(e.target.value)}
+                            onBlur={(e) => handleSpaceRenameSubmit(e, space.id)}
+                            onKeyDown={(e) => handleSpaceKeyDown(e, space.id)}
+                            onClick={(e) => e.stopPropagation()}
+                            autoFocus
+                          />
+                        ) : (
+                          <>
+                            <button
+                              className="sidebar-space-star-btn"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (isMobileOrTablet()) {
+                                  handleSpaceUnpin(space.id);
+                                }
+                              }}
+                              onMouseEnter={(e) => {
+                                if (!isMobileOrTablet()) {
+                                  e.currentTarget.style.opacity = '1';
+                                }
+                              }}
+                              title="Открепить"
+                            >
+                              <Icon src={starFilledIcon} size="sm" className="sidebar-thread-pin-icon" />
+                            </button>
+                            <div className="sidebar-space-content">
+                              <div className="sidebar-space-name">{space.name}</div>
+                              <div className="sidebar-space-meta">
+                                {space.chats_count} чатов • {space.notes_count} файлов
+                              </div>
+                            </div>
+                            {hoveredSpaceId === space.id && (
+                              <button
+                                className="sidebar-space-menu"
+                                onClick={(e) => handleSpaceMenuClick(e, space.id)}
+                                title="Меню"
+                              >
+                                <Icon src={ICONS.more} size="sm" />
+                              </button>
+                            )}
+                          </>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -352,7 +509,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <div
                   key={thread.id}
                   className={`sidebar-thread-item ${activeThreadId === thread.id ? 'sidebar-thread-item--active' : ''}`}
-                  onClick={() => !editingThreadId && onThreadSelect?.(thread.id)}
+                  onClick={() => {
+                    if (!editingThreadId) {
+                      onThreadSelect?.(thread.id);
+                      onMobileMenuClose?.();
+                    }
+                  }}
                   onMouseEnter={() => setHoveredThreadId(thread.id)}
                   onMouseLeave={() => setHoveredThreadId(null)}
                   title={thread.title}
@@ -375,7 +537,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       ) : (
                         <>
                           {thread.is_pinned && (
-                            <Icon src={starFilledIcon} size="sm" className="sidebar-thread-pin-icon" />
+                            <button
+                              className="sidebar-thread-pin-icon-btn"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (isMobileOrTablet() && onThreadPin) {
+                                  onThreadPin(thread.id);
+                                }
+                              }}
+                              title={thread.is_pinned ? getTranslation('unpinThread', language) : getTranslation('pinThread', language)}
+                            >
+                              <Icon src={starFilledIcon} size="sm" className="sidebar-thread-pin-icon" />
+                            </button>
                           )}
                           <span
                             className="sidebar-thread-title"
@@ -392,7 +565,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               className="sidebar-thread-star"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                onThreadPin(thread.id);
+                                if (!isMobileOrTablet()) {
+                                  onThreadPin(thread.id);
+                                }
                               }}
                               title={thread.is_pinned ? getTranslation('unpinThread', language) : getTranslation('pinThread', language)}
                             >
@@ -469,12 +644,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       const _ = pinnedSpacesUpdate;
                       const isPinned = loadPinnedSpaces().has(space.id);
                       return (
-                        <button
+                        <div
                           key={space.id}
                           className={`sidebar-space-item ${isPinned ? 'sidebar-space-item--has-pinned' : ''}`}
                           onClick={() => {
-                            window.location.href = `/spaces/${space.id}`;
+                            if (!editingSpaceId || editingSpaceId !== space.id) {
+                              window.location.href = `/spaces/${space.id}`;
+                            }
                           }}
+                          onMouseEnter={() => setHoveredSpaceId(space.id)}
+                          onMouseLeave={() => setHoveredSpaceId(null)}
                           draggable
                           onDragStart={(e) => {
                             setDraggedSpaceId(space.id);
@@ -485,17 +664,59 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             setDragOverPinnedArea(false);
                           }}
                         >
-                          <Icon src={ICONS.flame} size="sm" />
-                          <div className="sidebar-space-content">
-                            <div className="sidebar-space-name">{space.name}</div>
-                            <div className="sidebar-space-meta">
-                              {space.chats_count} чатов • {space.notes_count} файлов
-                            </div>
-                          </div>
-                          {isPinned && (
-                            <Icon src={starFilledIcon} size="sm" className="sidebar-star-icon" />
+                          {editingSpaceId === space.id ? (
+                            <input
+                              type="text"
+                              className="sidebar-space-edit"
+                              value={editingSpaceName}
+                              onChange={(e) => setEditingSpaceName(e.target.value)}
+                              onBlur={(e) => handleSpaceRenameSubmit(e, space.id)}
+                              onKeyDown={(e) => handleSpaceKeyDown(e, space.id)}
+                              onClick={(e) => e.stopPropagation()}
+                              autoFocus
+                            />
+                          ) : (
+                            <>
+                              <button
+                                className="sidebar-space-star-btn"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (isMobileOrTablet()) {
+                                    if (isPinned) {
+                                      handleSpaceUnpin(space.id);
+                                    } else {
+                                      handleSpacePin(space.id);
+                                    }
+                                  }
+                                }}
+                                onMouseEnter={(e) => {
+                                  if (!isMobileOrTablet()) {
+                                    e.currentTarget.style.opacity = '1';
+                                  }
+                                }}
+                                title={isPinned ? 'Открепить' : 'Закрепить'}
+                              >
+                                <Icon src={isPinned ? starFilledIcon : starIcon} size="sm" className="sidebar-star-icon" />
+                              </button>
+                              <Icon src={ICONS.flame} size="sm" />
+                              <div className="sidebar-space-content">
+                                <div className="sidebar-space-name">{space.name}</div>
+                                <div className="sidebar-space-meta">
+                                  {space.chats_count} чатов • {space.notes_count} файлов
+                                </div>
+                              </div>
+                              {hoveredSpaceId === space.id && (
+                                <button
+                                  className="sidebar-space-menu"
+                                  onClick={(e) => handleSpaceMenuClick(e, space.id)}
+                                  title="Меню"
+                                >
+                                  <Icon src={ICONS.more} size="sm" />
+                                </button>
+                              )}
+                            </>
                           )}
-                        </button>
+                        </div>
                       );
                     })
                   ) : (
@@ -534,6 +755,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
             onThreadSelect?.(threadId);
           }}
         />
+      )}
+      {spaceContextMenu && (
+        <div ref={spaceContextMenuRef}>
+          <SpaceContextMenu
+            spaceId={spaceContextMenu.spaceId}
+            position={spaceContextMenu.position}
+            onClose={() => setSpaceContextMenu(null)}
+            onDelete={handleSpaceDelete}
+            onRename={handleSpaceRename}
+            onUnpin={handleSpaceUnpin}
+            isPinned={loadPinnedSpaces().has(spaceContextMenu.spaceId)}
+          />
+        </div>
       )}
     </aside>
   );

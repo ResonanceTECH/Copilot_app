@@ -10,15 +10,15 @@ import { applyTheme, getTheme, watchSystemTheme, type Theme } from '../../utils/
 import { EfficiencyAnalytics } from './EfficiencyAnalytics';
 import './UserProfilePage.css';
 
-type ProfileSection = 
-  | 'account' 
-  | 'preferences' 
-  | 'efficiency' 
-  | 'assistant' 
-  | 'tasks' 
-  | 'notifications' 
-  | 'connectors' 
-  | 'api' 
+type ProfileSection =
+  | 'account'
+  | 'preferences'
+  | 'efficiency'
+  | 'assistant'
+  | 'tasks'
+  | 'notifications'
+  | 'connectors'
+  | 'api'
   | 'corporation';
 
 export const UserProfilePage: React.FC = () => {
@@ -29,7 +29,8 @@ export const UserProfilePage: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [activeSection, setActiveSection] = useState<ProfileSection>('account');
-  
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
   // Форма редактирования
   const [formData, setFormData] = useState<UserProfileUpdate>({
     name: '',
@@ -37,7 +38,7 @@ export const UserProfilePage: React.FC = () => {
     company_name: '',
     avatar_url: null,
   });
-  
+
   // Настройки
   const [settings, setSettings] = useState({
     notifications: true,
@@ -86,23 +87,23 @@ export const UserProfilePage: React.FC = () => {
     if (theme === 'light') {
       return (
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="8" cy="8" r="3.5" stroke="currentColor" strokeWidth="1.5" fill="none"/>
-          <path d="M8 2V1M8 15V14M2 8H1M15 8H14M3.343 3.343L2.636 2.636M13.364 13.364L12.657 12.657M3.343 12.657L2.636 13.364M13.364 2.636L12.657 3.343" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          <circle cx="8" cy="8" r="3.5" stroke="currentColor" strokeWidth="1.5" fill="none" />
+          <path d="M8 2V1M8 15V14M2 8H1M15 8H14M3.343 3.343L2.636 2.636M13.364 13.364L12.657 12.657M3.343 12.657L2.636 13.364M13.364 2.636L12.657 3.343" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
         </svg>
       );
     } else if (theme === 'dark') {
       return (
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M8 3C8 3 3 3 3 8C3 13 8 13 8 13C10.761 13 13 10.761 13 8C13 5.239 10.761 3 8 3Z" fill="currentColor"/>
+          <path d="M8 3C8 3 3 3 3 8C3 13 8 13 8 13C10.761 13 13 10.761 13 8C13 5.239 10.761 3 8 3Z" fill="currentColor" />
         </svg>
       );
     } else {
       // Система - иконка монитора
       return (
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect x="2" y="3" width="12" height="9" rx="1" stroke="currentColor" strokeWidth="1.5" fill="none"/>
-          <path d="M5 3V2C5 1.448 5.448 1 6 1H10C10.552 1 11 1.448 11 2V3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-          <circle cx="8" cy="7.5" r="1.5" fill="currentColor"/>
+          <rect x="2" y="3" width="12" height="9" rx="1" stroke="currentColor" strokeWidth="1.5" fill="none" />
+          <path d="M5 3V2C5 1.448 5.448 1 6 1H10C10.552 1 11 1.448 11 2V3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          <circle cx="8" cy="7.5" r="1.5" fill="currentColor" />
         </svg>
       );
     }
@@ -281,10 +282,29 @@ export const UserProfilePage: React.FC = () => {
     },
   ];
 
+  // Закрываем сайдбар при выборе раздела на мобильных/планшетах
+  const handleSectionSelect = (section: ProfileSection) => {
+    setActiveSection(section);
+    if (window.innerWidth <= 1024) {
+      setIsSidebarOpen(false);
+    }
+  };
+
+  // Проверка, является ли устройство мобильным или планшетом
+  const isMobileOrTablet = () => {
+    return window.innerWidth <= 1024;
+  };
+
   return (
     <div className="user-profile-page">
       <div className="user-profile-layout">
-        <div className="user-profile-sidebar">
+        {isMobileOrTablet() && (
+          <div
+            className={`user-profile-sidebar-overlay ${isSidebarOpen ? 'user-profile-sidebar-overlay--visible' : ''}`}
+            onClick={() => setIsSidebarOpen(false)}
+          ></div>
+        )}
+        <div className={`user-profile-sidebar ${isSidebarOpen || !isMobileOrTablet() ? 'user-profile-sidebar--open' : ''}`}>
           <button
             className="user-profile-back-btn"
             onClick={() => {
@@ -295,6 +315,16 @@ export const UserProfilePage: React.FC = () => {
             Назад
           </button>
 
+          {isMobileOrTablet() && (
+            <button
+              className="user-profile-sidebar-close-btn"
+              onClick={() => setIsSidebarOpen(false)}
+              title="Закрыть"
+            >
+              <Icon src={ICONS.close} size="sm" />
+            </button>
+          )}
+
           {navigationSections.map((section, sectionIndex) => (
             <div key={sectionIndex} className="user-profile-nav-section">
               <div className="user-profile-nav-section-title">{section.title}</div>
@@ -302,7 +332,7 @@ export const UserProfilePage: React.FC = () => {
                 <button
                   key={item.id}
                   className={`user-profile-nav-item ${activeSection === item.id ? 'active' : ''}`}
-                  onClick={() => setActiveSection(item.id)}
+                  onClick={() => handleSectionSelect(item.id)}
                 >
                   <Icon src={item.icon} size="sm" />
                   <span>{item.label}</span>
@@ -313,139 +343,148 @@ export const UserProfilePage: React.FC = () => {
         </div>
 
         <div className="user-profile-content">
+          {!isSidebarOpen && isMobileOrTablet() && (
+            <button
+              className="user-profile-sidebar-toggle-btn"
+              onClick={() => setIsSidebarOpen(true)}
+              title="Открыть меню"
+            >
+              <Icon src={ICONS.menu} size="md" />
+            </button>
+          )}
           <div className="user-profile-container">
 
             {activeSection === 'account' && (
-            <div className="user-profile-section">
-              <h2 className="user-profile-section-title">Аккаунт</h2>
-              
-              <div className="user-profile-account-header">
-                <div className="user-profile-avatar-section">
-                  {profile.avatar_url ? (
-                    <img 
-                      src={profile.avatar_url} 
-                      alt={profile.name}
-                      className="user-profile-avatar"
-                    />
-                  ) : (
-                    <div className="user-profile-avatar-placeholder">
-                      <Icon src={ICONS.user} size="lg" />
-                    </div>
-                  )}
-                </div>
-                <div className="user-profile-account-info">
-                  <div className="user-profile-account-name">{profile.name}</div>
-                  <div className="user-profile-account-email">{profile.email}</div>
-                </div>
-              </div>
+              <div className="user-profile-section">
+                <h2 className="user-profile-section-title">Аккаунт</h2>
 
-              <div className="user-profile-account-details">
-                <div className="user-profile-account-item">
-                  <div className="user-profile-account-item-label">Полное имя</div>
-                  <div className="user-profile-account-item-value">
-                    {isEditing ? (
-                      <input
-                        type="text"
-                        className="user-profile-inline-input"
-                        value={formData.name || ''}
-                        onChange={(e) => handleInputChange('name', e.target.value)}
-                        placeholder={getTranslation('name', language)}
+                <div className="user-profile-account-header">
+                  <div className="user-profile-avatar-section">
+                    {profile.avatar_url ? (
+                      <img
+                        src={profile.avatar_url}
+                        alt={profile.name}
+                        className="user-profile-avatar"
                       />
                     ) : (
-                      <span>{profile.name}</span>
+                      <div className="user-profile-avatar-placeholder">
+                        <Icon src={ICONS.user} size="lg" />
+                      </div>
                     )}
                   </div>
-                  {!isEditing && (
-                    <button
-                      className="user-profile-account-item-btn"
-                      onClick={handleEdit}
-                    >
-                      Изменить полное имя
-                    </button>
-                  )}
-                </div>
-
-                <div className="user-profile-account-item">
-                  <div className="user-profile-account-item-label">Имя пользователя</div>
-                  <div className="user-profile-account-item-value">
-                    <span>{profile.email.split('@')[0]}</span>
-                  </div>
-                  <button
-                    className="user-profile-account-item-btn"
-                    disabled
-                    title="Изменение имени пользователя недоступно"
-                  >
-                    Изменить имя пользователя
-                  </button>
-                </div>
-
-                <div className="user-profile-account-item">
-                  <div className="user-profile-account-item-label">Электронная почта</div>
-                  <div className="user-profile-account-item-value">
-                    <span>{profile.email}</span>
+                  <div className="user-profile-account-info">
+                    <div className="user-profile-account-name">{profile.name}</div>
+                    <div className="user-profile-account-email">{profile.email}</div>
                   </div>
                 </div>
 
-                <div className="user-profile-account-item">
-                  <div className="user-profile-account-item-label">Дата регистрации</div>
-                  <div className="user-profile-account-item-value">
-                    <span>{formatDate(profile.created_at)}</span>
-                  </div>
-                </div>
-
-                {isEditing && (
-                  <>
-                    <div className="user-profile-account-item">
-                      <div className="user-profile-account-item-label">
-                        {getTranslation('phone', language)}
-                      </div>
-                      <div className="user-profile-account-item-value">
-                        <input
-                          type="tel"
-                          className="user-profile-inline-input"
-                          value={formData.phone || ''}
-                          onChange={(e) => handleInputChange('phone', e.target.value)}
-                          placeholder={getTranslation('phone', language)}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="user-profile-account-item">
-                      <div className="user-profile-account-item-label">
-                        {getTranslation('company', language)}
-                      </div>
-                      <div className="user-profile-account-item-value">
+                <div className="user-profile-account-details">
+                  <div className="user-profile-account-item">
+                    <div className="user-profile-account-item-label">Полное имя</div>
+                    <div className="user-profile-account-item-value">
+                      {isEditing ? (
                         <input
                           type="text"
                           className="user-profile-inline-input"
-                          value={formData.company_name || ''}
-                          onChange={(e) => handleInputChange('company_name', e.target.value)}
-                          placeholder={getTranslation('company', language)}
+                          value={formData.name || ''}
+                          onChange={(e) => handleInputChange('name', e.target.value)}
+                          placeholder={getTranslation('name', language)}
                         />
-                      </div>
+                      ) : (
+                        <span>{profile.name}</span>
+                      )}
                     </div>
+                    {!isEditing && (
+                      <button
+                        className="user-profile-account-item-btn"
+                        onClick={handleEdit}
+                      >
+                        Изменить полное имя
+                      </button>
+                    )}
+                  </div>
 
-                    <div className="user-profile-account-actions">
-                      <button
-                        className="user-profile-btn user-profile-btn-secondary"
-                        onClick={handleCancel}
-                        disabled={isSaving}
-                      >
-                        {getTranslation('cancel', language)}
-                      </button>
-                      <button
-                        className="user-profile-btn user-profile-btn-primary"
-                        onClick={handleSave}
-                        disabled={isSaving}
-                      >
-                        {isSaving ? getTranslation('saving', language) : getTranslation('save', language)}
-                      </button>
+                  <div className="user-profile-account-item">
+                    <div className="user-profile-account-item-label">Имя пользователя</div>
+                    <div className="user-profile-account-item-value">
+                      <span>{profile.email.split('@')[0]}</span>
                     </div>
-                  </>
-                )}
+                    <button
+                      className="user-profile-account-item-btn"
+                      disabled
+                      title="Изменение имени пользователя недоступно"
+                    >
+                      Изменить имя пользователя
+                    </button>
+                  </div>
+
+                  <div className="user-profile-account-item">
+                    <div className="user-profile-account-item-label">Электронная почта</div>
+                    <div className="user-profile-account-item-value">
+                      <span>{profile.email}</span>
+                    </div>
+                  </div>
+
+                  <div className="user-profile-account-item">
+                    <div className="user-profile-account-item-label">Дата регистрации</div>
+                    <div className="user-profile-account-item-value">
+                      <span>{formatDate(profile.created_at)}</span>
+                    </div>
+                  </div>
+
+                  {isEditing && (
+                    <>
+                      <div className="user-profile-account-item">
+                        <div className="user-profile-account-item-label">
+                          {getTranslation('phone', language)}
+                        </div>
+                        <div className="user-profile-account-item-value">
+                          <input
+                            type="tel"
+                            className="user-profile-inline-input"
+                            value={formData.phone || ''}
+                            onChange={(e) => handleInputChange('phone', e.target.value)}
+                            placeholder={getTranslation('phone', language)}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="user-profile-account-item">
+                        <div className="user-profile-account-item-label">
+                          {getTranslation('company', language)}
+                        </div>
+                        <div className="user-profile-account-item-value">
+                          <input
+                            type="text"
+                            className="user-profile-inline-input"
+                            value={formData.company_name || ''}
+                            onChange={(e) => handleInputChange('company_name', e.target.value)}
+                            placeholder={getTranslation('company', language)}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="user-profile-account-actions">
+                        <button
+                          className="user-profile-btn user-profile-btn-secondary"
+                          onClick={handleCancel}
+                          disabled={isSaving}
+                        >
+                          {getTranslation('cancel', language)}
+                        </button>
+                        <button
+                          className="user-profile-btn user-profile-btn-primary"
+                          onClick={handleSave}
+                          disabled={isSaving}
+                        >
+                          {isSaving ? getTranslation('saving', language) : getTranslation('save', language)}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
             {activeSection === 'preferences' && (
               <div className="user-profile-section">
@@ -460,7 +499,7 @@ export const UserProfilePage: React.FC = () => {
                     </div>
                     <div className="user-profile-preference-control">
                       <div className="user-profile-theme-dropdown-wrapper">
-                        <button 
+                        <button
                           className="user-profile-preference-button"
                           onClick={() => setIsThemeDropdownOpen(!isThemeDropdownOpen)}
                         >
@@ -506,7 +545,7 @@ export const UserProfilePage: React.FC = () => {
                     </div>
                     <div className="user-profile-preference-control">
                       <div className="user-profile-theme-dropdown-wrapper">
-                        <button 
+                        <button
                           className="user-profile-preference-button"
                           onClick={() => setIsLanguageDropdownOpen(!isLanguageDropdownOpen)}
                         >
@@ -642,7 +681,7 @@ export const UserProfilePage: React.FC = () => {
             {activeSection === 'connectors' && (
               <div className="user-profile-section">
                 <h2 className="user-profile-section-title">Реферальная ссылка</h2>
-                
+
                 {/* Реферальная ссылка */}
                 <div className="user-profile-referral-link-section">
                   <div className="user-profile-referral-link-label">Ваша реферальная ссылка</div>
@@ -660,11 +699,11 @@ export const UserProfilePage: React.FC = () => {
                     >
                       {isLinkCopied ? (
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M13.5 4L6 11.5L2.5 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          <path d="M13.5 4L6 11.5L2.5 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
                       ) : (
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M5.5 3.5H3.5C2.67 3.5 2 4.17 2 5V12.5C2 13.33 2.67 14 3.5 14H11C11.83 14 12.5 13.33 12.5 12.5V10.5M10.5 2.5H13.5C14.33 2.5 15 3.17 15 4V6.5M10.5 2.5L15 6.5M10.5 2.5V6.5H15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                          <path d="M5.5 3.5H3.5C2.67 3.5 2 4.17 2 5V12.5C2 13.33 2.67 14 3.5 14H11C11.83 14 12.5 13.33 12.5 12.5V10.5M10.5 2.5H13.5C14.33 2.5 15 3.17 15 4V6.5M10.5 2.5L15 6.5M10.5 2.5V6.5H15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
                       )}
                       <span>{isLinkCopied ? 'Скопировано' : 'Копировать'}</span>
@@ -674,12 +713,12 @@ export const UserProfilePage: React.FC = () => {
                     Поделитесь этой ссылкой с друзьями, чтобы получить бонусы
                   </div>
                 </div>
-                
+
                 {/* Блок Акции */}
                 <div className="user-profile-referral-section">
                   <h3 className="user-profile-referral-title">Акции</h3>
                   <div className="user-profile-referral-divider"></div>
-                  
+
                   <div className="user-profile-referral-content">
                     <div className="user-profile-referral-text">
                       <div className="user-profile-referral-main-text">
@@ -689,11 +728,11 @@ export const UserProfilePage: React.FC = () => {
                         Заработайте 1 месяц премиум-доступа за каждого друга, которого вы порекомендуете
                       </div>
                     </div>
-                    
+
                     <div className="user-profile-referral-actions">
                       <button className="user-profile-referral-button">
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M4 12L12 4M12 4H6M12 4V10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                          <path d="M4 12L12 4M12 4H6M12 4V10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
                         Просмотреть предложение
                       </button>

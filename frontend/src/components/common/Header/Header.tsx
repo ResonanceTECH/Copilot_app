@@ -14,6 +14,8 @@ interface HeaderProps {
   onRename?: (threadId: string, newTitle: string) => void;
   activeTool?: string;
   onToolSelect?: (tool: string) => void;
+  onMobileMenuToggle?: () => void;
+  panelMode?: 'sidebar' | 'bottom';
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -22,6 +24,8 @@ export const Header: React.FC<HeaderProps> = ({
   onRename,
   activeTool = 'assistant',
   onToolSelect,
+  onMobileMenuToggle,
+  panelMode,
 }) => {
   const { language } = useLanguage();
   const { logout } = useAuth();
@@ -175,6 +179,15 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="header">
       <div className="header-left">
+        {onMobileMenuToggle && panelMode !== 'bottom' && (
+          <button
+            className="header-mobile-menu-btn"
+            onClick={onMobileMenuToggle}
+            title="Меню"
+          >
+            <Icon src={ICONS.menu} size="md" />
+          </button>
+        )}
         <div className="header-logo-group">
           {path === '/spaces' && (
             <button

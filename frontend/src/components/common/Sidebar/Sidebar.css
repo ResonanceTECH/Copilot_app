@@ -250,7 +250,7 @@
 }
 
 .sidebar-thread-pin-icon {
-  margin-right: 6px;
+  margin-right: 0;
   opacity: 0.7;
   flex-shrink: 0;
   filter: brightness(0) saturate(100%) invert(64%) sepia(94%) saturate(1352%) hue-rotate(100deg) brightness(96%) contrast(87%);
@@ -514,6 +514,9 @@
   border: none;
   padding: 10px 12px;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .sidebar-space-item--has-pinned {
@@ -558,6 +561,93 @@
 .sidebar-space-unpin-btn:hover {
   background: var(--color-hover);
   opacity: 1;
+}
+
+.sidebar-space-star-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  padding: 0;
+  margin-right: 0;
+  opacity: 0;
+}
+
+.sidebar-space-item:hover .sidebar-space-star-btn {
+  opacity: 1;
+}
+
+.sidebar-space-star-btn:hover {
+  background: var(--color-hover);
+}
+
+.sidebar-space-menu {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  opacity: 0;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.sidebar-space-item:hover .sidebar-space-menu {
+  opacity: 1;
+}
+
+.sidebar-space-menu:hover {
+  background: var(--color-hover);
+  color: var(--color-text);
+}
+
+.sidebar-space-edit {
+  flex: 1;
+  padding: 4px 8px;
+  background: var(--color-input-bg);
+  border: 1px solid var(--color-primary);
+  border-radius: 4px;
+  color: var(--color-text);
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  min-width: 0;
+}
+
+.sidebar-space-edit:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-primary-alpha);
+}
+
+.sidebar-thread-pin-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  padding: 0;
+  margin-right: 6px;
+}
+
+.sidebar-thread-pin-icon-btn:hover {
+  background: var(--color-hover);
 }
 
 .sidebar-space-meta {
@@ -659,4 +749,240 @@
 
 .sidebar--collapsed .sidebar-thread-menu {
   display: none;
+}
+
+/* Адаптивность для планшетов (768px - 1024px) */
+@media (max-width: 1024px) and (min-width: 769px) {
+  .sidebar {
+    width: 260px;
+  }
+
+  .sidebar--collapsed {
+    width: 64px;
+  }
+
+  .sidebar-header {
+    padding: 18px 14px;
+  }
+
+  .sidebar-content {
+    padding: 14px;
+  }
+
+  .sidebar-footer {
+    padding: 14px;
+  }
+
+  .sidebar-new-btn {
+    font-size: 15px;
+    padding: 9px 14px;
+  }
+
+  .sidebar-thread-item {
+    padding: 11px;
+  }
+
+  .sidebar-thread-title {
+    font-size: 13px;
+  }
+
+  /* Улучшаем видимость звездочки для открепления/закрепления на планшетах */
+  .sidebar-thread-pin-icon-btn {
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    min-height: 28px;
+    margin-right: 6px;
+    opacity: 1;
+  }
+
+  .sidebar-space-star-btn {
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    min-height: 28px;
+    margin-right: 6px;
+    opacity: 1 !important;
+    display: flex;
+  }
+
+  /* Всегда показываем звездочку для пространств на планшетах */
+  .sidebar-space-item .sidebar-space-star-btn {
+    opacity: 1 !important;
+  }
+
+  .sidebar-space-menu {
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    min-height: 28px;
+    opacity: 1;
+  }
+
+  .sidebar-space-item:hover .sidebar-space-menu {
+    opacity: 1;
+  }
+}
+
+/* Адаптивность для мобильных устройств (< 768px) */
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    z-index: 999;
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    width: 85%;
+    max-width: 320px;
+    box-shadow: 2px 0 12px rgba(0, 0, 0, 0.2);
+  }
+
+  .sidebar--mobile-open {
+    transform: translateX(0);
+  }
+
+  .sidebar--collapsed {
+    width: 85%;
+    max-width: 320px;
+  }
+
+  .sidebar-header {
+    padding: 14px 12px;
+    border-bottom-width: 1px;
+  }
+
+  .sidebar-logo {
+    margin-bottom: 12px;
+  }
+
+  .sidebar-logo-icon {
+    width: 28px;
+    height: 28px;
+  }
+
+  .sidebar-logo-text {
+    font-size: 18px;
+  }
+
+  .sidebar-content {
+    padding: 12px 10px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .sidebar-footer {
+    padding: 12px 10px;
+    border-top-width: 1px;
+  }
+
+  .sidebar-new-btn {
+    font-size: 14px;
+    padding: 10px 14px;
+    min-height: 44px;
+  }
+
+  .sidebar-new-btn-collapsed {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .sidebar-collapse-btn {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    min-height: 40px;
+  }
+
+  .sidebar-thread-item {
+    padding: 12px 10px;
+    min-height: 48px;
+    border-radius: 10px;
+  }
+
+  .sidebar-thread-title {
+    font-size: 14px;
+  }
+
+  .sidebar-nav-item {
+    padding: 12px 10px;
+    min-height: 48px;
+    border-radius: 10px;
+  }
+
+  .sidebar-section-title {
+    font-size: 13px;
+    margin-bottom: 10px;
+  }
+
+  .sidebar-threads {
+    gap: 6px;
+  }
+
+  .sidebar-search-btn {
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    min-height: 28px;
+  }
+
+  .sidebar-thread-menu {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    min-height: 32px;
+  }
+
+  .sidebar-thread-star {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    min-height: 32px;
+  }
+
+  /* Улучшаем видимость звездочки для открепления/закрепления на мобильных */
+  .sidebar-thread-pin-icon-btn {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    min-height: 32px;
+    margin-right: 8px;
+    opacity: 1;
+  }
+
+  .sidebar-space-star-btn {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    min-height: 32px;
+    margin-right: 6px;
+    opacity: 1 !important;
+    display: flex;
+  }
+
+  /* Всегда показываем звездочку для пространств на мобильных */
+  .sidebar-space-item .sidebar-space-star-btn {
+    opacity: 1 !important;
+  }
+
+  .sidebar-space-menu {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    min-height: 32px;
+    opacity: 1;
+    display: flex;
+  }
+
+  .sidebar-space-item:hover .sidebar-space-menu {
+    opacity: 1;
+  }
+
+  /* Всегда показываем меню для пространств на мобильных */
+  .sidebar-space-item .sidebar-space-menu {
+    opacity: 1;
+  }
 }
