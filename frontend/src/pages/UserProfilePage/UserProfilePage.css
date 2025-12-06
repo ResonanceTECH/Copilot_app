@@ -210,6 +210,39 @@
   margin: 0 0 24px 0;
   padding-bottom: 24px;
   border-bottom: 1px solid var(--color-border);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Скрываем кнопку корзины в header'е на мобильных */
+.user-profile-section-title button:has(svg),
+.user-profile-section-title button[title*="удалить"],
+.user-profile-section-title button[title*="Удалить"],
+.user-profile-section-title button[title*="delete"],
+.user-profile-section-title button[title*="Delete"],
+.user-profile-account-header button:has(svg),
+.user-profile-account-header button[title*="удалить"],
+.user-profile-account-header button[title*="Удалить"],
+.user-profile-account-header button[title*="delete"],
+.user-profile-account-header button[title*="Delete"] {
+  display: none;
+}
+
+@media (min-width: 1025px) {
+  .user-profile-section-title button:has(svg),
+  .user-profile-section-title button[title*="удалить"],
+  .user-profile-section-title button[title*="Удалить"],
+  .user-profile-section-title button[title*="delete"],
+  .user-profile-section-title button[title*="Delete"],
+  .user-profile-account-header button:has(svg),
+  .user-profile-account-header button[title*="удалить"],
+  .user-profile-account-header button[title*="Удалить"],
+  .user-profile-account-header button[title*="delete"],
+  .user-profile-account-header button[title*="Delete"] {
+    display: flex;
+  }
 }
 
 .user-profile-preferences-list {
@@ -957,6 +990,15 @@
     display: flex;
   }
 
+  /* Скрываем кнопку корзины в сайдбаре на планшетах */
+  .user-profile-sidebar .user-profile-delete-btn,
+  .user-profile-sidebar button[title*="удалить"],
+  .user-profile-sidebar button[title*="Удалить"],
+  .user-profile-sidebar button[title*="delete"],
+  .user-profile-sidebar button[title*="Delete"] {
+    display: none !important;
+  }
+
   .user-profile-content {
     padding: 24px 28px;
     overflow-y: auto;
@@ -1098,6 +1140,31 @@
 
   .user-profile-sidebar-toggle-btn {
     display: flex;
+  }
+
+  /* Скрываем кнопку корзины в сайдбаре на мобильных */
+  .user-profile-sidebar .user-profile-delete-btn,
+  .user-profile-sidebar button[title*="удалить"],
+  .user-profile-sidebar button[title*="Удалить"],
+  .user-profile-sidebar button[title*="delete"],
+  .user-profile-sidebar button[title*="Delete"],
+  .user-profile-sidebar button:has(svg[viewBox*="trash"]),
+  .user-profile-sidebar button:has(svg[viewBox*="Trash"]) {
+    display: none !important;
+  }
+
+  /* Скрываем кнопку корзины в header'е на мобильных */
+  .user-profile-section-title button:has(svg),
+  .user-profile-section-title button[title*="удалить"],
+  .user-profile-section-title button[title*="Удалить"],
+  .user-profile-section-title button[title*="delete"],
+  .user-profile-section-title button[title*="Delete"],
+  .user-profile-account-header button:has(svg),
+  .user-profile-account-header button[title*="удалить"],
+  .user-profile-account-header button[title*="Удалить"],
+  .user-profile-account-header button[title*="delete"],
+  .user-profile-account-header button[title*="Delete"] {
+    display: none !important;
   }
 
   .user-profile-content {
