@@ -157,12 +157,12 @@ async def get_unread_count(
 ):
     """Получить количество непрочитанных уведомлений"""
     try:
-    count = db.query(Notification).filter(
-        Notification.user_id == current_user.id,
-        Notification.is_read == False
-    ).count()
-    
-    return {"unread_count": count}
+        count = db.query(Notification).filter(
+            Notification.user_id == current_user.id,
+            Notification.is_read == False
+        ).count()
+        
+        return {"unread_count": count}
     except Exception as e:
         db.rollback()
         raise HTTPException(

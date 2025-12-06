@@ -70,64 +70,67 @@ export const CreateTagBlock: React.FC<CreateTagBlockProps> = ({
   };
 
   return (
-    <div
-      ref={blockRef}
-      className="create-tag-block"
-      onClick={(e) => e.stopPropagation()}
-    >
-      <div className="create-tag-block-header">
-        <h3 className="create-tag-block-title">Создать тег</h3>
-        <button className="create-tag-block-close" onClick={handleCancel}>
-          <Icon src={ICONS.close} size="sm" />
-        </button>
-      </div>
-      <form onSubmit={handleSubmit}>
-        <div className="create-tag-block-field">
-          <label>Название тега</label>
-          <input
-            type="text"
-            value={tagName}
-            onChange={(e) => setTagName(e.target.value)}
-            placeholder="Введите название тега"
-            required
-            autoFocus
-          />
+    <>
+      <div className="create-tag-block-overlay" onClick={handleCancel} />
+      <div
+        ref={blockRef}
+        className="create-tag-block"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="create-tag-block-header">
+          <h3 className="create-tag-block-title">Создать тег</h3>
+          <button className="create-tag-block-close" onClick={handleCancel}>
+            <Icon src={ICONS.close} size="sm" />
+          </button>
         </div>
-        <div className="create-tag-block-field">
-          <label>Цвет</label>
-          <div className="create-tag-block-color-input">
-            <input
-              type="color"
-              value={tagColor}
-              onChange={(e) => setTagColor(e.target.value)}
-            />
+        <form onSubmit={handleSubmit}>
+          <div className="create-tag-block-field">
+            <label>Название тега</label>
             <input
               type="text"
-              value={tagColor}
-              onChange={(e) => setTagColor(e.target.value)}
-              placeholder="#6366f1"
-              pattern="^#[0-9A-Fa-f]{6}$"
+              value={tagName}
+              onChange={(e) => setTagName(e.target.value)}
+              placeholder="Введите название тега"
+              required
+              autoFocus
             />
           </div>
-        </div>
-        <div className="create-tag-block-field">
-          <label>Тип тега (необязательно)</label>
-          <input
-            type="text"
-            value={tagType}
-            onChange={(e) => setTagType(e.target.value)}
-            placeholder="Например: urgent, important"
-          />
-        </div>
-        <div className="create-tag-block-actions">
-          <button type="button" onClick={handleCancel} disabled={isCreating}>
-            Отмена
-          </button>
-          <button type="submit" disabled={isCreating || !tagName.trim()}>
-            Создать
-          </button>
-        </div>
-      </form>
-    </div>
+          <div className="create-tag-block-field">
+            <label>Цвет</label>
+            <div className="create-tag-block-color-input">
+              <input
+                type="color"
+                value={tagColor}
+                onChange={(e) => setTagColor(e.target.value)}
+              />
+              <input
+                type="text"
+                value={tagColor}
+                onChange={(e) => setTagColor(e.target.value)}
+                placeholder="#6366f1"
+                pattern="^#[0-9A-Fa-f]{6}$"
+              />
+            </div>
+          </div>
+          <div className="create-tag-block-field">
+            <label>Тип тега (необязательно)</label>
+            <input
+              type="text"
+              value={tagType}
+              onChange={(e) => setTagType(e.target.value)}
+              placeholder="Например: urgent, important"
+            />
+          </div>
+          <div className="create-tag-block-actions">
+            <button type="button" onClick={handleCancel} disabled={isCreating}>
+              Отмена
+            </button>
+            <button type="submit" disabled={isCreating || !tagName.trim()}>
+              Создать
+            </button>
+          </div>
+        </form>
+      </div>
+    </>
   );
 };
