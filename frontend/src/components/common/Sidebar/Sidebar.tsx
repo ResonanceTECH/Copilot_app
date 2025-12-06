@@ -23,6 +23,8 @@ interface SidebarProps {
   onThreadRename?: (threadId: string, newTitle: string) => void;
   onThreadPin?: (threadId: string) => void;
   onSettingsClick?: () => void;
+  isMobileMenuOpen?: boolean;
+  onMobileMenuClose?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -36,6 +38,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onThreadRename,
   onThreadPin,
   onSettingsClick,
+  isMobileMenuOpen = false,
+  onMobileMenuClose,
 }) => {
   const [contextMenu, setContextMenu] = useState<{
     threadId: string;
@@ -168,7 +172,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   }, [onNewThread, contextMenu, editingThreadId]);
 
   return (
-    <aside className={`sidebar ${isCollapsed ? 'sidebar--collapsed' : ''}`}>
+    <aside className={`sidebar ${isCollapsed ? 'sidebar--collapsed' : ''} ${isMobileMenuOpen ? 'sidebar--mobile-open' : ''}`}>
       <div className="sidebar-header">
         <div className="sidebar-logo">
           <img src={logoIcon} alt={getTranslation('aiAssistant', language)} className="sidebar-logo-icon" />
@@ -186,7 +190,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
             <button
               className="sidebar-collapse-btn"
-              onClick={onToggleCollapse}
+              onClick={() => {
+                onToggleCollapse?.();
+                onMobileMenuClose?.();
+              }}
               title={getTranslation('settings', language)}
             >
               <Icon src={ICONS.menu} size="sm" />
@@ -196,7 +203,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <>
             <button
               className="sidebar-collapse-btn"
-              onClick={onToggleCollapse}
+              onClick={() => {
+                onToggleCollapse?.();
+                onMobileMenuClose?.();
+              }}
               title={getTranslation('settings', language)}
             >
               <Icon src={ICONS.menu} size="sm" />
@@ -351,7 +361,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <div
                   key={thread.id}
                   className={`sidebar-thread-item ${activeThreadId === thread.id ? 'sidebar-thread-item--active' : ''}`}
-                  onClick={() => !editingThreadId && onThreadSelect?.(thread.id)}
+                  onClick={() => {
+                    if (!editingThreadId) {
+                      onThreadSelect?.(thread.id);
+                      onMobileMenuClose?.();
+                    }
+                  }}
                   onMouseEnter={() => setHoveredThreadId(thread.id)}
                   onMouseLeave={() => setHoveredThreadId(null)}
                   title={thread.title}

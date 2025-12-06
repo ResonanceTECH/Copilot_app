@@ -805,39 +805,314 @@
   display: block;
 }
 
+/* Адаптивность для планшетов (768px - 1024px) */
+@media (max-width: 1024px) and (min-width: 769px) {
+  .chat-messages {
+    padding: 16px 20px;
+    gap: 14px;
+  }
+
+  .chat-message {
+    max-width: 82%;
+  }
+
+  .chat-message-content {
+    padding: 11px 15px;
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  .chat-welcome-container {
+    padding: 36px 24px;
+  }
+
+  .chat-welcome-title {
+    font-size: 26px;
+  }
+
+  .chat-welcome-subtitle {
+    font-size: 17px;
+  }
+
+  .chat-input-wrapper {
+    padding: 10px 18px 14px 18px;
+  }
+
+  .chat-input-container {
+    padding: 11px 14px;
+  }
+
+  .chat-input {
+    font-size: 15px;
+  }
+
+  .chat-input-actions {
+    gap: 8px;
+    margin-left: 10px;
+  }
+
+  .chat-input-icon-btn {
+    width: 38px;
+    height: 38px;
+    min-width: 38px;
+    min-height: 38px;
+  }
+}
+
+/* Адаптивность для мобильных устройств (< 768px) */
 @media (max-width: 768px) {
+  .chat-messages {
+    padding: 12px 10px;
+    gap: 10px;
+    /* Скрываем scrollbar на мобильных */
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+  }
+
+  .chat-messages::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+    width: 0;
+    height: 0;
+  }
+
+  .chat-message {
+    max-width: 88%;
+  }
+
+  .chat-message-content {
+    padding: 10px 12px;
+    font-size: 14px;
+    line-height: 1.45;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+  }
+
+  .chat-welcome-container {
+    padding: 24px 16px;
+    /* Скрываем scrollbar на мобильных */
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+  }
+
+  .chat-welcome-container::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+    width: 0;
+    height: 0;
+  }
+
+  .chat-welcome {
+    margin-bottom: 28px;
+  }
+
+  .chat-welcome-logo {
+    width: 48px;
+    height: 48px;
+  }
+
+  .chat-welcome-title {
+    font-size: 22px;
+    margin-bottom: 8px;
+  }
+
+  .chat-welcome-subtitle {
+    font-size: 15px;
+  }
+
+  .chat-message-timestamp {
+    font-size: 10px;
+    margin-top: 6px;
+  }
+
+  .chat-message-actions {
+    margin-top: 8px;
+    padding-top: 6px;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+
+  .chat-message-action-btn {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    min-height: 32px;
+  }
+
+  .chat-input-wrapper {
+    padding: 8px 10px 10px 10px;
+  }
+
+  .chat-input-container {
+    padding: 8px 10px;
+    border-radius: 12px;
+    min-height: 48px;
+    display: flex;
+    align-items: flex-end;
+  }
+
+  .chat-input {
+    font-size: 16px; /* Предотвращает zoom на iOS */
+    min-height: 24px;
+    max-height: 120px;
+    line-height: 1.4;
+    padding: 6px 0;
+    /* Скрываем scrollbar на мобильных */
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+  }
+
+  .chat-input::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+    width: 0;
+    height: 0;
+  }
+
+  .chat-input-actions {
+    gap: 4px;
+    margin-left: 6px;
+    flex-shrink: 0;
+    align-items: flex-end;
+    padding-bottom: 2px;
+  }
+
+  .chat-input-icon-btn {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    min-height: 40px;
+    flex-shrink: 0;
+  }
+
+  .chat-input-send-btn {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    min-height: 40px;
+  }
+
   .chat-attached-files {
-    gap: 6px;
-    margin-bottom: 10px;
+    gap: 8px;
+    margin-bottom: 8px;
+    padding: 0 2px;
   }
   
   .chat-attached-file-card {
-    min-width: 150px;
+    min-width: 100%;
     max-width: 100%;
-    padding: 8px 10px;
-    gap: 8px;
+    padding: 10px 12px;
+    gap: 10px;
+    border-radius: 10px;
   }
   
   .chat-attached-file-icon {
-    width: 32px;
-    height: 32px;
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    min-height: 36px;
   }
   
   .chat-attached-file-icon-emoji {
-    font-size: 18px;
+    font-size: 20px;
   }
   
   .chat-attached-file-name {
-    font-size: 13px;
+    font-size: 14px;
+    line-height: 1.3;
   }
   
   .chat-attached-file-type {
-    font-size: 11px;
+    font-size: 12px;
+    line-height: 1.2;
   }
   
   .chat-attached-file-remove {
-    width: 22px;
-    height: 22px;
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    min-height: 28px;
+  }
+
+  /* Улучшаем читаемость markdown на мобильных */
+  .chat-message--assistant .chat-message-content h1 {
+    font-size: 20px;
+  }
+
+  .chat-message--assistant .chat-message-content h2 {
+    font-size: 18px;
+  }
+
+  .chat-message--assistant .chat-message-content h3 {
+    font-size: 16px;
+  }
+
+  .chat-message--assistant .chat-message-content h4,
+  .chat-message--assistant .chat-message-content h5,
+  .chat-message--assistant .chat-message-content h6 {
+    font-size: 15px;
+  }
+
+  .chat-message--assistant .chat-message-content p {
+    margin: 6px 0;
+  }
+
+  .chat-message--assistant .chat-message-content ul,
+  .chat-message--assistant .chat-message-content ol {
+    margin: 8px 0;
+    padding-left: 20px;
+  }
+
+  .chat-message--assistant .chat-message-content li {
+    margin: 4px 0;
+  }
+
+  .chat-message--assistant .chat-message-content pre {
+    padding: 10px;
+    font-size: 13px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin: 8px 0;
+    /* Скрываем scrollbar на мобильных */
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+  }
+
+  .chat-message--assistant .chat-message-content pre::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+    width: 0;
+    height: 0;
+  }
+
+  .chat-message--assistant .chat-message-content code {
+    font-size: 13px;
+    padding: 2px 4px;
+  }
+
+  /* Улучшаем отображение изображений на мобильных */
+  .uploaded-file-image {
+    margin-top: 10px;
+  }
+
+  .uploaded-file-image img {
+    max-height: 300px;
+    border-radius: 10px;
+  }
+
+  /* Улучшаем карточки файлов в сообщениях */
+  .message-file-card {
+    padding: 10px 12px;
+    gap: 10px;
+    border-radius: 10px;
+  }
+
+  .message-file-icon {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    font-size: 11px;
+  }
+
+  .message-file-name {
+    font-size: 13px;
+    max-width: 180px;
   }
 }
 

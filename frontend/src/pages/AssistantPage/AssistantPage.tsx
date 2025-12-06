@@ -29,6 +29,7 @@ export const AssistantPage: React.FC = () => {
   const [activeTool, setActiveTool] = useState<string>('assistant');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [showSupportPanel, setShowSupportPanel] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { language } = useLanguage();
   const [panelTogglePosition, setPanelTogglePosition] = useState<{
     side: 'left' | 'right' | 'top' | 'bottom';
@@ -189,6 +190,7 @@ export const AssistantPage: React.FC = () => {
   // Выбрать чат
   const handleThreadSelect = useCallback(async (threadId: string) => {
     setShowSupportPanel(false);
+    setIsMobileMenuOpen(false); // Закрываем мобильное меню при выборе чата
     setActiveThreadId(threadId);
     const threadData = threads.get(threadId);
 
@@ -597,18 +599,26 @@ export const AssistantPage: React.FC = () => {
   return (
     <div className="assistant-page">
       {panelMode === 'sidebar' && (
-        <Sidebar
-          threads={getThreadsList()}
-          activeThreadId={activeThreadId}
-          isCollapsed={isSidebarCollapsed}
-          onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-          onNewThread={handleNewThread}
-          onThreadSelect={handleThreadSelect}
-          onThreadDelete={handleThreadDelete}
-          onThreadRename={handleThreadRename}
-          onThreadPin={handleThreadPin}
-          onSettingsClick={() => setShowSupportPanel(true)}
-        />
+        <>
+          <div
+            className={`sidebar-overlay ${isMobileMenuOpen ? 'sidebar-overlay--visible' : ''}`}
+            onClick={() => setIsMobileMenuOpen(false)}
+          />
+          <Sidebar
+            threads={getThreadsList()}
+            activeThreadId={activeThreadId}
+            isCollapsed={isSidebarCollapsed}
+            onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            onNewThread={handleNewThread}
+            onThreadSelect={handleThreadSelect}
+            onThreadDelete={handleThreadDelete}
+            onThreadRename={handleThreadRename}
+            onThreadPin={handleThreadPin}
+            onSettingsClick={() => setShowSupportPanel(true)}
+            isMobileMenuOpen={isMobileMenuOpen}
+            onMobileMenuClose={() => setIsMobileMenuOpen(false)}
+          />
+        </>
       )}
       <div className={`assistant-main ${panelMode === 'bottom' ? 'assistant-main--full-width' : ''} ${isSidebarCollapsed && panelMode === 'sidebar' ? 'assistant-main--sidebar-collapsed' : ''}`}>
         <Header
@@ -617,6 +627,8 @@ export const AssistantPage: React.FC = () => {
           onRename={handleThreadRename}
           activeTool={activeTool}
           onToolSelect={setActiveTool}
+          onMobileMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          panelMode={panelMode}
         />
         {showSupportPanel ? (
           <SupportPanel />
