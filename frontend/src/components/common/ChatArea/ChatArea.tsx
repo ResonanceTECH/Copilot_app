@@ -10,6 +10,7 @@ import { getTranslation } from '../../../utils/i18n';
 import { NotesPanel } from '../NotesPanel';
 import { trackActivity } from '../../../utils/activityTracker';
 import { chatAPI } from '../../../utils/api';
+import { FeedbackModal } from './FeedbackModal';
 import './ChatArea.css';
 
 // Компонент анимации печатания
@@ -61,6 +62,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [showReportMenu, setShowReportMenu] = useState<string | null>(null);
+  const [showFeedbackModal, setShowFeedbackModal] = useState<string | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -217,10 +219,15 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
   // Обработка жалобы на сообщение
   const handleReport = (messageId: string) => {
-    console.log(`🚩 Жалоба на сообщение ${messageId}`);
     setShowReportMenu(null);
-    // Здесь можно добавить логику отправки жалобы на бэкенд
-    alert('Спасибо за обратную связь. Мы рассмотрим вашу жалобу.');
+    setShowFeedbackModal(messageId);
+  };
+
+  // Обработка отправки обратной связи
+  const handleFeedbackSubmit = (messageId: string, selectedReasons: string[], feedback: string) => {
+    console.log(`🚩 Обратная связь для сообщения ${messageId}:`, { selectedReasons, feedback });
+    // Здесь можно добавить логику отправки обратной связи на бэкенд
+    // Например: chatAPI.submitFeedback(messageId, { reasons: selectedReasons, text: feedback });
   };
 
   // Закрытие меню при клике вне его
@@ -756,14 +763,14 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                       <button
                         className="chat-message-action-btn"
                         onClick={() => handleReaction(message.id, 'like')}
-                        title="Лайк"
+                        title="Вверх"
                       >
                         <Icon src={ICONS.thumbsUp} size="sm" />
                       </button>
                       <button
                         className="chat-message-action-btn"
                         onClick={() => handleReaction(message.id, 'dislike')}
-                        title="Дизлайк"
+                        title="Вниз"
                       >
                         <Icon src={ICONS.thumbsDown} size="sm" />
                       </button>
@@ -921,6 +928,17 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       </div>
       {isNotesPanelVisible && (
         <NotesPanel onClose={() => setIsNotesPanelVisible(false)} />
+      )}
+      {showFeedbackModal && (
+        <FeedbackModal
+          isOpen={true}
+          onClose={() => setShowFeedbackModal(null)}
+          onSubmit={(selectedReasons, feedback) => {
+            if (showFeedbackModal) {
+              handleFeedbackSubmit(showFeedbackModal, selectedReasons, feedback);
+            }
+          }}
+        />
       )}
     </div>
   );

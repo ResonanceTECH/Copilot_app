@@ -1,0 +1,209 @@
+.feedback-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: 20px;
+}
+
+.feedback-modal {
+  background: var(--color-sidebar-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 24px;
+  width: 100%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+  position: relative;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.feedback-modal-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-secondary);
+  transition: all 0.2s ease;
+}
+
+.feedback-modal-close:hover {
+  background: var(--color-hover);
+  color: var(--color-text);
+}
+
+.feedback-modal-title {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 0 0 8px 0;
+}
+
+.feedback-modal-description {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  margin: 0 0 24px 0;
+  line-height: 1.5;
+}
+
+.feedback-modal-reasons {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.feedback-modal-reason-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--color-input-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 14px;
+  color: var(--color-text);
+  text-align: left;
+  font-family: inherit;
+}
+
+.feedback-modal-reason-btn:hover {
+  background: var(--color-hover);
+  border-color: var(--color-border-hover);
+}
+
+.feedback-modal-reason-btn.selected {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-text-on-primary);
+}
+
+.feedback-modal-reason-btn .icon {
+  flex-shrink: 0;
+}
+
+.feedback-modal-textarea-wrapper {
+  margin-bottom: 24px;
+}
+
+.feedback-modal-label {
+  display: block;
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  margin-bottom: 8px;
+}
+
+.feedback-modal-textarea {
+  width: 100%;
+  padding: 12px 16px;
+  background: var(--color-input-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--color-text);
+  font-family: inherit;
+  resize: vertical;
+  min-height: 100px;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.feedback-modal-textarea:focus {
+  border-color: var(--color-primary);
+}
+
+.feedback-modal-textarea::placeholder {
+  color: var(--color-text-placeholder);
+}
+
+.feedback-modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.feedback-modal-cancel-btn,
+.feedback-modal-submit-btn {
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  border: 1px solid var(--color-border);
+}
+
+.feedback-modal-cancel-btn {
+  background: var(--color-input-bg);
+  color: var(--color-text);
+}
+
+.feedback-modal-cancel-btn:hover {
+  background: var(--color-hover);
+  border-color: var(--color-border-hover);
+}
+
+.feedback-modal-submit-btn {
+  background: var(--color-primary);
+  color: var(--color-text-on-primary);
+  border-color: var(--color-primary);
+}
+
+.feedback-modal-submit-btn:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
+}
+
+.feedback-modal-submit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Мобильные */
+@media (max-width: 768px) {
+  .feedback-modal {
+    padding: 20px;
+    max-width: 100%;
+    border-radius: 16px 16px 0 0;
+    margin-top: auto;
+  }
+
+  .feedback-modal-reasons {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .feedback-modal-reason-btn {
+    padding: 14px 16px;
+    font-size: 14px;
+  }
+
+  .feedback-modal-actions {
+    flex-direction: column-reverse;
+  }
+
+  .feedback-modal-cancel-btn,
+  .feedback-modal-submit-btn {
+    width: 100%;
+    padding: 12px 20px;
+    min-height: 44px;
+  }
+}
