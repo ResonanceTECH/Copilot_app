@@ -35,6 +35,7 @@ export interface ChatMessage {
   file_url?: string; // URL загруженного файла
   file_type?: string; // Тип файла (image, pdf, docx и т.д.)
   analysis_result?: string; // Результат анализа (для изображений)
+  tags?: Array<{ id: number; name: string; color?: string }>; // Теги сообщения
 }
 
 export interface TrendingCard {

@@ -21,6 +21,11 @@
   min-width: 200px;
 }
 
+/* Центрирование блока относительно ChatArea для всех версий */
+.icon-selector--centered {
+  transform: translateX(-50%) translateY(-100%);
+}
+
 .icon-selector-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);

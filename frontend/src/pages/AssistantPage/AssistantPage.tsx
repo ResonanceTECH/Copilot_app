@@ -204,6 +204,7 @@ export const AssistantPage: React.FC = () => {
           role: msg.role as 'user' | 'assistant',
           timestamp: new Date(msg.created_at),
           image_url: msg.image_url,
+          tags: msg.tags,
         }));
 
         // Обновляем сообщения в состоянии

@@ -52,8 +52,6 @@ const ICON_PACKS: IconName[][] = [
   ],
 ];
 
-const ICONS_PER_PAGE = 16;
-
 export const IconSelector: React.FC<IconSelectorProps> = ({
   position,
   onSelect,
@@ -85,7 +83,7 @@ export const IconSelector: React.FC<IconSelectorProps> = ({
     <>
       <div className="icon-selector-overlay" onClick={onClose} />
       <div
-        className="icon-selector"
+        className="icon-selector icon-selector--centered"
         style={{
           left: `${position.x}px`,
           bottom: `${position.y}px`,

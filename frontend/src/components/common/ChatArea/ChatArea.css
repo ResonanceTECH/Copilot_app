@@ -206,6 +206,50 @@
   color: var(--color-text-secondary);
 }
 
+.chat-message-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+  margin-bottom: 4px;
+}
+
+.chat-message-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  color: white;
+  line-height: 1.4;
+  border: none;
+  white-space: nowrap;
+}
+
+.chat-message-tag-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  background: rgba(255, 255, 255, 0.25);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.2s ease;
+  opacity: 0.9;
+  margin-left: 4px;
+}
+
+.chat-message-tag-remove:hover {
+  background: rgba(255, 255, 255, 0.4);
+  opacity: 1;
+  transform: scale(1.1);
+}
+
 .chat-message-timestamp {
   font-size: 11px;
   margin-top: 8px;
