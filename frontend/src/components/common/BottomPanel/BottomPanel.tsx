@@ -131,9 +131,9 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
       const buttonRef = buttonRefs.current[threadId];
       if (buttonRef) {
         const rect = buttonRef.getBoundingClientRect();
-        const isWeb = window.innerWidth >= 1025;
+        // Всегда центрируем относительно ChatArea
         setIconPosition({
-          x: isWeb ? getChatAreaCenter() : rect.left + rect.width / 2,
+          x: getChatAreaCenter(),
           y: window.innerHeight - rect.top + 60,
         });
         setEditingIconThreadId(threadId);
@@ -160,9 +160,9 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
       const buttonRef = buttonRefs.current[threadId];
       if (buttonRef) {
         const rect = buttonRef.getBoundingClientRect();
-        const isWeb = window.innerWidth >= 1025;
+        // Всегда центрируем относительно ChatArea
         setIconPosition({
-          x: isWeb ? getChatAreaCenter() : rect.left + rect.width / 2,
+          x: getChatAreaCenter(),
           y: window.innerHeight - rect.top + 60,
         });
         setEditingIconThreadId(threadId);

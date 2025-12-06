@@ -21,12 +21,9 @@
   min-width: 200px;
 }
 
-/* Web-версия: центрирование блока относительно ChatArea */
-@media (min-width: 1025px) {
-  .icon-selector--web {
-    /* left устанавливается через inline стили из position.x (центр ChatArea) */
-    transform: translateX(-50%) translateY(-100%) !important;
-  }
+/* Центрирование блока относительно ChatArea для всех версий */
+.icon-selector--centered {
+  transform: translateX(-50%) translateY(-100%);
 }
 
 .icon-selector-grid {

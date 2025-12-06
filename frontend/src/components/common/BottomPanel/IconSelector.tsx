@@ -59,20 +59,6 @@ export const IconSelector: React.FC<IconSelectorProps> = ({
   currentIcon,
 }) => {
   const [currentPage, setCurrentPage] = useState(0);
-  const [isWeb, setIsWeb] = useState(false);
-
-  useEffect(() => {
-    const checkIsWeb = () => {
-      setIsWeb(window.innerWidth >= 1025);
-    };
-
-    checkIsWeb();
-    window.addEventListener('resize', checkIsWeb);
-
-    return () => {
-      window.removeEventListener('resize', checkIsWeb);
-    };
-  }, []);
 
   const currentIcons = ICON_PACKS[currentPage] || ICON_PACKS[0];
   const totalPages = ICON_PACKS.length;
@@ -97,11 +83,8 @@ export const IconSelector: React.FC<IconSelectorProps> = ({
     <>
       <div className="icon-selector-overlay" onClick={onClose} />
       <div
-        className={`icon-selector ${isWeb ? 'icon-selector--web' : ''}`}
-        style={isWeb ? {
-          left: `${position.x}px`,
-          bottom: `${position.y}px`,
-        } : {
+        className="icon-selector icon-selector--centered"
+        style={{
           left: `${position.x}px`,
           bottom: `${position.y}px`,
         }}
