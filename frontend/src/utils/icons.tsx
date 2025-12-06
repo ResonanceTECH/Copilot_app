@@ -20,7 +20,7 @@ import {
   Notification01Icon as Bell01Icon,
   ArrowLeft01Icon as ArrowLeft01Icon,
   UserAccountIcon as User01Icon,
-  Edit01Icon as Note01Icon,
+  Notebook01Icon as Note01Icon,
   EyeIcon as Open01Icon,
   ArchiveIcon as Archive01Icon,
   HelpCircleIcon,
