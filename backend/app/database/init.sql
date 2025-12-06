@@ -110,6 +110,19 @@ CREATE TABLE IF NOT EXISTS note_tags (
     CONSTRAINT fk_note_tags_tag FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
 );
 
+-- Создание промежуточной таблицы message_tags (many-to-many связь)
+CREATE TABLE IF NOT EXISTS message_tags (
+    message_id INTEGER NOT NULL,
+    tag_id INTEGER NOT NULL,
+    PRIMARY KEY (message_id, tag_id),
+    CONSTRAINT fk_message_tags_message FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE,
+    CONSTRAINT fk_message_tags_tag FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
+);
+
+-- Создание индексов для message_tags
+CREATE INDEX IF NOT EXISTS idx_message_tags_message_id ON message_tags(message_id);
+CREATE INDEX IF NOT EXISTS idx_message_tags_tag_id ON message_tags(tag_id);
+
 -- Создание таблицы notification_settings (настройки уведомлений)
 CREATE TABLE IF NOT EXISTS notification_settings (
     id SERIAL PRIMARY KEY,

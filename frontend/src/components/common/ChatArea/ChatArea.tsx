@@ -11,6 +11,7 @@ import { NotesPanel } from '../NotesPanel';
 import { trackActivity } from '../../../utils/activityTracker';
 import { chatAPI } from '../../../utils/api';
 import { FeedbackModal } from './FeedbackModal';
+import { TagSelector } from './TagSelector';
 import './ChatArea.css';
 
 // Компонент анимации печатания
@@ -63,6 +64,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [showReportMenu, setShowReportMenu] = useState<string | null>(null);
   const [showFeedbackModal, setShowFeedbackModal] = useState<string | null>(null);
+  const [showTagSelector, setShowTagSelector] = useState<string | null>(null);
+  const [editingMessageTags, setEditingMessageTags] = useState<number[]>([]);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -238,6 +241,54 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     }
 
     console.log('✅ Обратная связь успешно отправлена:', response);
+  };
+
+  // Обработка выбора тегов для сообщения
+  const handleTagSelect = async (messageId: string, tagIds: number[]) => {
+    if (!spaceId) {
+      console.error('SpaceId не указан');
+      return;
+    }
+
+    try {
+      const messageIdNum = parseInt(messageId, 10);
+      if (isNaN(messageIdNum)) {
+        throw new Error('Неверный ID сообщения');
+      }
+
+      const response = await chatAPI.assignTagsToMessage(messageIdNum, tagIds);
+
+      if (response.success) {
+        console.log('✅ Теги успешно присвоены сообщению:', response);
+        setShowTagSelector(null);
+        setEditingMessageTags([]);
+        // Обновляем сообщения, перезагружая их из API
+        // Это будет обработано при следующей загрузке сообщений
+      }
+    } catch (error) {
+      console.error('Ошибка при присвоении тегов:', error);
+      alert('Ошибка при присвоении тегов. Попробуйте позже.');
+    }
+  };
+
+  // Обработка удаления тега из сообщения
+  const handleRemoveTag = async (messageId: string, tagId: number) => {
+    try {
+      const messageIdNum = parseInt(messageId, 10);
+      if (isNaN(messageIdNum)) {
+        throw new Error('Неверный ID сообщения');
+      }
+
+      const response = await chatAPI.removeTagFromMessage(messageIdNum, tagId);
+
+      if (response.success) {
+        console.log('✅ Тег успешно удален из сообщения');
+        // Обновление будет при следующей загрузке сообщений
+      }
+    } catch (error) {
+      console.error('Ошибка при удалении тега:', error);
+      alert('Ошибка при удалении тега. Попробуйте позже.');
+    }
   };
 
   // Закрытие меню при клике вне его
@@ -747,6 +798,34 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                       ? message.content
                       : ''
                   )}
+                  {/* Отображение тегов сообщения */}
+                  {message.tags && message.tags.length > 0 && (
+                    <div className="chat-message-tags">
+                      {message.tags.map(tag => (
+                        <span
+                          key={tag.id}
+                          className="chat-message-tag"
+                          style={{
+                            backgroundColor: tag.color || '#6366f1',
+                            color: 'white',
+                          }}
+                          title={tag.name}
+                        >
+                          {tag.name}
+                          <button
+                            className="chat-message-tag-remove"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRemoveTag(message.id, tag.id);
+                            }}
+                            title="Удалить тег"
+                          >
+                            <Icon src={ICONS.close} size="sm" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
                   {!message.isLoading && message.timestamp && (
                     <div className="chat-message-timestamp">
                       {message.timestamp instanceof Date
@@ -794,6 +873,17 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                         </button>
                         {showReportMenu === message.id && (
                           <div className="chat-message-menu-dropdown">
+                            <button
+                              className="chat-message-menu-item"
+                              onClick={() => {
+                                setShowReportMenu(null);
+                                setShowTagSelector(message.id);
+                                setEditingMessageTags(message.tags?.map(t => t.id) || []);
+                              }}
+                            >
+                              <Icon src={ICONS.flag} size="sm" />
+                              <span>Теги</span>
+                            </button>
                             <button
                               className="chat-message-menu-item"
                               onClick={() => handleReport(message.id)}
@@ -947,6 +1037,21 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             if (showFeedbackModal) {
               await handleFeedbackSubmit(showFeedbackModal, selectedReasons, feedback);
             }
+          }}
+        />
+      )}
+      {showTagSelector && spaceId && (
+        <TagSelector
+          spaceId={spaceId}
+          selectedTagIds={editingMessageTags}
+          onSelect={(tagIds) => {
+            if (showTagSelector) {
+              handleTagSelect(showTagSelector, tagIds);
+            }
+          }}
+          onClose={() => {
+            setShowTagSelector(null);
+            setEditingMessageTags([]);
           }}
         />
       )}

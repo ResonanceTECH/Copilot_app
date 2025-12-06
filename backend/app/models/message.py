@@ -2,6 +2,7 @@ from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from backend.app.database.base import Base
+from backend.app.models.message_tag import message_tags
 
 
 class Message(Base):
@@ -18,6 +19,7 @@ class Message(Base):
     # Relationships
     chat = relationship("Chat", back_populates="messages")
     file_attachments = relationship("FileAttachment", back_populates="message", cascade="all, delete-orphan")
+    tags = relationship("Tag", secondary=message_tags, back_populates="messages", lazy="select")
 
     def __repr__(self):
         return f"<Message(id={self.id}, role={self.role}, chat_id={self.chat_id})>"

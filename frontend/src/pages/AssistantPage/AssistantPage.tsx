@@ -204,6 +204,7 @@ export const AssistantPage: React.FC = () => {
           role: msg.role as 'user' | 'assistant',
           timestamp: new Date(msg.created_at),
           image_url: msg.image_url,
+          tags: msg.tags,
         }));
 
         // Обновляем сообщения в состоянии
@@ -604,20 +605,20 @@ export const AssistantPage: React.FC = () => {
             className={`sidebar-overlay ${isMobileMenuOpen ? 'sidebar-overlay--visible' : ''}`}
             onClick={() => setIsMobileMenuOpen(false)}
           />
-        <Sidebar
-          threads={getThreadsList()}
-          activeThreadId={activeThreadId}
-          isCollapsed={isSidebarCollapsed}
-          onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-          onNewThread={handleNewThread}
-          onThreadSelect={handleThreadSelect}
-          onThreadDelete={handleThreadDelete}
-          onThreadRename={handleThreadRename}
-          onThreadPin={handleThreadPin}
-          onSettingsClick={() => setShowSupportPanel(true)}
+          <Sidebar
+            threads={getThreadsList()}
+            activeThreadId={activeThreadId}
+            isCollapsed={isSidebarCollapsed}
+            onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            onNewThread={handleNewThread}
+            onThreadSelect={handleThreadSelect}
+            onThreadDelete={handleThreadDelete}
+            onThreadRename={handleThreadRename}
+            onThreadPin={handleThreadPin}
+            onSettingsClick={() => setShowSupportPanel(true)}
             isMobileMenuOpen={isMobileMenuOpen}
             onMobileMenuClose={() => setIsMobileMenuOpen(false)}
-        />
+          />
         </>
       )}
       <div className={`assistant-main ${panelMode === 'bottom' ? 'assistant-main--full-width' : ''} ${isSidebarCollapsed && panelMode === 'sidebar' ? 'assistant-main--sidebar-collapsed' : ''}`}>

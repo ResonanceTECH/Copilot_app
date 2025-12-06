@@ -3,6 +3,7 @@ from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from backend.app.database.base import Base
 from backend.app.models.note_tag import note_tags
+from backend.app.models.message_tag import message_tags
 
 
 class Tag(Base):
@@ -19,6 +20,7 @@ class Tag(Base):
     # Relationships
     space = relationship("Space", back_populates="tags")
     notes = relationship("Note", secondary=note_tags, back_populates="tags")
+    messages = relationship("Message", secondary=message_tags, back_populates="tags", lazy="select")
 
     def __repr__(self):
         return f"<Tag(id={self.id}, name={self.name}, space_id={self.space_id})>"

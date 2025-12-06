@@ -284,6 +284,7 @@ export interface MessageItem {
   content: string;
   image_url?: string;
   created_at: string;
+  tags?: Array<{ id: number; name: string; color?: string }>;
 }
 
 export interface ChatMessagesResponse {
@@ -447,6 +448,37 @@ export const chatAPI = {
     }
 
     return response.json();
+  },
+
+  // Присвоить теги сообщению
+  assignTagsToMessage: async (messageId: number, tagIds: number[]): Promise<{
+    success: boolean;
+    message: string;
+    tags: Array<{ id: number; name: string; color?: string }>;
+  }> => {
+    return apiRequest<{
+      success: boolean;
+      message: string;
+      tags: Array<{ id: number; name: string; color?: string }>;
+    }>(`/message/${messageId}/tags/assign`, {
+      method: 'POST',
+      body: JSON.stringify({
+        tag_ids: tagIds,
+      }),
+    });
+  },
+
+  // Удалить тег из сообщения
+  removeTagFromMessage: async (messageId: number, tagId: number): Promise<{
+    success: boolean;
+    message: string;
+  }> => {
+    return apiRequest<{
+      success: boolean;
+      message: string;
+    }>(`/message/${messageId}/tags/remove/${tagId}`, {
+      method: 'DELETE',
+    });
   },
 };
 

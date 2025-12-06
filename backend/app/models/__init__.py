@@ -8,6 +8,7 @@ from backend.app.models.tag import Tag
 from backend.app.models.notification_settings import NotificationSettings
 from backend.app.models.notification import Notification
 from backend.app.models.note_tag import note_tags
+from backend.app.models.message_tag import message_tags
 from backend.app.models.feedback import Feedback
 from backend.app.models.message_feedback import MessageFeedback
 from backend.app.models.support_article import SupportArticle
@@ -24,6 +25,7 @@ __all__ = [
     "NotificationSettings",
     "Notification",
     "note_tags",
+    "message_tags",
     "Feedback",
     "MessageFeedback",
     "SupportArticle",

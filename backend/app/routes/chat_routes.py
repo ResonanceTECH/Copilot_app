@@ -86,6 +86,7 @@ class MessageItem(BaseModel):
     content: str
     image_url: Optional[str] = None
     created_at: str
+    tags: List[dict] = []
 
     class Config:
         from_attributes = True
@@ -874,7 +875,8 @@ async def get_chat_messages(
             role=msg.role,
             content=content,
             image_url=msg.image_url,
-            created_at=msg.created_at.isoformat()
+            created_at=msg.created_at.isoformat(),
+            tags=[{"id": tag.id, "name": tag.name, "color": tag.color} for tag in msg.tags]
         ))
 
     return ChatMessagesResponse(
@@ -1507,3 +1509,114 @@ async def submit_message_feedback(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Ошибка при сохранении обратной связи: {str(e)}")
+
+
+# ========== Работа с тегами сообщений ==========
+
+class MessageTagAssignRequest(BaseModel):
+    tag_ids: List[int]
+
+
+class MessageTagAssignResponse(BaseModel):
+    success: bool
+    message: str
+    tags: List[dict]
+
+
+@router.post("/message/{message_id}/tags/assign", response_model=MessageTagAssignResponse, status_code=200)
+async def assign_tags_to_message(
+    message_id: int,
+    request: MessageTagAssignRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Присвоить теги сообщению"""
+    try:
+        from backend.app.models.tag import Tag
+        
+        # Проверяем, что сообщение существует
+        message = db.query(Message).filter(Message.id == message_id).first()
+        if not message:
+            raise HTTPException(status_code=404, detail="Сообщение не найдено")
+        
+        # Проверяем, что чат принадлежит пользователю
+        chat = db.query(Chat).filter(Chat.id == message.chat_id).first()
+        if not chat:
+            raise HTTPException(status_code=404, detail="Чат не найден")
+        
+        if chat.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Нет доступа к этому чату")
+        
+        # Получаем пространство чата
+        space = db.query(Space).filter(Space.id == chat.space_id).first()
+        if not space:
+            raise HTTPException(status_code=404, detail="Пространство не найдено")
+        
+        # Проверяем, что все теги существуют и принадлежат пространству
+        tags = db.query(Tag).filter(
+            Tag.id.in_(request.tag_ids),
+            Tag.space_id == space.id
+        ).all()
+        
+        if len(tags) != len(request.tag_ids):
+            raise HTTPException(status_code=400, detail="Один или несколько тегов не найдены или не принадлежат пространству")
+        
+        # Присваиваем теги сообщению (заменяем существующие)
+        message.tags = tags
+        db.commit()
+        db.refresh(message)
+        
+        return MessageTagAssignResponse(
+            success=True,
+            message="Теги успешно присвоены сообщению",
+            tags=[{"id": tag.id, "name": tag.name, "color": tag.color} for tag in message.tags]
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Ошибка при присвоении тегов: {str(e)}")
+
+
+@router.delete("/message/{message_id}/tags/remove/{tag_id}", response_model=dict, status_code=200)
+async def remove_tag_from_message(
+    message_id: int,
+    tag_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Удалить тег из сообщения"""
+    try:
+        # Проверяем, что сообщение существует
+        message = db.query(Message).filter(Message.id == message_id).first()
+        if not message:
+            raise HTTPException(status_code=404, detail="Сообщение не найдено")
+        
+        # Проверяем, что чат принадлежит пользователю
+        chat = db.query(Chat).filter(Chat.id == message.chat_id).first()
+        if not chat:
+            raise HTTPException(status_code=404, detail="Чат не найден")
+        
+        if chat.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Нет доступа к этому чату")
+        
+        # Удаляем тег из сообщения
+        tag_to_remove = None
+        for tag in message.tags:
+            if tag.id == tag_id:
+                tag_to_remove = tag
+                break
+        
+        if tag_to_remove:
+            message.tags.remove(tag_to_remove)
+            db.commit()
+            return {"success": True, "message": "Тег успешно удален из сообщения"}
+        else:
+            raise HTTPException(status_code=404, detail="Тег не найден в сообщении")
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Ошибка при удалении тега: {str(e)}")

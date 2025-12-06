@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Icon } from '../../ui/Icon';
 import { ICONS, IconName } from '../../../utils/icons';
 import './IconSelector.css';
