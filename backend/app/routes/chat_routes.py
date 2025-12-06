@@ -149,7 +149,7 @@ def get_enhanced_system_prompt(user_question: str):
 
 
 def get_conversation_history(chat_id: int, db: Session, max_messages: int = 10) -> List[Dict[str, str]]:
-    """Получить историю сообщений для контекста LLM"""
+    """Получить историю сообщений для контекста LLM, включая содержимое файлов"""
     messages = db.query(Message).filter(
         Message.chat_id == chat_id
     ).order_by(Message.created_at.asc()).limit(max_messages).all()  # Уже в хронологическом порядке
@@ -157,9 +157,24 @@ def get_conversation_history(chat_id: int, db: Session, max_messages: int = 10) 
     # Преобразуем в список словарей
     formatted_history = []
     for msg in messages:
+        content = msg.content
+        
+        # Если у сообщения есть связанный файл, добавляем его содержимое
+        file_attachment = db.query(FileAttachment).filter(
+            FileAttachment.message_id == msg.id
+        ).first()
+        
+        if file_attachment:
+            if file_attachment.extracted_text:
+                # Для PDF/DOC файлов добавляем извлеченный текст
+                content += f"\n\n[Содержимое файла {file_attachment.filename}]:\n{file_attachment.extracted_text}"
+            elif file_attachment.analysis_result:
+                # Для изображений добавляем результат анализа
+                content += f"\n\n[Анализ изображения {file_attachment.filename}]:\n{file_attachment.analysis_result}"
+        
         formatted_history.append({
             'role': msg.role,
-            'content': msg.content
+            'content': content
         })
 
     return formatted_history
@@ -479,6 +494,7 @@ async def send_message(
         db.flush()  # Получаем ID сообщения для связи с FileAttachment
         
         # Если есть image_url, ищем соответствующий FileAttachment и связываем его с сообщением
+        file_attachment = None
         if image_url:
             file_attachment = db.query(FileAttachment).filter(
                 FileAttachment.file_path == image_url,
@@ -487,7 +503,26 @@ async def send_message(
             
             if file_attachment and not file_attachment.message_id:
                 file_attachment.message_id = user_msg.id
+                db.flush()  # Сохраняем связь в БД
                 print(f"✅ Связан FileAttachment {file_attachment.id} с сообщением {user_msg.id}")
+        
+        # Если есть FileAttachment, добавляем содержимое файла в контекст сообщения
+        file_content_context = ""
+        if file_attachment:
+            if file_attachment.extracted_text:
+                # Для PDF/DOC файлов добавляем извлеченный текст
+                file_content_context = f"\n\n[Содержимое файла {file_attachment.filename}]:\n{file_attachment.extracted_text}"
+                print(f"📄 Добавлен текст из файла: {len(file_attachment.extracted_text)} символов")
+            elif file_attachment.analysis_result:
+                # Для изображений добавляем результат анализа
+                file_content_context = f"\n\n[Анализ изображения {file_attachment.filename}]:\n{file_attachment.analysis_result}"
+                print(f"🖼️ Добавлен анализ изображения: {len(file_attachment.analysis_result)} символов")
+        
+        # Добавляем содержимое файла к сообщению пользователя для LLM
+        if file_content_context:
+            user_message_with_file = user_message + file_content_context
+        else:
+            user_message_with_file = user_message
 
         # Сохраняем активность пользователя для аналитики эффективности
         today = datetime.now(timezone.utc).date()
@@ -510,32 +545,33 @@ async def send_message(
         db.commit()
         db.refresh(user_msg)
 
-        # Проверяем быстрые ответы
-        quick_response = llm_service.get_quick_response(user_message)
-        if quick_response:
-            assistant_msg = Message(
-                chat_id=chat.id,
-                role="assistant",
-                content=quick_response
-            )
-            db.add(assistant_msg)
-            db.commit()
-            db.refresh(assistant_msg)
+        # Проверяем быстрые ответы (только для простых сообщений без файлов)
+        if not file_content_context:
+            quick_response = llm_service.get_quick_response(user_message)
+            if quick_response:
+                assistant_msg = Message(
+                    chat_id=chat.id,
+                    role="assistant",
+                    content=quick_response
+                )
+                db.add(assistant_msg)
+                db.commit()
+                db.refresh(assistant_msg)
 
-            return ChatSendResponse(
-                success=True,
-                chat_id=chat.id,
-                message_id=assistant_msg.id,
-                response={
-                    'raw_text': quick_response,
-                    'formatted_html': f'<p class="response-text">{quick_response}</p>',
-                    'timestamp': datetime.now().isoformat(),
-                    'category': 'quick_response'
-                }
-            )
+                return ChatSendResponse(
+                    success=True,
+                    chat_id=chat.id,
+                    message_id=assistant_msg.id,
+                    response={
+                        'raw_text': quick_response,
+                        'formatted_html': f'<p class="response-text">{quick_response}</p>',
+                        'timestamp': datetime.now().isoformat(),
+                        'category': 'quick_response'
+                    }
+                )
 
-        # Получаем усиленный промпт и категорию
-        enhanced_prompt, category, probabilities = get_enhanced_system_prompt(user_message)
+        # Получаем усиленный промпт и категорию (используем сообщение с файлом для лучшей категоризации)
+        enhanced_prompt, category, probabilities = get_enhanced_system_prompt(user_message_with_file)
 
         # Если категория 'graphic', обрабатываем специальным образом
         if category == 'graphic':
@@ -563,7 +599,7 @@ async def send_message(
                 response=response_data
             )
 
-        # Для остальных категорий - проверяем кэш
+        # Для остальных категорий - проверяем кэш (используем оригинальное сообщение без файла для кэша)
         cached_response = cache_service.get(user_message)
         if cached_response:
             print(f"✅ Используем кэшированный ответ для: {user_message[:50]}...")
@@ -585,18 +621,20 @@ async def send_message(
                 response=cached_response
             )
 
-        print(f"📨 Отправляем запрос в LLM: {user_message}")
+        print(f"📨 Отправляем запрос в LLM: {user_message[:200]}...")
+        if file_content_context:
+            print(f"📎 Включено содержимое файла в контекст")
 
         # Получаем ВСЮ историю сообщений для контекста
         conversation_history = get_conversation_history(chat.id, db, max_messages=15)
 
         print(f"📚 Используем историю из {len(conversation_history)} сообщений для контекста")
 
-        # Генерируем ответ с учетом всей истории чата
+        # Генерируем ответ с учетом всей истории чата (используем сообщение с содержимым файла)
         try:
             ai_response = llm_service.generate_response(
                 system_prompt=enhanced_prompt,
-                user_question=user_message,
+                user_question=user_message_with_file,
                 conversation_history=conversation_history
             )
         except ValueError as e:

@@ -14,13 +14,16 @@ class LLMService:
         # Получаем URL приложения из переменных окружения
         self.app_url = os.getenv("APP_URL", "http://localhost")
         # Увеличиваем таймауты для медленных соединений
-        timeout = httpx.Timeout(60.0, connect=30.0)  # 60 сек на запрос, 30 сек на подключение
+        # Thinking режим отключен, поэтому таймауты можно уменьшить
+        request_timeout = float(os.getenv("LLM_REQUEST_TIMEOUT", "120.0"))  # 2 минуты по умолчанию (thinking отключен)
+        connect_timeout = float(os.getenv("LLM_CONNECT_TIMEOUT", "30.0"))  # 30 секунд на подключение
+        timeout = httpx.Timeout(request_timeout, connect=connect_timeout)
         http_client = httpx.Client(timeout=timeout)
         
         # Проверяем, использовать ли Ollama
-        use_ollama = os.getenv("USE_OLLAMA", "false").lower() == "true"
+        use_ollama = os.getenv("USE_OLLAMA", "true").lower() == "true"
         ollama_api_url = os.getenv("OLLAMA_API_URL", "http://ollama:11434")
-        ollama_model = os.getenv("OLLAMA_MODEL", "deepseek-r1-distill-llama")
+        ollama_model = os.getenv("OLLAMA_MODEL", "deepseek-r1:8b")
         
         if use_ollama:
             # Использование Ollama (OpenAI-совместимый API)
@@ -238,11 +241,18 @@ class LLMService:
             if use_ollama:
                 # Использование Ollama
                 model_name = self.ollama_model
+                # Отключаем режим thinking для ускорения ответов
+                # Пользователь использует точные промпты, поэтому thinking не нужен
                 completion = self.client.chat.completions.create(
                     model=model_name,
                     messages=messages,
                     temperature=0.5,
-                    max_tokens=1000
+                    max_tokens=1000,
+                    extra_body={
+                        "options": {
+                            "thinking": False  # Отключаем режим thinking
+                        }
+                    }
                 )
             else:
                 # Использование OpenRouter API
@@ -335,6 +345,7 @@ class LLMService:
             if use_ollama:
                 # Использование Ollama
                 model_name = self.ollama_model
+                # Отключаем режим thinking для ускорения ответов
                 completion = self.client.chat.completions.create(
                     model=model_name,
                     messages=[
@@ -342,7 +353,12 @@ class LLMService:
                         {"role": "user", "content": summary_prompt}
                     ],
                     temperature=0.3,
-                    max_tokens=300
+                    max_tokens=300,
+                    extra_body={
+                        "options": {
+                            "thinking": False  # Отключаем режим thinking
+                        }
+                    }
                 )
             else:
                 # Использование OpenRouter API
