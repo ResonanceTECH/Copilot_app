@@ -20,6 +20,29 @@
   border-bottom: 1px solid var(--color-border);
 }
 
+.notification-panel-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.notification-panel-back {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
 .notification-panel-title {
   font-size: 18px;
   font-weight: 600;
@@ -411,5 +434,311 @@
   bottom: 0;
   background: rgba(0, 0, 0, 0.3);
   z-index: 999;
+}
+
+/* Адаптивность для планшетов (768px - 1024px) */
+@media (max-width: 1024px) and (min-width: 769px) {
+  .notification-panel {
+    width: 380px;
+  }
+
+  .notification-panel-header {
+    padding: 14px 16px;
+  }
+
+  .notification-panel-header-left {
+    gap: 10px;
+  }
+
+  .notification-panel-back {
+    display: none; /* Скрываем на планшетах, показываем только на мобильных */
+  }
+
+  .notification-panel-title {
+    font-size: 17px;
+  }
+
+  .notification-panel-close {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    min-height: 36px;
+  }
+
+  .notification-panel-content {
+    padding: 14px;
+  }
+
+  .notification-panel-tabs {
+    padding: 0 14px;
+  }
+
+  .notification-panel-tabs button {
+    padding: 12px 18px;
+    font-size: 14px;
+    min-height: 44px;
+  }
+
+  .notification-item {
+    padding: 14px;
+  }
+
+  .notification-item-btn {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    min-height: 32px;
+  }
+
+  .notification-setting-item {
+    padding: 14px;
+  }
+
+  .notification-panel-btn {
+    padding: 12px 20px;
+    min-height: 44px;
+  }
+}
+
+/* Адаптивность для мобильных устройств (< 768px) */
+@media (max-width: 768px) {
+  .notification-panel {
+    width: 100%;
+    max-width: 100%;
+    right: 0;
+    left: 0;
+    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.2);
+    border-left: none;
+    border-top: 1px solid var(--color-border);
+  }
+
+  .notification-panel-overlay {
+    background: rgba(0, 0, 0, 0.5);
+  }
+
+  .notification-panel-header {
+    padding: 12px 16px;
+    min-height: 56px;
+    position: relative;
+  }
+
+  .notification-panel-header-left {
+    gap: 10px;
+  }
+
+  .notification-panel-back {
+    display: flex;
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    min-height: 40px;
+  }
+
+  .notification-panel-back:hover {
+    background: var(--color-hover);
+    color: var(--color-text);
+  }
+
+  .notification-panel-title {
+    font-size: 18px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .notification-panel-close {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    min-height: 40px;
+    flex-shrink: 0;
+  }
+
+  .notification-panel-content {
+    padding: 12px 16px;
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;
+    /* Скрываем scrollbar на мобильных */
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .notification-panel-content::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
+  .notification-panel-tabs {
+    padding: 0 16px;
+    gap: 0;
+  }
+
+  .notification-panel-tabs button {
+    padding: 14px 16px;
+    font-size: 15px;
+    min-height: 48px;
+    flex: 1;
+    justify-content: center;
+  }
+
+  .notification-tab-badge {
+    font-size: 12px;
+    padding: 3px 7px;
+    min-width: 20px;
+  }
+
+  .notification-panel-empty {
+    padding: 40px 20px;
+  }
+
+  .notification-panel-empty p {
+    font-size: 15px;
+  }
+
+  .notification-panel-actions-top {
+    margin-bottom: 12px;
+  }
+
+  .notification-panel-btn {
+    padding: 12px 20px;
+    font-size: 15px;
+    min-height: 44px;
+    width: 100%;
+  }
+
+  .notification-list {
+    gap: 10px;
+  }
+
+  .notification-item {
+    padding: 14px;
+    border-radius: 10px;
+  }
+
+  .notification-item-header {
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .notification-item-title {
+    font-size: 15px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .notification-item-date {
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+
+  .notification-item-message {
+    font-size: 14px;
+    line-height: 1.5;
+    margin: 6px 0;
+  }
+
+  .notification-item-footer {
+    margin-top: 10px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .notification-item-space {
+    font-size: 13px;
+    width: 100%;
+  }
+
+  .notification-item-actions {
+    gap: 6px;
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .notification-item-btn {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    min-height: 40px;
+    font-size: 16px;
+    border-radius: 8px;
+  }
+
+  .notification-panel-space-selector {
+    margin-bottom: 20px;
+  }
+
+  .notification-panel-label {
+    font-size: 15px;
+    margin-bottom: 10px;
+  }
+
+  .notification-panel-select {
+    padding: 12px 14px;
+    font-size: 15px;
+    min-height: 48px;
+    border-radius: 10px;
+  }
+
+  .notification-panel-settings {
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .notification-setting-item {
+    padding: 16px;
+    border-radius: 10px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .notification-setting-info {
+    width: 100%;
+  }
+
+  .notification-setting-label {
+    font-size: 15px;
+  }
+
+  .notification-setting-description {
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
+  .notification-toggle {
+    width: 48px;
+    height: 26px;
+    flex-shrink: 0;
+    align-self: flex-end;
+  }
+
+  .notification-toggle-slider:before {
+    height: 20px;
+    width: 20px;
+    left: 3px;
+    bottom: 3px;
+  }
+
+  .notification-toggle input:checked + .notification-toggle-slider:before {
+    transform: translateX(22px);
+  }
+
+  .notification-panel-actions {
+    flex-direction: column;
+    gap: 10px;
+    padding-top: 12px;
+  }
+
+  .notification-panel-loading {
+    padding: 40px 20px;
+    font-size: 15px;
+  }
+
+  .notification-panel-error {
+    padding: 14px;
+    font-size: 14px;
+    border-radius: 10px;
+    margin-bottom: 12px;
+  }
 }
 

@@ -203,8 +203,13 @@ export const NotificationPanel: React.FC<NotificationPanelProps> = ({ onClose })
     <div className="notification-panel-overlay" onClick={() => onClose?.()}>
       <div className="notification-panel" ref={panelRef} onClick={(e) => e.stopPropagation()}>
         <div className="notification-panel-header">
-          <h3 className="notification-panel-title">Уведомления</h3>
-          <button className="notification-panel-close" onClick={() => onClose?.()}>
+          <div className="notification-panel-header-left">
+            <button className="notification-panel-back" onClick={() => onClose?.()} title="Закрыть">
+              <Icon src={ICONS.arrowLeft} size="md" />
+            </button>
+            <h3 className="notification-panel-title">Уведомления</h3>
+          </div>
+          <button className="notification-panel-close" onClick={() => onClose?.()} title="Закрыть">
             <Icon src={ICONS.close} size="md" />
           </button>
         </div>
