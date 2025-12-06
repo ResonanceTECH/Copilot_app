@@ -19,7 +19,6 @@ from backend.app.models.file_attachment import FileAttachment
 from backend.ml.services.file_analysis_service import FileAnalysisService
 from backend.ml.models.business_classifier import EnhancedBusinessClassifier
 from backend.app.models.user_activity import UserActivity
-from backend.app.models.message_feedback import MessageFeedback
 from backend.app.services.llm_service import LLMService
 from backend.app.services.cache_service import CacheService
 from backend.app.services.formatting_service import FormattingService
@@ -710,35 +709,39 @@ async def get_chat_history(
         db: Session = Depends(get_db)
 ):
     """Получить историю чатов пользователя"""
-    query = db.query(Chat).filter(Chat.user_id == current_user.id)
+    try:
+        query = db.query(Chat).filter(Chat.user_id == current_user.id)
 
-    if space_id:
-        query = query.filter(Chat.space_id == space_id)
+        if space_id:
+            query = query.filter(Chat.space_id == space_id)
 
-    total = query.count()
+        total = query.count()
 
-    chats = query.order_by(desc(Chat.updated_at)).offset(offset).limit(limit).all()
+        chats = query.order_by(desc(Chat.updated_at)).offset(offset).limit(limit).all()
 
-    chat_items = []
-    for chat in chats:
-        # Получаем последнее сообщение
-        last_message = db.query(Message).filter(
-            Message.chat_id == chat.id
-        ).order_by(desc(Message.created_at)).first()
+        chat_items = []
+        for chat in chats:
+            # Получаем последнее сообщение
+            last_message = db.query(Message).filter(
+                Message.chat_id == chat.id
+            ).order_by(desc(Message.created_at)).first()
 
-        chat_items.append(ChatHistoryItem(
-            id=chat.id,
-            title=chat.title,
-            space_id=chat.space_id,
-            space_name=chat.space.name if chat.space else "",
-            last_message=last_message.content[:100] + "..." if last_message and len(
-                last_message.content) > 100 else last_message.content if last_message else None,
-            last_message_at=last_message.created_at.isoformat() if last_message else None,
-            created_at=chat.created_at.isoformat(),
-            updated_at=chat.updated_at.isoformat()
-        ))
+            chat_items.append(ChatHistoryItem(
+                id=chat.id,
+                title=chat.title,
+                space_id=chat.space_id,
+                space_name=chat.space.name if chat.space else "",
+                last_message=last_message.content[:100] + "..." if last_message and len(
+                    last_message.content) > 100 else last_message.content if last_message else None,
+                last_message_at=last_message.created_at.isoformat() if last_message else None,
+                created_at=chat.created_at.isoformat(),
+                updated_at=chat.updated_at.isoformat()
+            ))
 
-    return ChatHistoryResponse(chats=chat_items, total=total)
+        return ChatHistoryResponse(chats=chat_items, total=total)
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Ошибка при загрузке истории чатов: {str(e)}")
 
 
 @router.get("/chat/{chat_id}/messages", response_model=ChatMessagesResponse)
@@ -1457,6 +1460,7 @@ async def submit_message_feedback(
     db: Session = Depends(get_db)
 ):
     """Отправка обратной связи по сообщению ассистента"""
+    from backend.app.models.message_feedback import MessageFeedback
     try:
         # Проверяем, что сообщение существует
         message = db.query(Message).filter(Message.id == request.message_id).first()

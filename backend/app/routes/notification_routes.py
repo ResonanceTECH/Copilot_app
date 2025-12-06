@@ -156,12 +156,19 @@ async def get_unread_count(
     db: Session = Depends(get_db)
 ):
     """Получить количество непрочитанных уведомлений"""
-    count = db.query(Notification).filter(
-        Notification.user_id == current_user.id,
-        Notification.is_read == False
-    ).count()
-    
-    return {"unread_count": count}
+    try:
+        count = db.query(Notification).filter(
+            Notification.user_id == current_user.id,
+            Notification.is_read == False
+        ).count()
+        
+        return {"unread_count": count}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Ошибка при загрузке количества уведомлений: {str(e)}"
+        )
 
 
 @router.post("/test", response_model=NotificationResponse)

@@ -22,9 +22,9 @@ class MessageFeedback(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
 
     # Relationships
-    message = relationship("Message")
-    user = relationship("User")
-    chat = relationship("Chat")
+    message = relationship("Message", lazy="select")
+    user = relationship("User", lazy="select")
+    chat = relationship("Chat", lazy="select")
 
     def __repr__(self):
         return f"<MessageFeedback(id={self.id}, message_id={self.message_id}, reasons={self.reasons})>"

@@ -1,9 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Icon } from '../../ui/Icon';
 import { ICONS } from '../../../utils/icons';
-import { useLanguage } from '../../../contexts/LanguageContext';
-import { getTranslation } from '../../../utils/i18n';
-import starIcon from '../../../assets/icons/star.svg';
 import starFilledIcon from '../../../assets/icons/star-filled.svg';
 import './ThreadContextMenu.css';
 
@@ -27,7 +24,6 @@ export const SpaceContextMenu: React.FC<SpaceContextMenuProps> = ({
   isPinned = false,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
-  const { language } = useLanguage();
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
