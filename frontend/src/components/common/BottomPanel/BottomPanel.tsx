@@ -30,7 +30,7 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
   const [threadIcons, setThreadIcons] = useState<Record<string, IconName>>({});
   const wrapperRef = useRef<HTMLDivElement>(null);
   const buttonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
-  const longPressTimerRef = useRef<Record<string, NodeJS.Timeout>>({});
+  const longPressTimerRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const doubleClickTimerRef = useRef<Record<string, number>>({});
 
   // Загрузка сохраненных иконок из localStorage
@@ -102,6 +102,23 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
     setIconPosition(null);
   };
 
+  const getChatAreaCenter = (): number => {
+    // Находим центр ChatArea для всех версий
+    const chatArea = document.querySelector('.chat-area');
+    if (chatArea) {
+      const rect = chatArea.getBoundingClientRect();
+      return rect.left + rect.width / 2;
+    }
+    // Fallback: ищем assistant-main
+    const assistantMain = document.querySelector('.assistant-main');
+    if (assistantMain) {
+      const rect = assistantMain.getBoundingClientRect();
+      return rect.left + rect.width / 2;
+    }
+    // Последний fallback: центр экрана
+    return window.innerWidth / 2;
+  };
+
   const handleDoubleClick = (e: React.MouseEvent, threadId: string): boolean => {
     e.stopPropagation();
     if (deletingThreadId === threadId) return false;
@@ -114,8 +131,9 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
       const buttonRef = buttonRefs.current[threadId];
       if (buttonRef) {
         const rect = buttonRef.getBoundingClientRect();
+        const isWeb = window.innerWidth >= 1025;
         setIconPosition({
-          x: rect.left + rect.width / 2,
+          x: isWeb ? getChatAreaCenter() : rect.left + rect.width / 2,
           y: window.innerHeight - rect.top + 60,
         });
         setEditingIconThreadId(threadId);
@@ -142,8 +160,9 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
       const buttonRef = buttonRefs.current[threadId];
       if (buttonRef) {
         const rect = buttonRef.getBoundingClientRect();
+        const isWeb = window.innerWidth >= 1025;
         setIconPosition({
-          x: rect.left + rect.width / 2,
+          x: isWeb ? getChatAreaCenter() : rect.left + rect.width / 2,
           y: window.innerHeight - rect.top + 60,
         });
         setEditingIconThreadId(threadId);
