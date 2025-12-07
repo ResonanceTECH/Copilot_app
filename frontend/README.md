@@ -21,6 +21,9 @@
 - **Vite 5.0.8** - сборщик
 - **@hugeicons/react 1.1.1** - библиотека иконок
 - **@hugeicons/core-free-icons 2.0.0** - набор бесплатных иконок
+- **react-markdown 10.1.0** - рендеринг Markdown
+- **rehype-highlight 7.0.2** - подсветка синтаксиса в Markdown
+- **remark-gfm 4.0.1** - поддержка GitHub Flavored Markdown
 
 ### Dev зависимости
 
@@ -76,6 +79,7 @@ frontend/
 │   │   │   ├── ChatArea/         # Область чата
 │   │   │   ├── Header/           # Заголовок страницы
 │   │   │   ├── NotesPanel/       # Панель заметок
+│   │   │   ├── NotificationPanel/ # Панель уведомлений
 │   │   │   ├── PanelToggle/     # Переключатель панели
 │   │   │   ├── Sidebar/          # Боковая панель
 │   │   │   └── SupportPanel/      # Панель поддержки
@@ -93,7 +97,10 @@ frontend/
 │   │   ├── SettingsPage/         # Страница настроек
 │   │   ├── SpaceDetailPage/      # Детальная страница пространства
 │   │   ├── SpacesListPage/       # Список пространств
-│   │   └── SpacesPage/           # Страница пространств
+│   │   ├── SpacesPage/           # Страница пространств
+│   │   ├── UserProfilePage/      # Профиль пользователя
+│   │   ├── PublicSpacePage/      # Публичное пространство
+│   │   └── NotFoundPage/         # Страница 404
 │   ├── styles/            # Глобальные стили
 │   │   ├── globals.css           # Глобальные стили
 │   │   └── variables.css         # CSS переменные
@@ -140,6 +147,8 @@ User Action → Component → Context/API → State Update → Re-render
 - `/spaces` - список пространств
 - `/spaces/:id` - детальная страница пространства
 - `/settings` - настройки
+- `/profile` - профиль пользователя
+- `/public/spaces/:token` - публичное пространство (без авторизации)
 
 ### Аутентификация
 
@@ -289,6 +298,23 @@ import { ICONS } from '../../utils/icons';
 - `spaceId?: number` - ID пространства (опционально)
 - `onClose?: () => void` - закрытие панели
 
+#### NotificationPanel
+
+Панель уведомлений и настроек уведомлений.
+
+**Расположение:** `src/components/common/NotificationPanel/`
+
+**Функциональность:**
+- Список уведомлений пользователя
+- Отметка уведомлений как прочитанных
+- Удаление уведомлений
+- Настройки уведомлений для пространств
+- Фильтрация по пространствам
+- Счетчик непрочитанных уведомлений
+
+**Props:**
+- `onClose?: () => void` - закрытие панели
+
 #### SupportPanel
 
 Панель поддержки с формой обратной связи и справочными статьями.
@@ -409,6 +435,57 @@ import { ICONS } from '../../utils/icons';
 - Список справочных статей
 - Модальное окно просмотра статьи
 
+### UserProfilePage
+
+Страница профиля пользователя с настройками и аналитикой.
+
+**Расположение:** `src/pages/UserProfilePage/`
+
+**Функциональность:**
+- Просмотр и редактирование профиля (имя, телефон, компания, аватар)
+- Настройки языка (русский/английский)
+- Настройки темы (светлая/темная/системная)
+- Аналитика эффективности (графики активности, статистика)
+- Разделы: Аккаунт, Предпочтения, Эффективность, Ассистент, Задачи, Уведомления, Коннекторы, API, Корпорация
+
+**Состояние:**
+- `profile: UserProfile | null` - данные профиля
+- `activeSection: ProfileSection` - активный раздел
+- `isEditing: boolean` - режим редактирования
+- `settings` - настройки приложения
+
+### PublicSpacePage
+
+Страница публичного пространства (доступна без авторизации).
+
+**Расположение:** `src/pages/PublicSpacePage/`
+
+**Функциональность:**
+- Просмотр информации о публичном пространстве
+- Просмотр списка чатов
+- Просмотр сообщений в чатах
+- Просмотр заметок
+- Просмотр тегов
+- Навигация между разделами
+
+**Props:**
+- `publicToken: string` - публичный токен пространства
+
+**Особенности:**
+- Не требует авторизации
+- Доступ только для чтения
+- Отображает только публичные данные пространства
+
+### NotFoundPage
+
+Страница 404 (не найдено).
+
+**Расположение:** `src/pages/NotFoundPage/`
+
+**Функциональность:**
+- Отображение сообщения о том, что страница не найдена
+- Кнопка возврата на главную страницу
+
 ## API интеграция
 
 ### API клиент
@@ -431,4 +508,47 @@ const response = await apiRequest<ResponseType>('/endpoint', {
 - Обработка ошибок 401 (автоматический refresh token)
 - Обработка ошибок сети
 - Типизация ответов
+
+### Основные API методы
+
+**Аутентификация:**
+- `authAPI.register()` - регистрация
+- `authAPI.login()` - вход
+- `authAPI.refreshToken()` - обновление токена
+- `authAPI.logout()` - выход
+
+**Чаты:**
+- `chatAPI.sendMessage()` - отправка сообщения
+- `chatAPI.getHistory()` - история чатов
+- `chatAPI.getMessages()` - сообщения чата
+
+**Пространства:**
+- `spacesAPI.getSpaces()` - список пространств
+- `spacesAPI.getSpace()` - получение пространства
+- `spacesAPI.createSpace()` - создание пространства
+- `spacesAPI.updateSpace()` - обновление пространства
+- `spacesAPI.deleteSpace()` - удаление пространства
+- `spacesAPI.archiveSpace()` - архивирование
+- `spacesAPI.exportSpace()` - экспорт данных
+
+**Заметки:**
+- `notesAPI.createNote()` - создание заметки
+- `notesAPI.getNotes()` - список заметок
+- `notesAPI.getNote()` - получение заметки
+- `notesAPI.updateNote()` - обновление заметки
+- `notesAPI.deleteNote()` - удаление заметки
+
+**Уведомления:**
+- `notificationAPI.getNotifications()` - список уведомлений
+- `notificationAPI.markAsRead()` - отметить как прочитанное
+- `notificationAPI.markAllAsRead()` - отметить все как прочитанные
+- `notificationAPI.deleteNotification()` - удаление уведомления
+- `notificationAPI.getUnreadCount()` - количество непрочитанных
+
+**Публичные пространства:**
+- `publicAPI.getPublicSpace()` - получение публичного пространства
+- `publicAPI.getPublicChats()` - список чатов
+- `publicAPI.getPublicMessages()` - сообщения чата
+- `publicAPI.getPublicNotes()` - список заметок
+- `publicAPI.getPublicTags()` - список тегов
 
