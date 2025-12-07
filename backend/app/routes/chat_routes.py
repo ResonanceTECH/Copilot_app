@@ -159,12 +159,12 @@ def get_conversation_history(chat_id: int, db: Session, max_messages: int = 10) 
     for msg in messages:
         content = msg.content
         
-        # Если у сообщения есть связанный файл, добавляем его содержимое
-        file_attachment = db.query(FileAttachment).filter(
+        # Если у сообщения есть связанные файлы, добавляем их содержимое
+        file_attachments = db.query(FileAttachment).filter(
             FileAttachment.message_id == msg.id
-        ).first()
+        ).all()
         
-        if file_attachment:
+        for file_attachment in file_attachments:
             if file_attachment.extracted_text:
                 # Для PDF/DOC файлов добавляем извлеченный текст
                 content += f"\n\n[Содержимое файла {file_attachment.filename}]:\n{file_attachment.extracted_text}"
@@ -467,21 +467,33 @@ async def send_message(
 
         # Извлекаем file_url из HTML, если есть файл (изображение или документ)
         image_url = None
+        file_urls = []  # Список всех найденных файлов
         import re
+        from datetime import timedelta
         
         # Ищем изображения: src="/assets/..." или src="assets/..."
         if '<img' in user_message and 'src=' in user_message:
-            img_match = re.search(r'src=["\']([^"\']*assets/[^"\']+)["\']', user_message)
-            if img_match:
-                image_url = img_match.group(1).lstrip('/')  # Убираем ведущий / если есть
-                print(f"📷 Извлечен image_url из сообщения: {image_url}")
+            img_matches = re.findall(r'src=["\']([^"\']*assets/[^"\']+)["\']', user_message)
+            if img_matches:
+                image_url = img_matches[0].lstrip('/')  # Первое изображение для image_url
+                file_urls = [url.lstrip('/') for url in img_matches]
+                print(f"📷 Извлечены image_url из сообщения: {file_urls}")
         
         # Ищем ссылки на файлы: href="/assets/..." или href="assets/..."
-        if not image_url and '<a href=' in user_message:
-            href_match = re.search(r'href=["\']([^"\']*assets/[^"\']+)["\']', user_message)
-            if href_match:
-                image_url = href_match.group(1).lstrip('/')  # Убираем ведущий / если есть
-                print(f"📎 Извлечен file_url из сообщения: {image_url}")
+        if not file_urls and '<a href=' in user_message:
+            href_matches = re.findall(r'href=["\']([^"\']*assets/[^"\']+)["\']', user_message)
+            if href_matches:
+                file_urls = [url.lstrip('/') for url in href_matches]
+                if not image_url:
+                    image_url = file_urls[0]
+                print(f"📎 Извлечены file_url из сообщения: {file_urls}")
+        
+        # Также ищем упоминания файлов в тексте (для случаев, когда файл уже загружен)
+        # Ищем паттерны типа "assets/file_xxx.pdf" в тексте
+        text_file_matches = re.findall(r'assets/[a-zA-Z0-9_\-\.]+', user_message)
+        for match in text_file_matches:
+            if match not in file_urls:
+                file_urls.append(match)
         
         # Сохраняем сообщение пользователя
         user_msg = Message(
@@ -493,30 +505,61 @@ async def send_message(
         db.add(user_msg)
         db.flush()  # Получаем ID сообщения для связи с FileAttachment
         
-        # Если есть image_url, ищем соответствующий FileAttachment и связываем его с сообщением
-        file_attachment = None
-        if image_url:
-            file_attachment = db.query(FileAttachment).filter(
-                FileAttachment.file_path == image_url,
-                FileAttachment.user_id == current_user.id
-            ).order_by(FileAttachment.created_at.desc()).first()
-            
-            if file_attachment and not file_attachment.message_id:
-                file_attachment.message_id = user_msg.id
-                db.flush()  # Сохраняем связь в БД
-                print(f"✅ Связан FileAttachment {file_attachment.id} с сообщением {user_msg.id}")
+        # Ищем FileAttachment по нескольким критериям
+        file_attachments = []
         
-        # Если есть FileAttachment, добавляем содержимое файла в контекст сообщения
+        # 1. Ищем по file_path из сообщения
+        if file_urls:
+            for file_url in file_urls:
+                attachment = db.query(FileAttachment).filter(
+                    FileAttachment.file_path == file_url,
+                    FileAttachment.user_id == current_user.id
+                ).order_by(FileAttachment.created_at.desc()).first()
+                if attachment and attachment not in file_attachments:
+                    file_attachments.append(attachment)
+        
+        # 2. Ищем файлы, загруженные в этом чате (если chat_id был указан при загрузке)
+        chat_attachments = db.query(FileAttachment).filter(
+            FileAttachment.chat_id == chat.id,
+            FileAttachment.user_id == current_user.id,
+            FileAttachment.message_id.is_(None)  # Еще не связанные с сообщением
+        ).order_by(FileAttachment.created_at.desc()).limit(5).all()
+        
+        for attachment in chat_attachments:
+            if attachment not in file_attachments:
+                file_attachments.append(attachment)
+        
+        # 3. Ищем недавно загруженные файлы пользователя (за последние 10 минут)
+        recent_time = datetime.now(timezone.utc) - timedelta(minutes=10)
+        recent_attachments = db.query(FileAttachment).filter(
+            FileAttachment.user_id == current_user.id,
+            FileAttachment.message_id.is_(None),
+            FileAttachment.created_at >= recent_time
+        ).order_by(FileAttachment.created_at.desc()).limit(5).all()
+        
+        for attachment in recent_attachments:
+            if attachment not in file_attachments:
+                file_attachments.append(attachment)
+        
+        # Связываем найденные файлы с сообщением
+        for file_attachment in file_attachments:
+            if not file_attachment.message_id:
+                file_attachment.message_id = user_msg.id
+                print(f"✅ Связан FileAttachment {file_attachment.id} ({file_attachment.filename}) с сообщением {user_msg.id}")
+        
+        db.flush()  # Сохраняем связи в БД
+        
+        # Собираем содержимое всех файлов для контекста
         file_content_context = ""
-        if file_attachment:
+        for file_attachment in file_attachments:
             if file_attachment.extracted_text:
                 # Для PDF/DOC файлов добавляем извлеченный текст
-                file_content_context = f"\n\n[Содержимое файла {file_attachment.filename}]:\n{file_attachment.extracted_text}"
-                print(f"📄 Добавлен текст из файла: {len(file_attachment.extracted_text)} символов")
+                file_content_context += f"\n\n[Содержимое файла {file_attachment.filename}]:\n{file_attachment.extracted_text}"
+                print(f"📄 Добавлен текст из файла {file_attachment.filename}: {len(file_attachment.extracted_text)} символов")
             elif file_attachment.analysis_result:
                 # Для изображений добавляем результат анализа
-                file_content_context = f"\n\n[Анализ изображения {file_attachment.filename}]:\n{file_attachment.analysis_result}"
-                print(f"🖼️ Добавлен анализ изображения: {len(file_attachment.analysis_result)} символов")
+                file_content_context += f"\n\n[Анализ изображения {file_attachment.filename}]:\n{file_attachment.analysis_result}"
+                print(f"🖼️ Добавлен анализ изображения {file_attachment.filename}: {len(file_attachment.analysis_result)} символов")
         
         # Добавляем содержимое файла к сообщению пользователя для LLM
         if file_content_context:
@@ -570,34 +613,74 @@ async def send_message(
                     }
                 )
 
-        # Получаем усиленный промпт и категорию (используем сообщение с файлом для лучшей категоризации)
-        enhanced_prompt, category, probabilities = get_enhanced_system_prompt(user_message_with_file)
+        # Извлекаем чистый текст из HTML для классификации
+        # Убираем HTML-теги и оставляем только текст для классификатора
+        import re
+        text_for_classification = user_message_with_file
+        
+        # Убираем HTML-теги, оставляем только текст
+        text_for_classification = re.sub(r'<[^>]+>', ' ', text_for_classification)
+        # Убираем лишние пробелы
+        text_for_classification = ' '.join(text_for_classification.split())
+        
+        # Если после удаления HTML остался только пробел или пусто, используем содержимое файла
+        if not text_for_classification.strip() and file_content_context:
+            # Используем только содержимое файла для классификации
+            text_for_classification = file_content_context.replace('[Содержимое файла', '').replace(']:', ':').strip()
+            # Берем первые 500 символов для классификации
+            text_for_classification = text_for_classification[:500]
+        
+        # Если все еще пусто, используем оригинальное сообщение
+        if not text_for_classification.strip():
+            text_for_classification = user_message
+        
+        print(f"🔍 Текст для классификации ({len(text_for_classification)} символов): {text_for_classification[:200]}...")
+        
+        # Получаем усиленный промпт и категорию (используем очищенный текст)
+        enhanced_prompt, category, probabilities = get_enhanced_system_prompt(text_for_classification)
 
         # Если категория 'graphic', обрабатываем специальным образом
+        # НО только если в сообщении есть явный запрос на график (не просто файл)
         if category == 'graphic':
-            # Обрабатываем графический запрос
-            response_data = await process_graphic_request(user_message, current_user, db, space.id)
+            # Проверяем, есть ли в сообщении явный запрос на график
+            graphic_keywords = ['график', 'диаграмма', 'chart', 'plot', 'график по', 'построй', 'создай график', 'визуализ']
+            has_graphic_request = any(keyword in text_for_classification.lower() for keyword in graphic_keywords)
+            
+            if has_graphic_request:
+                # Обрабатываем графический запрос
+                response_data = await process_graphic_request(user_message, current_user, db, space.id)
 
-            # Сохраняем ответ ассистента в базу
-            # Для графиков сохраняем также image_url
-            saved_image_path = response_data.get('graphic_data', {}).get('saved_image_path')
-            assistant_msg = Message(
-                chat_id=chat.id,
-                role="assistant",
-                content=response_data['raw_text'],
-                image_url=saved_image_path
-            )
-            db.add(assistant_msg)
-            chat.updated_at = datetime.now(timezone.utc)
-            db.commit()
-            db.refresh(assistant_msg)
+                # Сохраняем ответ ассистента в базу
+                # Для графиков сохраняем также image_url
+                saved_image_path = response_data.get('graphic_data', {}).get('saved_image_path')
+                assistant_msg = Message(
+                    chat_id=chat.id,
+                    role="assistant",
+                    content=response_data['raw_text'],
+                    image_url=saved_image_path
+                )
+                db.add(assistant_msg)
+                chat.updated_at = datetime.now(timezone.utc)
+                db.commit()
+                db.refresh(assistant_msg)
 
-            return ChatSendResponse(
-                success=True,
-                chat_id=chat.id,
-                message_id=assistant_msg.id,
-                response=response_data
-            )
+                return ChatSendResponse(
+                    success=True,
+                    chat_id=chat.id,
+                    message_id=assistant_msg.id,
+                    response=response_data
+                )
+            else:
+                # Если категория определилась как graphic, но нет явного запроса,
+                # вероятно это ложное срабатывание из-за HTML или содержимого файла
+                # Переопределяем категорию на general и продолжаем обычную обработку
+                print(f"⚠️ Категория 'graphic' определена, но нет явного запроса на график. Переопределяем на 'general'")
+                category = 'general'
+                base_prompt = "Ты — бизнес-консультант для малого бизнеса. Отвечай кратко и по делу. Используй списки по 2-4 пункта. Будь конкретен и практичен."
+                enhanced_prompt = f"{base_prompt}\n\n{CATEGORY_PROMPTS['general']}"
+                enhanced_prompt += f"\n\n[Категория вопроса: general]"
+                probabilities = {'general': 1.0}
+                # Продолжаем обычную обработку ниже
 
         # Для остальных категорий - проверяем кэш (используем оригинальное сообщение без файла для кэша)
         cached_response = cache_service.get(user_message)
@@ -1386,6 +1469,7 @@ async def upload_file(
         # Анализируем файл
         analysis_result = None
         extracted_text = None
+        file_type = file_ext[1:] if file_ext else "unknown"
         
         try:
             file_analysis = FileAnalysisService.analyze_file(
@@ -1397,17 +1481,26 @@ async def upload_file(
             
             extracted_text = file_analysis.get("extracted_text")
             analysis_result = file_analysis.get("analysis_result")
+            file_type = file_analysis.get("file_type", file_type)
             
             if extracted_text:
-                print(f"✅ Извлечен текст: {len(extracted_text)} символов")
+                print(f"✅ Извлечен текст из {file.filename}: {len(extracted_text)} символов")
+                # Убеждаемся, что текст не пустой
+                if not extracted_text.strip():
+                    print(f"⚠️ Извлеченный текст пустой, устанавливаем в None")
+                    extracted_text = None
+            else:
+                print(f"ℹ️ Текст не извлечен из {file.filename} (возможно, это изображение или файл без текста)")
+                
             if analysis_result:
-                print(f"✅ Результат анализа: {len(analysis_result)} символов")
+                print(f"✅ Результат анализа изображения {file.filename}: {len(analysis_result)} символов")
                 
         except Exception as e:
             print(f"⚠️ Ошибка анализа файла: {e}")
             import traceback
             traceback.print_exc()
             # Продолжаем выполнение, даже если анализ не удался
+            # extracted_text и analysis_result остаются None
         
         # Определяем chat_id и space_id если не указаны
         if not chat_id and not space_id:
@@ -1422,11 +1515,11 @@ async def upload_file(
             user_id=current_user.id,
             filename=file.filename or unique_filename,
             file_path=file_url,
-            file_type=file_analysis.get("file_type", file_ext[1:] if file_ext else "unknown"),
+            file_type=file_type,
             file_size=len(file_bytes),
             mime_type=mime_type,
-            extracted_text=extracted_text,
-            analysis_result=analysis_result
+            extracted_text=extracted_text,  # Сохраняем извлеченный текст в БД
+            analysis_result=analysis_result  # Сохраняем результат анализа в БД
         )
         
         db.add(file_attachment)
@@ -1434,6 +1527,10 @@ async def upload_file(
         db.refresh(file_attachment)
         
         print(f"✅ Файл загружен и сохранен в БД (ID: {file_attachment.id})")
+        if extracted_text:
+            print(f"   📄 Текст сохранен в БД: {len(extracted_text)} символов")
+        if analysis_result:
+            print(f"   🖼️ Анализ сохранен в БД: {len(analysis_result)} символов")
         
         return FileUploadResponse(
             success=True,
