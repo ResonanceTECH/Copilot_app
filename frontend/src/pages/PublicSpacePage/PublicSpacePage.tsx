@@ -6,6 +6,26 @@ import { Icon } from '../../components/ui/Icon';
 import { ICONS } from '../../utils/icons';
 import './PublicSpacePage.css';
 
+// Анимация "печатается..." (в стиле обычных чатов)
+const TypingAnimation: React.FC<{ text: string }> = ({ text }) => {
+  const [dots, setDots] = useState('');
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setDots(prev => {
+        if (prev === '') return '.';
+        if (prev === '.') return '..';
+        if (prev === '..') return '...';
+        return '';
+      });
+    }, 500);
+
+    return () => window.clearInterval(interval);
+  }, []);
+
+  return <span>{text}{dots}</span>;
+};
+
 interface PublicSpacePageProps {
   publicToken: string;
 }
@@ -31,6 +51,8 @@ interface PublicMessage {
   role: string;
   content: string;
   created_at: string;
+  // Временное поле для оптимистичного UI (не приходит с сервера)
+  isLoading?: boolean;
 }
 
 interface PublicNote {
@@ -158,6 +180,30 @@ export const PublicSpacePage: React.FC<PublicSpacePageProps> = ({ publicToken })
       return;
     }
 
+    const outgoingText = newMessage.trim();
+    const tempUserId = -1 * Date.now();
+    const tempAssistantId = -2 * Date.now();
+
+    // Оптимистично рисуем сообщение пользователя сразу
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: tempUserId,
+        role: 'user',
+        content: outgoingText,
+        created_at: new Date().toISOString(),
+      } as PublicMessage,
+      {
+        id: tempAssistantId,
+        role: 'assistant',
+        content: 'Поиск и формирование ответа',
+        created_at: new Date().toISOString(),
+        isLoading: true,
+      } as PublicMessage,
+    ]);
+    // Очищаем поле ввода сразу после отправки
+    setNewMessage('');
+
     setIsSending(true);
     try {
       const response = await fetch(`/api/public/spaces/${publicToken}/chat/send`, {
@@ -166,7 +212,7 @@ export const PublicSpacePage: React.FC<PublicSpacePageProps> = ({ publicToken })
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          message: newMessage.trim(),
+          message: outgoingText,
           chat_id: selectedChatId,
         }),
       });
@@ -193,6 +239,8 @@ export const PublicSpacePage: React.FC<PublicSpacePageProps> = ({ publicToken })
         }, 100);
       }
     } catch (err: any) {
+      // Убираем оптимистичные сообщения при ошибке
+      setMessages((prev) => prev.filter((m) => m.id !== tempUserId && m.id !== tempAssistantId));
       alert(err.message || 'Ошибка при отправке сообщения');
     } finally {
       setIsSending(false);
@@ -376,9 +424,13 @@ export const PublicSpacePage: React.FC<PublicSpacePageProps> = ({ publicToken })
                     <div key={msg.id} className={`public-message ${msg.role}`}>
                       <div className="public-message-content">
                         {msg.role === 'assistant' ? (
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                            {msg.content}
-                          </ReactMarkdown>
+                          msg.isLoading ? (
+                            <TypingAnimation text={msg.content} />
+                          ) : (
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                              {msg.content}
+                            </ReactMarkdown>
+                          )
                         ) : (
                           <div>{msg.content}</div>
                         )}
