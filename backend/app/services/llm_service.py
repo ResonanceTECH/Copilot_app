@@ -19,6 +19,7 @@ class LLMService:
         connect_timeout = float(os.getenv("LLM_CONNECT_TIMEOUT", "30.0"))  # 30 секунд на подключение
         timeout = httpx.Timeout(request_timeout, connect=connect_timeout)
         http_client = httpx.Client(timeout=timeout)
+        self.http_client = http_client
         
         # Проверяем, использовать ли Ollama
         use_ollama = os.getenv("USE_OLLAMA", "true").lower() == "true"
@@ -45,6 +46,11 @@ class LLMService:
             )
             self.ollama_model = None
             print("✅ Используется OpenRouter API")
+
+        # OpenRouter endpoints (used for eligibility fallback on guardrails/data policy errors)
+        self.openrouter_base_url = "https://openrouter.ai/api/v1"
+        self.openrouter_models_url = f"{self.openrouter_base_url}/models/user"
+        self.openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
         
         # Настройка Whisper: контейнер, API или локальный
         # Приоритет: контейнер > API > локальный
@@ -142,6 +148,68 @@ class LLMService:
             self.encoding = tiktoken.get_encoding("cl100k_base")
         except:
             self.encoding = None
+
+    def _is_openrouter_guardrail_data_policy_404(self, exc: Exception) -> bool:
+        """
+        OpenRouter при слишком строгих guardrails/privacy возвращает:
+        404 + "No endpoints available matching your guardrail restrictions and data policy"
+        """
+        s = str(exc).lower()
+        return (
+            "guardrail restrictions" in s
+            and "data policy" in s
+            and ("404" in s or "not found" in s or "no eligible endpoints" in s)
+        )
+
+    def _get_openrouter_eligible_models(self) -> List[Dict]:
+        """
+        Возвращает список моделей, которые реально доступны под текущие guardrails/privacy
+        для вашего ключа.
+        """
+        if not self.openrouter_api_key:
+            return []
+
+        try:
+            resp = self.http_client.get(
+                self.openrouter_models_url,
+                headers={"Authorization": f"Bearer {self.openrouter_api_key}"},
+            )
+            resp.raise_for_status()
+            payload = resp.json()
+            return payload.get("data") or []
+        except Exception as e:
+            print(f"⚠️ Не удалось получить eligible models OpenRouter: {e}")
+            return []
+
+    def _pick_openrouter_model(
+        self,
+        preferred_model: str,
+        input_modality: Optional[str] = None,  # "text" | "image" | "file" | "audio" | ...
+    ) -> str:
+        """
+        Выбирает модель из eligible моделей, учитывая input_modality.
+        Если подходящей модели нет — вернёт preferred_model.
+        """
+        eligible_models = self._get_openrouter_eligible_models()
+        if not eligible_models:
+            return preferred_model
+
+        # 1) Сначала пытаемся использовать preferred_model, если он есть среди eligible
+        for m in eligible_models:
+            if m.get("id") == preferred_model or m.get("canonical_slug") == preferred_model:
+                return m.get("id") or preferred_model
+
+        # 2) Если указали modality — выбираем первую подходящую
+        if input_modality:
+            for m in eligible_models:
+                arch = m.get("architecture") or {}
+                input_modalities = arch.get("input_modalities") or []
+                if input_modality in input_modalities:
+                    return m.get("id") or preferred_model
+
+        # 3) Иначе — первая eligible
+        first = eligible_models[0].get("id") or preferred_model
+        return first
 
     def get_quick_response(self, question: str) -> Optional[str]:
         """Проверка быстрых ответов"""
@@ -256,17 +324,43 @@ class LLMService:
                 )
             else:
                 # Использование OpenRouter API
-                model_name = "tngtech/deepseek-r1t2-chimera:free"
-                completion = self.client.chat.completions.create(
-                    extra_headers={
-                        "HTTP-Referer": self.app_url,
-                        "X-Title": "Business Assistant",
-                    },
-                    model=model_name,
-                    messages=messages,
-                    temperature=0.5,
-                    max_tokens=1000
-                )
+                preferred_model_name = os.getenv("OPENROUTER_MODEL", "tngtech/deepseek-r1t2-chimera")
+                model_name = preferred_model_name
+                try:
+                    completion = self.client.chat.completions.create(
+                        extra_headers={
+                            "HTTP-Referer": self.app_url,
+                            "X-OpenRouter-Title": "Business Assistant",
+                        },
+                        model=model_name,
+                        messages=messages,
+                        temperature=0.5,
+                        max_tokens=1000
+                    )
+                except Exception as e:
+                    # Если guardrails/privacy отфильтровали все endpoints под выбранную модель,
+                    # пробуем выбрать модель, которая реально eligible для вашего ключа.
+                    if self._is_openrouter_guardrail_data_policy_404(e):
+                        alt_model_name = self._pick_openrouter_model(
+                            preferred_model_name,
+                            input_modality="text",
+                        )
+                        if alt_model_name != model_name:
+                            print(f"🔁 OpenRouter model fallback: {model_name} -> {alt_model_name}")
+                            completion = self.client.chat.completions.create(
+                                extra_headers={
+                                    "HTTP-Referer": self.app_url,
+                                    "X-OpenRouter-Title": "Business Assistant",
+                                },
+                                model=alt_model_name,
+                                messages=messages,
+                                temperature=0.5,
+                                max_tokens=1000
+                            )
+                        else:
+                            raise
+                    else:
+                        raise
 
             if not completion.choices or len(completion.choices) == 0:
                 raise ValueError("LLM вернул пустой ответ")
@@ -362,20 +456,47 @@ class LLMService:
                 )
             else:
                 # Использование OpenRouter API
-                model_name = "tngtech/deepseek-r1t2-chimera:free"
-                completion = self.client.chat.completions.create(
-                    extra_headers={
-                        "HTTP-Referer": self.app_url,
-                        "X-Title": "Business Assistant",
-                    },
-                    model=model_name,
-                    messages=[
-                        {"role": "system", "content": "Ты помогаешь суммаризировать беседы."},
-                        {"role": "user", "content": summary_prompt}
-                    ],
-                    temperature=0.3,
-                    max_tokens=300
-                )
+                preferred_model_name = os.getenv("OPENROUTER_MODEL", "tngtech/deepseek-r1t2-chimera")
+                model_name = preferred_model_name
+                try:
+                    completion = self.client.chat.completions.create(
+                        extra_headers={
+                            "HTTP-Referer": self.app_url,
+                            "X-OpenRouter-Title": "Business Assistant",
+                        },
+                        model=model_name,
+                        messages=[
+                            {"role": "system", "content": "Ты помогаешь суммаризировать беседы."},
+                            {"role": "user", "content": summary_prompt}
+                        ],
+                        temperature=0.3,
+                        max_tokens=300
+                    )
+                except Exception as e:
+                    if self._is_openrouter_guardrail_data_policy_404(e):
+                        alt_model_name = self._pick_openrouter_model(
+                            preferred_model_name,
+                            input_modality="text",
+                        )
+                        if alt_model_name != model_name:
+                            print(f"🔁 OpenRouter summarization model fallback: {model_name} -> {alt_model_name}")
+                            completion = self.client.chat.completions.create(
+                                extra_headers={
+                                    "HTTP-Referer": self.app_url,
+                                    "X-OpenRouter-Title": "Business Assistant",
+                                },
+                                model=alt_model_name,
+                                messages=[
+                                    {"role": "system", "content": "Ты помогаешь суммаризировать беседы."},
+                                    {"role": "user", "content": summary_prompt}
+                                ],
+                                temperature=0.3,
+                                max_tokens=300
+                            )
+                        else:
+                            raise
+                    else:
+                        raise
 
             return completion.choices[0].message.content
 
@@ -568,18 +689,41 @@ class LLMService:
             
             # Сначала пробуем через OpenRouter с vision-моделью
             try:
-                completion = self.client.chat.completions.create(
-                    extra_headers={
-                        "HTTP-Referer": self.app_url,
-                        "X-Title": "Business Assistant",
-                    },
-                    # Используем модель с поддержкой vision
-                    # Если модель не поддерживает vision, попробуем OpenAI API
-                    model="openai/gpt-4o-mini",  # GPT-4o-mini поддерживает vision
-                    messages=messages,
-                    temperature=0.7,
-                    max_tokens=1000
-                )
+                preferred_vision_model = os.getenv("OPENROUTER_VISION_MODEL", "openai/gpt-4o-mini")
+                try:
+                    completion = self.client.chat.completions.create(
+                        extra_headers={
+                            "HTTP-Referer": self.app_url,
+                            "X-OpenRouter-Title": "Business Assistant",
+                        },
+                        # Модель должна поддерживать vision (input_modality="image")
+                        model=preferred_vision_model,
+                        messages=messages,
+                        temperature=0.7,
+                        max_tokens=1000
+                    )
+                except Exception as e:
+                    if self._is_openrouter_guardrail_data_policy_404(e):
+                        alt_model_name = self._pick_openrouter_model(
+                            preferred_vision_model,
+                            input_modality="image",
+                        )
+                        if alt_model_name != preferred_vision_model:
+                            print(f"🔁 OpenRouter vision model fallback: {preferred_vision_model} -> {alt_model_name}")
+                            completion = self.client.chat.completions.create(
+                                extra_headers={
+                                    "HTTP-Referer": self.app_url,
+                                    "X-OpenRouter-Title": "Business Assistant",
+                                },
+                                model=alt_model_name,
+                                messages=messages,
+                                temperature=0.7,
+                                max_tokens=1000
+                            )
+                        else:
+                            raise
+                    else:
+                        raise
                 
                 if completion.choices and len(completion.choices) > 0:
                     result = completion.choices[0].message.content
