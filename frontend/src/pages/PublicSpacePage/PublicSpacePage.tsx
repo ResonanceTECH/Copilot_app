@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { Header } from '../../components/common/Header';
 import { Icon } from '../../components/ui/Icon';
 import { ICONS } from '../../utils/icons';
@@ -373,7 +375,13 @@ export const PublicSpacePage: React.FC<PublicSpacePageProps> = ({ publicToken })
                   {messages.map((msg) => (
                     <div key={msg.id} className={`public-message ${msg.role}`}>
                       <div className="public-message-content">
-                        <div>{msg.content}</div>
+                        {msg.role === 'assistant' ? (
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {msg.content}
+                          </ReactMarkdown>
+                        ) : (
+                          <div>{msg.content}</div>
+                        )}
                         {msg.created_at && (
                           <div className="public-message-timestamp">
                             {new Date(msg.created_at).toLocaleTimeString('ru-RU', {
