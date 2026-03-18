@@ -711,6 +711,44 @@ export const AssistantPage: React.FC = () => {
     await handleSendMessageToThread(activeThreadId, content, false);
   }, [activeThreadId, handleSendMessageToThread, language]);
 
+  const handleMessageTagsChange = useCallback(
+    (
+      messageId: number,
+      tags: Array<{ id: number; name: string; color?: string | null }>
+    ) => {
+      // Обновляем текущее отображаемое сообщение
+      setMessages((prev) =>
+        prev.map((m) => {
+          const mid = parseInt(m.id, 10);
+          if (!isNaN(mid) && mid === messageId) {
+            return { ...m, tags: tags.map(t => ({ id: t.id, name: t.name, color: t.color || undefined })) };
+          }
+          return m;
+        })
+      );
+
+      // Обновляем сообщения внутри threads, чтобы при возврате на этот чат изменения не пропадали
+      if (!activeThreadId) return;
+      setThreads((prev) => {
+        const updated = new Map(prev);
+        const data = updated.get(activeThreadId);
+        if (!data) return updated;
+
+        const nextMessages = data.messages.map((m) => {
+          const mid = parseInt(m.id, 10);
+          if (!isNaN(mid) && mid === messageId) {
+            return { ...m, tags: tags.map(t => ({ id: t.id, name: t.name, color: t.color || undefined })) };
+          }
+          return m;
+        });
+
+        updated.set(activeThreadId, { ...data, messages: nextMessages });
+        return updated;
+      });
+    },
+    [activeThreadId]
+  );
+
   return (
     <div className="assistant-page">
       {panelMode === 'sidebar' && (
@@ -756,6 +794,7 @@ export const AssistantPage: React.FC = () => {
             onToolSelect={setActiveTool}
             chatId={activeThreadId ? threads.get(activeThreadId)?.chatId : undefined}
             spaceId={activeThreadId ? threads.get(activeThreadId)?.spaceId : undefined}
+            onMessageTagsChange={handleMessageTagsChange}
           />
         )}
       </div>

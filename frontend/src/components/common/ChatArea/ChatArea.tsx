@@ -45,6 +45,10 @@ interface ChatAreaProps {
   activeTool?: string;
   onToolSelect?: (tool: string) => void;
   onSendMessage?: (message: string) => void;
+  onMessageTagsChange?: (
+    messageId: number,
+    tags: Array<{ id: number; name: string; color?: string | null }>
+  ) => void;
   chatId?: number;
   spaceId?: number;
 }
@@ -55,6 +59,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   activeTool: externalActiveTool,
   onToolSelect,
   onSendMessage,
+  onMessageTagsChange,
   chatId,
   spaceId,
 }) => {
@@ -265,8 +270,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         console.log('✅ Теги успешно присвоены сообщению:', response);
         setShowTagSelector(null);
         setEditingMessageTags([]);
-        // Обновляем сообщения, перезагружая их из API
-        // Это будет обработано при следующей загрузке сообщений
+        // Обновляем теги мгновенно в UI
+        if (response.tags) {
+          onMessageTagsChange?.(messageIdNum, response.tags);
+        }
       }
     } catch (error) {
       console.error('Ошибка при присвоении тегов:', error);
@@ -286,7 +293,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
       if (response.success) {
         console.log('✅ Тег успешно удален из сообщения');
-        // Обновление будет при следующей загрузке сообщений
+        // Обновляем теги мгновенно в UI (API не возвращает список тегов после удаления)
+        const currentMessage = messages.find(m => m.id === messageId);
+        const nextTags = (currentMessage?.tags || []).filter(t => t.id !== tagId);
+        onMessageTagsChange?.(messageIdNum, nextTags);
       }
     } catch (error) {
       console.error('Ошибка при удалении тега:', error);
@@ -317,7 +327,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         console.log('✅ Тег успешно создан и присвоен сообщению:', response);
         setShowCreateTagBlock(null);
         setEditingMessageTags([]);
-        // Обновление будет при следующей загрузке сообщений
+        // Обновляем теги мгновенно в UI
+        if (response.tags) {
+          onMessageTagsChange?.(messageIdNum, response.tags);
+        }
       }
     } catch (error) {
       console.error('Ошибка при присвоении созданного тега:', error);
