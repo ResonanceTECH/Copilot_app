@@ -261,23 +261,20 @@ async def send_public_message(
         space = get_public_space(public_token, db)
         
         # Определяем чат
-        if request.chat_id:
-            chat = db.query(Chat).filter(
-                Chat.id == request.chat_id,
-                Chat.space_id == space.id
-            ).first()
-            if not chat:
-                raise HTTPException(status_code=404, detail="Чат не найден")
-        else:
-            # Создаем новый чат для публичного пользователя
-            chat = Chat(
-                space_id=space.id,
-                user_id=space.user_id,  # Используем владельца пространства как владельца чата
-                title=user_message[:50] + "..." if len(user_message) > 50 else user_message
+        if not request.chat_id:
+            # Публичные пользователи могут пользоваться существующими чатами,
+            # но не создавать новые.
+            raise HTTPException(
+                status_code=403,
+                detail="Создание нового чата в публичном пространстве запрещено. Выберите существующий чат."
             )
-            db.add(chat)
-            db.commit()
-            db.refresh(chat)
+        
+        chat = db.query(Chat).filter(
+            Chat.id == request.chat_id,
+            Chat.space_id == space.id
+        ).first()
+        if not chat:
+            raise HTTPException(status_code=404, detail="Чат не найден")
         
         # Сохраняем сообщение пользователя
         user_msg = Message(

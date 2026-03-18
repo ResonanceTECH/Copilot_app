@@ -151,6 +151,10 @@ export const PublicSpacePage: React.FC<PublicSpacePageProps> = ({ publicToken })
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || isSending) return;
+    if (!selectedChatId) {
+      alert('Нужно выбрать существующий чат слева. Создание нового чата недоступно.');
+      return;
+    }
 
     setIsSending(true);
     try {
@@ -161,7 +165,7 @@ export const PublicSpacePage: React.FC<PublicSpacePageProps> = ({ publicToken })
         },
         body: JSON.stringify({
           message: newMessage.trim(),
-          chat_id: selectedChatId || undefined,
+          chat_id: selectedChatId,
         }),
       });
 
@@ -174,12 +178,6 @@ export const PublicSpacePage: React.FC<PublicSpacePageProps> = ({ publicToken })
 
       if (data.success) {
         setNewMessage('');
-
-        // Если был создан новый чат, обновляем список чатов
-        if (!selectedChatId) {
-          setSelectedChatId(data.chat_id);
-          await loadChats();
-        }
 
         // Обновляем сообщения
         await loadMessages(data.chat_id);
@@ -425,40 +423,7 @@ export const PublicSpacePage: React.FC<PublicSpacePageProps> = ({ publicToken })
             ) : (
               <div className="public-space-welcome">
                 <h2>Добро пожаловать в публичное пространство</h2>
-                <p>Выберите чат из списка слева или начните новый, отправив сообщение ниже.</p>
-
-                <div className="chat-input-section">
-                  <div className="chat-input-wrapper">
-                    <div className="chat-input-container">
-                      <textarea
-                        ref={inputRef}
-                        className="chat-input"
-                        placeholder="Введите сообщение, чтобы начать новый чат..."
-                        value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
-                        onKeyDown={handleKeyDown}
-                        rows={1}
-                        disabled={isSending}
-                      />
-                      <div className="chat-input-actions">
-                        <button className="chat-input-icon-btn" type="button">
-                          <Icon src={ICONS.paperclip} size="md" />
-                        </button>
-                        <button className="chat-input-icon-btn" type="button">
-                          <Icon src={ICONS.microphone} size="md" />
-                        </button>
-                        <button
-                          className="chat-input-icon-btn chat-input-send-btn"
-                          type="button"
-                          onClick={handleSendMessage}
-                          disabled={!newMessage.trim() || isSending}
-                        >
-                          <Icon src={ICONS.send} size="md" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <p>Выберите существующий чат из списка слева. Создание новых чатов недоступно.</p>
               </div>
             )
           )}
