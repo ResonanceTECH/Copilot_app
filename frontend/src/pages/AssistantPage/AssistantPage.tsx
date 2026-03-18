@@ -22,6 +22,7 @@ interface ThreadData {
 
 export const AssistantPage: React.FC = () => {
   const { isAuthenticated } = useAuth();
+  const ACTIVE_THREAD_STORAGE_KEY = 'activeThreadId';
   const [userName] = useState('');
   const [threads, setThreads] = useState<Map<string, ThreadData>>(new Map());
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
@@ -34,6 +35,7 @@ export const AssistantPage: React.FC = () => {
 
   const typingIntervalRef = useRef<number | null>(null);
   const typingRunIdRef = useRef(0);
+  const didRestoreActiveThreadRef = useRef(false);
   const { language } = useLanguage();
   const [panelTogglePosition, setPanelTogglePosition] = useState<{
     side: 'left' | 'right' | 'top' | 'bottom';
@@ -98,6 +100,18 @@ export const AssistantPage: React.FC = () => {
       setMessages([]);
     }
   }, [isAuthenticated, language]);
+
+  // Keep current chat selection across page refreshes
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    try {
+      if (activeThreadId) {
+        localStorage.setItem(ACTIVE_THREAD_STORAGE_KEY, activeThreadId);
+      }
+    } catch {
+      // ignore
+    }
+  }, [activeThreadId, isAuthenticated]);
 
   // Cleanup typing interval on unmount
   useEffect(() => {
@@ -248,6 +262,49 @@ export const AssistantPage: React.FC = () => {
       setMessages([]);
     }
   }, [threads]);
+
+  // Restore last selected chat on first load after refresh
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    if (activeThreadId) return;
+    if (!threads || threads.size === 0) return;
+    if (didRestoreActiveThreadRef.current) return;
+
+    try {
+      const saved = localStorage.getItem(ACTIVE_THREAD_STORAGE_KEY);
+      if (saved && threads.has(saved)) {
+        didRestoreActiveThreadRef.current = true;
+        void handleThreadSelect(saved);
+        return;
+      }
+
+      // Fallback: choose most recently updated chat
+      if (!saved) {
+        const sorted = Array.from(threads.values()).sort((a, b) => {
+          const at = a.thread.timestamp?.getTime?.() ?? 0;
+          const bt = b.thread.timestamp?.getTime?.() ?? 0;
+          return bt - at;
+        });
+
+        const firstThread = sorted[0];
+        if (firstThread) {
+          const foundEntry = Array.from(threads.entries()).find(([, v]) => v.thread.id === firstThread.thread.id);
+          if (foundEntry) {
+            didRestoreActiveThreadRef.current = true;
+            void handleThreadSelect(foundEntry[0]);
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, [isAuthenticated, activeThreadId, threads, handleThreadSelect, didRestoreActiveThreadRef]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      didRestoreActiveThreadRef.current = false;
+    }
+  }, [isAuthenticated]);
 
   // Удалить чат
   const handleThreadDelete = useCallback(async (threadId: string) => {
