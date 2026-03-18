@@ -92,8 +92,8 @@ async def submit_feedback(
     # Создаем запись обратной связи
     new_feedback = Feedback(
         user_id=current_user.id if current_user else None,
-        email=feedback_data.email if not current_user else None,
-        name=feedback_data.name if not current_user else None,
+        email=current_user.email if current_user else feedback_data.email,
+        name=current_user.name if current_user else feedback_data.name,
         subject=feedback_data.subject.strip(),
         message=feedback_data.message.strip(),
         feedback_type=feedback_data.feedback_type,
