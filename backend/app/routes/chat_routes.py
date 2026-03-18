@@ -1723,6 +1723,11 @@ async def remove_tag_from_message(
 ):
     """Удалить тег из сообщения"""
     try:
+        from sqlalchemy import func, select
+        from backend.app.models.message_tag import message_tags
+        from backend.app.models.note_tag import note_tags
+        from backend.app.models.tag import Tag
+
         # Проверяем, что сообщение существует
         message = db.query(Message).filter(Message.id == message_id).first()
         if not message:
@@ -1735,6 +1740,11 @@ async def remove_tag_from_message(
         
         if chat.user_id != current_user.id:
             raise HTTPException(status_code=403, detail="Нет доступа к этому чату")
+
+        # Получаем пространство чата
+        space = db.query(Space).filter(Space.id == chat.space_id).first()
+        if not space:
+            raise HTTPException(status_code=404, detail="Пространство не найдено")
         
         # Удаляем тег из сообщения
         tag_to_remove = None
@@ -1746,6 +1756,25 @@ async def remove_tag_from_message(
         if tag_to_remove:
             message.tags.remove(tag_to_remove)
             db.commit()
+            
+            # Если тег больше нигде не используется (ни в сообщениях, ни в заметках) в этом пространстве,
+            # удаляем сам объект тега из пространства.
+            message_usage = db.execute(
+                select(func.count()).select_from(message_tags).where(message_tags.c.tag_id == tag_id)
+            ).scalar_one()
+            note_usage = db.execute(
+                select(func.count()).select_from(note_tags).where(note_tags.c.tag_id == tag_id)
+            ).scalar_one()
+
+            if message_usage == 0 and note_usage == 0:
+                tag_entity = db.query(Tag).filter(
+                    Tag.id == tag_id,
+                    Tag.space_id == space.id
+                ).first()
+                if tag_entity:
+                    db.delete(tag_entity)
+                    db.commit()
+
             return {"success": True, "message": "Тег успешно удален из сообщения"}
         else:
             raise HTTPException(status_code=404, detail="Тег не найден в сообщении")
