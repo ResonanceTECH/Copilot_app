@@ -79,7 +79,7 @@ const translations: Record<Language, Translations> = {
     assistant: 'Ассистент',
     deepseekChimera: 'Deepseek Chimera',
     newChat: 'Новый чат',
-    deleteThread: 'Удалить Thread',
+    deleteThread: 'Удалить чат',
     rename: 'Переименовать',
     pinThread: 'Закрепить',
     unpinThread: 'Открепить',
