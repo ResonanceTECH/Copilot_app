@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Sidebar } from '../../components/common/Sidebar';
 import { Header } from '../../components/common/Header';
 import { ChatArea } from '../../components/common/ChatArea';
@@ -31,6 +31,9 @@ export const AssistantPage: React.FC = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [showSupportPanel, setShowSupportPanel] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  const typingIntervalRef = useRef<number | null>(null);
+  const typingRunIdRef = useRef(0);
   const { language } = useLanguage();
   const [panelTogglePosition, setPanelTogglePosition] = useState<{
     side: 'left' | 'right' | 'top' | 'bottom';
@@ -95,6 +98,16 @@ export const AssistantPage: React.FC = () => {
       setMessages([]);
     }
   }, [isAuthenticated, language]);
+
+  // Cleanup typing interval on unmount
+  useEffect(() => {
+    return () => {
+      if (typingIntervalRef.current) {
+        window.clearInterval(typingIntervalRef.current);
+        typingIntervalRef.current = null;
+      }
+    };
+  }, []);
 
   // Удаляем сохранение в localStorage, так как теперь используем API
 
@@ -430,74 +443,114 @@ export const AssistantPage: React.FC = () => {
           })()
           : threadId;
 
-        // Добавляем ответ ассистента
-        // Используем formatted_html если есть, иначе raw_text
-        const content = response.response.formatted_html || response.response.raw_text;
+        // Печатаем ответ плавно поверх loadingMessage (без стриминга на бэкенде).
+        const loadingId = loadingMessage.id;
+
+        // Для плавной "печати" берём raw_text (обычно без HTML).
+        const typingText = response.response.raw_text || response.response.formatted_html || '';
+        const finalContent = response.response.formatted_html || response.response.raw_text;
+
+        // Ассистент будет добавлен только после завершения "печати"
         const assistantMessage: ChatMessage = {
           id: `temp-assistant-${Date.now()}`,
-          content: content,
+          content: finalContent,
           role: 'assistant',
           timestamp: new Date(response.response.timestamp),
         };
 
-        setThreads((prev) => {
-          const updated = new Map(prev);
-          const data = updated.get(finalThreadId);
-          if (data) {
-            // Удаляем loading сообщение и добавляем реальный ответ
-            const messagesWithoutLoading = data.messages.filter(
-              msg => !msg.isLoading
-            );
-            // Сохраняем временное сообщение пользователя, добавляем ответ ассистента
-            updated.set(finalThreadId, {
-              ...data,
-              messages: [...messagesWithoutLoading, assistantMessage],
-            });
-          }
-          return updated;
-        });
+        // Сбрасываем текст loading-сообщения и начинаем дописывать
+        setMessages((prev) =>
+          prev.map((m) => (m.id === loadingId ? { ...m, content: '' } : m))
+        );
 
-        setMessages((prev) => {
-          // Удаляем loading сообщение, сохраняем пользовательское, добавляем ответ
-          const withoutLoading = prev.filter(msg => !msg.isLoading);
-          return [...withoutLoading, assistantMessage];
-        });
-
-        // Перезагружаем сообщения с сервера для получения реальных ID
-        // Небольшая задержка, чтобы сервер успел сохранить оба сообщения
-        if (response.chat_id) {
-          setTimeout(async () => {
-            try {
-              const messagesData = await chatAPI.getMessages(response.chat_id);
-              const chatMessages: ChatMessage[] = messagesData.messages.map((msg: MessageItem) => ({
-                id: msg.id.toString(),
-                content: msg.content,
-                role: msg.role as 'user' | 'assistant',
-                timestamp: new Date(msg.created_at),
-              }));
-
-              setThreads((prev) => {
-                const updated = new Map(prev);
-                const data = updated.get(finalThreadId);
-                if (data) {
-                  updated.set(finalThreadId, {
-                    ...data,
-                    messages: chatMessages,
-                  });
-                }
-                return updated;
-              });
-
-              // Обновляем только если это все еще активный чат
-              if (activeThreadId === finalThreadId || activeThreadId === threadId) {
-                setMessages(chatMessages);
-              }
-            } catch (reloadError) {
-              console.error('Ошибка перезагрузки сообщений:', reloadError);
-              // Продолжаем с временными сообщениями
-            }
-          }, 100);
+        if (typingIntervalRef.current) {
+          window.clearInterval(typingIntervalRef.current);
+          typingIntervalRef.current = null;
         }
+
+        typingRunIdRef.current += 1;
+        const runId = typingRunIdRef.current;
+
+        // Делаем шаги так, чтобы визуально было "быстро", но не дергало слишком часто
+        const total = typingText.length;
+        const maxFrames = 180; // верхняя граница кол-ва обновлений
+        const step = Math.max(1, Math.ceil(total / maxFrames));
+        let i = 0;
+
+        typingIntervalRef.current = window.setInterval(() => {
+          // Если за это время пользователь отправил новое сообщение — прекращаем старую анимацию
+          if (typingRunIdRef.current !== runId) {
+            if (typingIntervalRef.current) window.clearInterval(typingIntervalRef.current);
+            typingIntervalRef.current = null;
+            return;
+          }
+
+          i = Math.min(total, i + step);
+          const typed = typingText.slice(0, i);
+
+          setMessages((prev) =>
+            prev.map((m) => (m.id === loadingId ? { ...m, content: typed } : m))
+          );
+
+          if (i >= total) {
+            if (typingIntervalRef.current) window.clearInterval(typingIntervalRef.current);
+            typingIntervalRef.current = null;
+
+            // Удаляем loading сообщение и добавляем финальный ответ
+            setThreads((prev) => {
+              const updated = new Map(prev);
+              const data = updated.get(finalThreadId);
+              if (data) {
+                const messagesWithoutLoading = data.messages.filter(msg => !msg.isLoading);
+                updated.set(finalThreadId, {
+                  ...data,
+                  messages: [...messagesWithoutLoading, assistantMessage],
+                });
+              }
+              return updated;
+            });
+
+            setMessages((prev) => {
+              const withoutLoading = prev.filter(msg => !msg.isLoading);
+              return [...withoutLoading, assistantMessage];
+            });
+
+            // Перезагружаем сообщения с сервера для получения реальных ID
+            // Небольшая задержка, чтобы сервер успел сохранить оба сообщения
+            if (response.chat_id) {
+              setTimeout(async () => {
+                try {
+                  const messagesData = await chatAPI.getMessages(response.chat_id);
+                  const chatMessages: ChatMessage[] = messagesData.messages.map((msg: MessageItem) => ({
+                    id: msg.id.toString(),
+                    content: msg.content,
+                    role: msg.role as 'user' | 'assistant',
+                    timestamp: new Date(msg.created_at),
+                  }));
+
+                  setThreads((prev) => {
+                    const updated = new Map(prev);
+                    const data = updated.get(finalThreadId);
+                    if (data) {
+                      updated.set(finalThreadId, {
+                        ...data,
+                        messages: chatMessages,
+                      });
+                    }
+                    return updated;
+                  });
+
+                  // Обновляем только если это все еще активный чат
+                  if (activeThreadId === finalThreadId || activeThreadId === threadId) {
+                    setMessages(chatMessages);
+                  }
+                } catch (reloadError) {
+                  console.error('Ошибка перезагрузки сообщений:', reloadError);
+                }
+              }, 100);
+            }
+          }
+        }, 25);
       } else {
         throw new Error(response.error || 'Ошибка отправки сообщения');
       }
