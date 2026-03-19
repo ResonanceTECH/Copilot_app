@@ -446,6 +446,15 @@ async def send_message(
             if request.space_id and chat.space_id != request.space_id:
                 raise HTTPException(status_code=404, detail="Чат не найден")
             space = chat.space
+
+            # Если это первое сообщение в чате, обновляем заголовок
+            # на основе запроса пользователя.
+            has_messages = db.query(Message.id).filter(
+                Message.chat_id == chat.id
+            ).first() is not None
+            if not has_messages:
+                new_title = user_message[:50] + "..." if len(user_message) > 50 else user_message
+                chat.title = new_title
         else:
             # Для нового чата пространство определяем явно или через дефолтное.
             if request.space_id:
