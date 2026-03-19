@@ -424,10 +424,13 @@ export const AssistantPage: React.FC = () => {
   const handleSendMessageToThread = useCallback(async (
     threadId: string,
     content: string,
-    isNewThread: boolean
+    isNewThread: boolean,
+    forcedChatId?: number
   ) => {
     const threadData = threads.get(threadId);
-    const chatId = threadData?.chatId;
+    const chatId = forcedChatId ?? threadData?.chatId;
+    const shouldRenameThreadOnFirstMessage = !!threadData && threadData.messages.length === 0;
+    const firstMessageTitle = content.length > 50 ? `${content.slice(0, 50)}...` : content;
 
     // Добавляем сообщение пользователя в UI сразу
     const userMessage: ChatMessage = {
@@ -499,6 +502,23 @@ export const AssistantPage: React.FC = () => {
             return newThreadId;
           })()
           : threadId;
+
+        if (shouldRenameThreadOnFirstMessage) {
+          setThreads((prev) => {
+            const updated = new Map(prev);
+            const data = updated.get(finalThreadId);
+            if (data) {
+              updated.set(finalThreadId, {
+                ...data,
+                thread: {
+                  ...data.thread,
+                  title: firstMessageTitle,
+                },
+              });
+            }
+            return updated;
+          });
+        }
 
         // Печатаем ответ плавно поверх loadingMessage (без стриминга на бэкенде).
         const loadingId = loadingMessage.id;
@@ -677,7 +697,7 @@ export const AssistantPage: React.FC = () => {
         setMessages([]);
 
         // Отправляем сообщение в новый чат
-        await handleSendMessageToThread(newThreadId, content, true);
+        await handleSendMessageToThread(newThreadId, content, true, chatData.id);
         return;
       } catch (error) {
         console.error('Ошибка создания чата при отправке сообщения:', error);
