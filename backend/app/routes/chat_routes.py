@@ -433,28 +433,32 @@ async def send_message(
         if not user_message:
             raise HTTPException(status_code=400, detail="Сообщение не может быть пустым")
 
-        # Определяем пространство
-        if request.space_id:
-            space = db.query(Space).filter(
-                Space.id == request.space_id,
-                Space.user_id == current_user.id,
-                Space.is_archived == False
-            ).first()
-            if not space:
-                raise HTTPException(status_code=404, detail="Пространство не найдено")
-        else:
-            space = get_or_create_default_space(current_user, db)
-
-        # Определяем чат
+        # Определяем чат и пространство.
+        # Важно: если chat_id передан, пространство берем из самого чата,
+        # иначе после перемещения чата в другое пространство поиск ломается.
         if request.chat_id:
             chat = db.query(Chat).filter(
                 Chat.id == request.chat_id,
-                Chat.user_id == current_user.id,
-                Chat.space_id == space.id
+                Chat.user_id == current_user.id
             ).first()
             if not chat:
                 raise HTTPException(status_code=404, detail="Чат не найден")
+            if request.space_id and chat.space_id != request.space_id:
+                raise HTTPException(status_code=404, detail="Чат не найден")
+            space = chat.space
         else:
+            # Для нового чата пространство определяем явно или через дефолтное.
+            if request.space_id:
+                space = db.query(Space).filter(
+                    Space.id == request.space_id,
+                    Space.user_id == current_user.id,
+                    Space.is_archived == False
+                ).first()
+                if not space:
+                    raise HTTPException(status_code=404, detail="Пространство не найдено")
+            else:
+                space = get_or_create_default_space(current_user, db)
+
             # Создаем новый чат
             chat = Chat(
                 space_id=space.id,
