@@ -40,40 +40,6 @@ services:
       timeout: 10s
       retries: 5
       start_period: 120s
-    # Раскомментируйте секцию deploy ниже, если у вас есть GPU
-    # Для CPU-only режима оставьте секцию deploy закомментированной
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: 1
-    #           capabilities: [gpu]
-
-  ollama:
-    image: ollama/ollama:latest
-    container_name: copilot_ollama
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_models:/root/.ollama
-    restart: unless-stopped
-    healthcheck:
-      # Проверяем доступность API через простой endpoint
-      test: ["CMD", "ollama", "list"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 30s
-    # Раскомментируйте секцию deploy ниже, если у вас есть GPU
-    # Для CPU-only режима оставьте секцию deploy закомментированной
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: 1
-    #           capabilities: [gpu]
 
   app:
     build:
@@ -88,9 +54,7 @@ services:
       - DATABASE_URL=postgresql://copilot_user:copilot_pass@db:5432/copilot_db
       - APP_URL=${APP_URL:-https://localhost}
       - ENABLE_SSL=${ENABLE_SSL:-false}
-      - OLLAMA_API_URL=http://ollama:11434
-      - USE_OLLAMA=${USE_OLLAMA:-false}
-      - OLLAMA_MODEL=${OLLAMA_MODEL:-deepseek-r1-distill-llama}
+      - USE_OLLAMA=false
       - WHISPER_API_URL=http://whisper:9000
       - USE_WHISPER_CONTAINER=${USE_WHISPER_CONTAINER:-false}
     env_file:
@@ -104,8 +68,6 @@ services:
       db:
         condition: service_healthy
       whisper:
-        condition: service_healthy
-      ollama:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
@@ -156,7 +118,6 @@ volumes:
   postgres_data:
   whisper_cache:
   whisper_models:
-  ollama_models:
   # Раскомментируйте, когда настроите SSL для продакшена
   # certbot_certs:
   # certbot_www:
