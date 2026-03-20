@@ -324,7 +324,7 @@ class LLMService:
                 )
             else:
                 # Использование OpenRouter API
-                preferred_model_name = os.getenv("OPENROUTER_MODEL", "tngtech/deepseek-r1t2-chimera")
+                preferred_model_name = os.getenv("OPENROUTER_MODEL", "openai/gpt-oss-120b:free")
                 model_name = preferred_model_name
                 try:
                     completion = self.client.chat.completions.create(
@@ -456,7 +456,7 @@ class LLMService:
                 )
             else:
                 # Использование OpenRouter API
-                preferred_model_name = os.getenv("OPENROUTER_MODEL", "tngtech/deepseek-r1t2-chimera")
+                preferred_model_name = os.getenv("OPENROUTER_MODEL", "openai/gpt-oss-120b:free")
                 model_name = preferred_model_name
                 try:
                     completion = self.client.chat.completions.create(
