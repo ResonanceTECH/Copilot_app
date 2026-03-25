@@ -221,6 +221,26 @@ class LLMService:
             return len(text.split())  # fallback
         return len(self.encoding.encode(text))
 
+    @staticmethod
+    def _collapse_adjacent_same_role(msgs: List[Dict]) -> List[Dict]:
+        """Reka / строгие API: не должно быть двух user или двух assistant подряд."""
+        if not msgs:
+            return []
+        out: List[Dict] = []
+        for m in msgs:
+            role = m.get("role")
+            content = m.get("content") or ""
+            if not out:
+                out.append({"role": role, "content": content})
+                continue
+            if role == out[-1].get("role"):
+                prev = out[-1].get("content") or ""
+                sep = "\n\n" if prev.strip() and str(content).strip() else ""
+                out[-1]["content"] = prev + sep + content
+            else:
+                out.append({"role": role, "content": content})
+        return out
+
     def prepare_conversation_messages(
             self,
             system_prompt: str,
@@ -261,6 +281,15 @@ class LLMService:
                 history_messages.insert(0, {"role": role, "content": content})
                 history_tokens += message_tokens
 
+            # Текущий ход пользователя уже в БД и попал в историю; user_question передаётся отдельно
+            # (часто с доп. контекстом файлов) — убираем дублирующий последний user, иначе Reka: 400.
+            while history_messages and history_messages[-1].get("role") == "user":
+                history_messages.pop()
+
+            # После обрезки по токенам первым в окне может остаться assistant — недопустимо сразу после system
+            while history_messages and history_messages[0].get("role") == "assistant":
+                history_messages.pop(0)
+
             # Добавляем подготовленную историю
             messages.extend(history_messages)
             current_tokens += history_tokens
@@ -269,6 +298,10 @@ class LLMService:
         user_tokens = self.count_tokens(user_question)
         messages.append({"role": "user", "content": user_question})
         current_tokens += user_tokens
+
+        # Страховка: схлопнуть подряд одинаковые роли (битая история / обрезка)
+        if len(messages) > 2:
+            messages = [messages[0]] + self._collapse_adjacent_same_role(messages[1:])
 
         print(
             f"📊 Токены: система={self.count_tokens(system_prompt)}, история={current_tokens - self.count_tokens(system_prompt) - user_tokens}, вопрос={user_tokens}, всего={current_tokens}")

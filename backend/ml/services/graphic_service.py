@@ -20,24 +20,20 @@ class GraphicService:
             print(f"📝 Запрос пользователя: '{user_query}'")
             print("=" * 80)
 
-            # 1. Промпт с фиксированным именем файла
-            system_prompt = """Ты переводишь запросы пользователей на Python код для создания графиков.
-Пользователь описывает, какой график ему нужен. Твоя задача - сгенерировать рабочий Python код.
+            # 1. Промпт: только matplotlib + numpy — seaborn даёт несуществующие вызовы (sns.legend)
+            system_prompt = """Сгенерируй один блок ```python с рабочим кодом графика.
 
-Требования к коду:
-1. Используй matplotlib и seaborn если нужно
-2. Сохрани результат в файл 'graph_output.png'
-3. Не выводи график на экран, только сохраняй
-4. Верни только чистый Python код без объяснений
-5. Код должен быть полным и готовым к выполнению
-6. Используй библиотеку matplotlib
-7. Сделай график максимально информативным и удобным к восприятию
-8. Используй минималистичный дизайн
-9. Сделай легенду к графику
-10. Используй стильный и понятный офисный шрифт
+Обязательно:
+- import numpy as np; import matplotlib.pyplot as plt
+- НЕ import seaborn; НЕ sns.* — библиотека seaborn запрещена
+- Данные: для y=f(x) используй x = np.linspace(...), y = f(x), числа в массивах, не dict и не один скаляр x
+- figsize только в дюймах, напр. plt.figure(figsize=(8, 5)), не (800, 600)
+- Легенда: только plt.legend() или plt.legend(loc='best') — со скобками, без опечаток
+- Без plt.show(). В конце: plt.savefig('graph_output.png', dpi=120, bbox_inches='tight'); plt.close()
+- Только код, без пояснений вне блока
 """
 
-            user_prompt = f"Создай Python код для графика по запросу: {user_query}"
+            user_prompt = f"Запрос: {user_query}\nПострой график по смыслу запроса."
 
             print(f"📤 Отправляем запрос в LLM...")
 
@@ -241,6 +237,36 @@ class GraphicService:
             final_lines.append("plt.close()")
 
         final_code = '\n'.join(final_lines)
+        final_code = self._repair_matplotlib_code(final_code)
 
         print(f"✅ Финальный код ({len(final_code)} символов)")
         return final_code
+
+    def _repair_matplotlib_code(self, code: str) -> str:
+        """Убирает типичный мусор от слабых LLM: sns.legend, опечатки plt.legend, plt.show."""
+        if not code:
+            return code
+
+        # plt.legend loc= / plt.legend "foo" — пропущена '('
+        code = re.sub(r"plt\.legend\s+(?=[a-zA-Z_\"'])", "plt.legend(", code)
+
+        lines_out = []
+        for line in code.split("\n"):
+            s = line.strip()
+            if not s:
+                lines_out.append(line)
+                continue
+            # sns.legend* в seaborn не как у plt — модели путают и ломают синтаксис
+            if re.search(r"\bsns\.legend\b", s):
+                continue
+            if re.search(r"\bplt\.show\s*\(", s):
+                continue
+            lines_out.append(line)
+
+        code = "\n".join(lines_out)
+
+        if re.search(r"\bsns\.", code) is None:
+            code = re.sub(r"^\s*import\s+seaborn\s+as\s+sns\s*\n?", "", code, flags=re.MULTILINE)
+            code = re.sub(r"^\s*from\s+seaborn\s+import\s+.*\n?", "", code, flags=re.MULTILINE)
+
+        return code

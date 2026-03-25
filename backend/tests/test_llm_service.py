@@ -91,6 +91,34 @@ class TestLLMService:
         assert messages[1]["role"] == "user"
         assert messages[2]["role"] == "assistant"
         assert messages[3]["role"] == "user"
+
+    def test_prepare_drops_trailing_user_duplicate_of_current_turn(self, llm_service):
+        """История из БД уже содержит текущее user-сообщение — не дублировать для Reka."""
+        history = [
+            {"role": "user", "content": "старый"},
+            {"role": "assistant", "content": "ок"},
+            {"role": "user", "content": "текущий в БД"},
+        ]
+        messages = llm_service.prepare_conversation_messages(
+            "sys",
+            "текущий + файлы",
+            conversation_history=history,
+        )
+        roles = [m["role"] for m in messages]
+        assert roles == ["system", "user", "assistant", "user"]
+        assert messages[-1]["content"] == "текущий + файлы"
+        assert messages[1]["content"] == "старый"
+
+    def test_prepare_strips_leading_assistant_after_token_window(self, llm_service):
+        """После system первым идёт user (окно обрезало предыдущий user)."""
+        history = [
+            {"role": "assistant", "content": "orphan assistant"},
+        ]
+        messages = llm_service.prepare_conversation_messages(
+            "sys", "вопрос", conversation_history=history
+        )
+        assert [m["role"] for m in messages] == ["system", "user"]
+        assert messages[-1]["content"] == "вопрос"
     
     def test_prepare_conversation_messages_max_tokens(self, llm_service):
         """Тест ограничения истории по токенам"""
