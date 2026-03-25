@@ -483,7 +483,7 @@ export const chatAPI = {
 };
 
 // API методы для пространств (mock версия)
-import type { Space, SpaceCreateRequest, SpaceUpdateRequest, Note, NotePreview, NoteCreateRequest, NoteUpdateRequest, SpaceTag, SpaceTagCreateRequest, SpaceTagUpdateRequest, SupportFeedback, SupportFeedbackRequest, SupportArticle, SupportArticlesResponse, SearchResults, SearchRequest, NotificationSettingsResponse, NotificationSettingsRequest, Notification, NotificationListResponse, UserProfile, UserProfileUpdate } from '../types';
+import type { Space, SpaceCreateRequest, SpaceUpdateRequest, Note, NotePreview, NoteCreateRequest, NoteUpdateRequest, SpaceTag, SpaceTagCreateRequest, SpaceTagUpdateRequest, SupportFeedback, SupportFeedbackRequest, SupportArticle, SupportArticlesResponse, SearchResults, SearchRequest, NotificationSettingsResponse, NotificationSettingsRequest, Notification, NotificationListResponse, UserProfile, UserProfileUpdate, SpaceFilesListResponse } from '../types';
 
 // Имитация задержки сети для mock методов
 export const spacesAPI = {
@@ -613,6 +613,39 @@ export const spacesAPI = {
   exportSpace: async (spaceId: number): Promise<{ public_token: string; public_url: string; is_public: boolean }> => {
     return apiRequest<{ public_token: string; public_url: string; is_public: boolean }>(`/spaces/${spaceId}/export`, {
       method: 'POST',
+    });
+  },
+
+  // Получить все файлы пространства (из всех чатов)
+  getSpaceFiles: async (
+    spaceId: number,
+    params?: {
+      limit?: number;
+      offset?: number;
+      file_type?: string;
+      origin?: 'all' | 'user' | 'assistant' | 'unattached';
+      q?: string;
+      chat_id?: number;
+      attached_only?: boolean;
+    }
+  ): Promise<SpaceFilesListResponse> => {
+    const queryParams = new URLSearchParams();
+    if (params?.limit !== undefined) queryParams.append('limit', params.limit.toString());
+    if (params?.offset !== undefined) queryParams.append('offset', params.offset.toString());
+    if (params?.file_type) queryParams.append('file_type', params.file_type);
+    if (params?.origin && params.origin !== 'all') queryParams.append('origin', params.origin);
+    if (params?.q) queryParams.append('q', params.q);
+    if (params?.chat_id !== undefined) queryParams.append('chat_id', params.chat_id.toString());
+    if (params?.attached_only) queryParams.append('attached_only', 'true');
+
+    const url = `/spaces/${spaceId}/files${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    return apiRequest<SpaceFilesListResponse>(url, { method: 'GET' });
+  },
+
+  renameSpaceFile: async (spaceId: number, fileId: number, filename: string) => {
+    return apiRequest(`/spaces/${spaceId}/files/${fileId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ filename }),
     });
   },
 };

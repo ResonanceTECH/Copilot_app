@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { spacesAPI, chatAPI, notesAPI, type ChatHistoryItem, ApiErrorWithStatus } from '../../utils/api';
-import type { Space, NotePreview, SpaceTag } from '../../types';
+import type { Space, NotePreview, SpaceTag, SpaceAttachmentItem } from '../../types';
 import { Header } from '../../components/common/Header';
 import { Icon } from '../../components/ui/Icon';
 import { ICONS } from '../../utils/icons';
@@ -16,11 +16,21 @@ interface SpaceDetailPageProps {
 export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => {
   const { isAuthenticated } = useAuth();
   const [space, setSpace] = useState<Space | null>(null);
-  const [activeTab, setActiveTab] = useState<'chats' | 'notes' | 'tags' | 'settings'>('chats');
+  const [activeTab, setActiveTab] = useState<'chats' | 'notes' | 'files' | 'tags' | 'settings'>('chats');
   const [isLoading, setIsLoading] = useState(false);
   const [chats, setChats] = useState<ChatHistoryItem[]>([]);
   const [notes, setNotes] = useState<NotePreview[]>([]);
   const [tags, setTags] = useState<SpaceTag[]>([]);
+  const [files, setFiles] = useState<SpaceAttachmentItem[]>([]);
+  const [filesTotal, setFilesTotal] = useState<number>(0);
+  const [filesQuery, setFilesQuery] = useState<string>('');
+  const [filesFilter, setFilesFilter] = useState<'all' | 'images' | 'documents'>('all');
+  const [filesOrigin, setFilesOrigin] = useState<'all' | 'assistant' | 'user'>('all');
+  const [filesOffset, setFilesOffset] = useState<number>(0);
+  const [isLoadingFiles, setIsLoadingFiles] = useState<boolean>(false);
+  const [editingFileId, setEditingFileId] = useState<number | null>(null);
+  const [editFilename, setEditFilename] = useState<string>('');
+  const [isRenamingFile, setIsRenamingFile] = useState<boolean>(false);
   const [editName, setEditName] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [showTagModal, setShowTagModal] = useState(false);
@@ -52,10 +62,10 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
   const [exportUrl, setExportUrl] = useState<string>('');
 
   useEffect(() => {
-    if (isAuthenticated) {
-      loadSpace();
-      loadData();
-    }
+    if (!isAuthenticated) return;
+    loadSpace();
+    loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, spaceId, activeTab]);
 
 
@@ -81,6 +91,44 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
     }
   };
 
+  const loadFiles = async (opts?: {
+    offset?: number;
+    query?: string;
+    filter?: 'all' | 'images' | 'documents';
+    origin?: 'all' | 'assistant' | 'user';
+  }) => {
+    setIsLoadingFiles(true);
+    try {
+      const limit = 50;
+      const filter = opts?.filter ?? filesFilter;
+      const offset = opts?.offset ?? filesOffset;
+      const query = (opts?.query ?? filesQuery).trim();
+      const origin = opts?.origin ?? filesOrigin;
+
+      const fileType =
+        filter === 'all'
+          ? undefined
+          : filter === 'images'
+            ? 'image'
+            : 'document';
+
+      const resp = await spacesAPI.getSpaceFiles(spaceId, {
+        limit,
+        offset,
+        q: query ? query : undefined,
+        file_type: fileType,
+        origin: origin,
+      });
+
+      setFiles(resp.files);
+      setFilesTotal(resp.total);
+    } catch (error) {
+      console.error('Ошибка загрузки файлов пространства:', error);
+    } finally {
+      setIsLoadingFiles(false);
+    }
+  };
+
   const loadData = async () => {
     try {
       // Всегда загружаем теги для отображения в заголовке
@@ -93,9 +141,82 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
       } else if (activeTab === 'notes') {
         const response = await notesAPI.getNotes(spaceId);
         setNotes(response.notes);
+      } else if (activeTab === 'files') {
+        await loadFiles();
       }
     } catch (error) {
       console.error('Ошибка загрузки данных:', error);
+    }
+  };
+
+  const formatBytes = (bytes: number): string => {
+    if (!Number.isFinite(bytes)) return '';
+    const units = ['B', 'KB', 'MB', 'GB'];
+    let v = bytes;
+    let i = 0;
+    while (v >= 1024 && i < units.length - 1) {
+      v /= 1024;
+      i += 1;
+    }
+    const precision = i === 0 ? 0 : i === 1 ? 0 : 1;
+    return `${v.toFixed(precision)} ${units[i]}`;
+  };
+
+  const isImageFile = (f: SpaceAttachmentItem): boolean => {
+    if (f.mime_type && f.mime_type.startsWith('image/')) return true;
+    if (f.file_type === 'image') return true;
+    const name = (f.filename || '').toLowerCase();
+    return ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp'].some((ext) => name.endsWith(ext));
+  };
+
+  const handleFilesSearch = () => {
+    const query = filesQuery;
+    setActiveTab('files');
+    setFilesOffset(0);
+    loadFiles({ offset: 0, query });
+  };
+
+  const handleFilesFilterChange = (next: 'all' | 'images' | 'documents') => {
+    setFilesFilter(next);
+    setFilesOffset(0);
+    setActiveTab('files');
+    loadFiles({ filter: next, offset: 0 });
+  };
+
+  const handleFilesOriginChange = (next: 'all' | 'assistant' | 'user') => {
+    setFilesOrigin(next);
+    setFilesOffset(0);
+    setActiveTab('files');
+    loadFiles({ origin: next, offset: 0 });
+  };
+
+  const handleStartRenameFile = (f: SpaceAttachmentItem) => {
+    setEditingFileId(f.id);
+    setEditFilename(f.filename);
+  };
+
+  const handleCancelRenameFile = () => {
+    setEditingFileId(null);
+    setEditFilename('');
+  };
+
+  const handleSaveRenameFile = async (fileId: number) => {
+    const name = editFilename.trim();
+    if (!name) {
+      alert('Имя файла не может быть пустым');
+      return;
+    }
+    setIsRenamingFile(true);
+    try {
+      await spacesAPI.renameSpaceFile(spaceId, fileId, name);
+      setEditingFileId(null);
+      setEditFilename('');
+      await loadFiles();
+    } catch (error: any) {
+      console.error('Ошибка переименования файла:', error);
+      alert(error.message || 'Ошибка при переименовании файла');
+    } finally {
+      setIsRenamingFile(false);
     }
   };
 
@@ -536,6 +657,12 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
             Заметки
           </button>
           <button
+            className={activeTab === 'files' ? 'active' : ''}
+            onClick={() => setActiveTab('files')}
+          >
+            Файлы
+          </button>
+          <button
             className={activeTab === 'tags' ? 'active' : ''}
             onClick={() => setActiveTab('tags')}
           >
@@ -760,6 +887,201 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
                     </div>
                   ))}
                 </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'files' && (
+            <div className="space-detail-files">
+              <div className="space-detail-files-header">
+                <h3>Файлы пространства</h3>
+                <div className="space-detail-files-controls">
+                  <div className="space-detail-files-filter">
+                    <button
+                      className={filesFilter === 'all' ? 'active' : ''}
+                      onClick={() => handleFilesFilterChange('all')}
+                      type="button"
+                    >
+                      Все
+                    </button>
+                    <button
+                      className={filesFilter === 'images' ? 'active' : ''}
+                      onClick={() => handleFilesFilterChange('images')}
+                      type="button"
+                    >
+                      Картинки
+                    </button>
+                    <button
+                      className={filesFilter === 'documents' ? 'active' : ''}
+                      onClick={() => handleFilesFilterChange('documents')}
+                      type="button"
+                    >
+                      Документы
+                    </button>
+                  </div>
+                  <div className="space-detail-files-filter">
+                    <button
+                      className={filesOrigin === 'all' ? 'active' : ''}
+                      onClick={() => handleFilesOriginChange('all')}
+                      type="button"
+                    >
+                      Все
+                    </button>
+                    <button
+                      className={filesOrigin === 'user' ? 'active' : ''}
+                      onClick={() => handleFilesOriginChange('user')}
+                      type="button"
+                    >
+                      Пользователь
+                    </button>
+                    <button
+                      className={filesOrigin === 'assistant' ? 'active' : ''}
+                      onClick={() => handleFilesOriginChange('assistant')}
+                      type="button"
+                    >
+                      ИИ
+                    </button>
+                  </div>
+                  <div className="space-detail-files-search">
+                    <input
+                      type="text"
+                      value={filesQuery}
+                      onChange={(e) => setFilesQuery(e.target.value)}
+                      placeholder="Поиск по имени файла…"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleFilesSearch();
+                      }}
+                    />
+                    <button type="button" onClick={handleFilesSearch}>
+                      Найти
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {isLoadingFiles ? (
+                <div className="space-detail-empty">Загрузка файлов…</div>
+              ) : files.length === 0 ? (
+                <div className="space-detail-empty">В этом пространстве пока нет файлов</div>
+              ) : (
+                <>
+                  <div className="space-detail-files-list">
+                    {files.map((f) => {
+                      const url = `/${f.file_path}`;
+                      const isImg = isImageFile(f);
+                      return (
+                        <div key={f.id} className="space-detail-file-item">
+                          <div className="space-detail-file-preview">
+                            {isImg ? (
+                              <a href={url} target="_blank" rel="noreferrer">
+                                <img src={url} alt={f.filename} />
+                              </a>
+                            ) : (
+                              <div className="space-detail-file-preview-icon">
+                                <Icon src={ICONS.paperclip} size="md" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="space-detail-file-content">
+                            <div className="space-detail-file-title">
+                              {editingFileId === f.id ? (
+                                <input
+                                  className="space-detail-file-title-input"
+                                  type="text"
+                                  value={editFilename}
+                                  onChange={(e) => setEditFilename(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleSaveRenameFile(f.id);
+                                    if (e.key === 'Escape') handleCancelRenameFile();
+                                  }}
+                                  autoFocus
+                                  disabled={isRenamingFile}
+                                />
+                              ) : (
+                                <a href={url} target="_blank" rel="noreferrer">
+                                  {f.filename}
+                                </a>
+                              )}
+                            </div>
+                            <div className="space-detail-file-meta">
+                              <span>{formatBytes(f.file_size)}</span>
+                              <span>·</span>
+                              <span>{new Date(f.created_at).toLocaleString('ru-RU')}</span>
+                              {f.chat_title ? (
+                                <>
+                                  <span>·</span>
+                                  <span title="Чат">{f.chat_title}</span>
+                                </>
+                              ) : null}
+                            </div>
+                          </div>
+                          <div className="space-detail-file-actions">
+                            {editingFileId === f.id ? (
+                              <>
+                                <button
+                                  className="space-detail-file-action-btn"
+                                  type="button"
+                                  onClick={() => handleSaveRenameFile(f.id)}
+                                  disabled={isRenamingFile}
+                                  title="Сохранить"
+                                >
+                                  <Icon src={ICONS.send} size="sm" />
+                                </button>
+                                <button
+                                  className="space-detail-file-action-btn"
+                                  type="button"
+                                  onClick={handleCancelRenameFile}
+                                  disabled={isRenamingFile}
+                                  title="Отмена"
+                                >
+                                  <Icon src={ICONS.close} size="sm" />
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                className="space-detail-file-action-btn"
+                                type="button"
+                                onClick={() => handleStartRenameFile(f)}
+                                title="Переименовать"
+                              >
+                                <Icon src={ICONS.edit} size="sm" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="space-detail-files-footer">
+                    <div className="space-detail-files-total">
+                      Всего: {filesTotal}
+                    </div>
+                    <div className="space-detail-files-pagination">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next = Math.max(0, filesOffset - 50);
+                          setFilesOffset(next);
+                          loadFiles({ offset: next });
+                        }}
+                        disabled={filesOffset === 0}
+                      >
+                        Назад
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next = filesOffset + 50;
+                          setFilesOffset(next);
+                          loadFiles({ offset: next });
+                        }}
+                        disabled={filesOffset + 50 >= filesTotal}
+                      >
+                        Дальше
+                      </button>
+                    </div>
+                  </div>
+                </>
               )}
             </div>
           )}

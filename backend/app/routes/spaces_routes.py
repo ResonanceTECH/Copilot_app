@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from typing import Optional, List, Dict, Any
-from sqlalchemy import desc
+from sqlalchemy import desc, or_
 import json
 import zipfile
 import io
@@ -18,6 +18,7 @@ from backend.app.models.message import Message
 from backend.app.models.note import Note
 from backend.app.models.tag import Tag
 from backend.app.models.notification_settings import NotificationSettings
+from backend.app.models.file_attachment import FileAttachment
 
 router = APIRouter()
 
@@ -93,6 +94,30 @@ class NotificationSettingsResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class SpaceFileAttachmentItem(BaseModel):
+    id: int
+    space_id: Optional[int]
+    chat_id: Optional[int]
+    chat_title: Optional[str] = None
+    message_id: Optional[int]
+    user_id: int
+    filename: str
+    file_path: str
+    file_type: str
+    file_size: int
+    mime_type: Optional[str] = None
+    created_at: str
+
+
+class SpaceFilesListResponse(BaseModel):
+    files: List[SpaceFileAttachmentItem]
+    total: int
+
+
+class SpaceFileRenameRequest(BaseModel):
+    filename: str
 
 
 # ========== Базовый CRUD для пространств ==========
@@ -205,6 +230,173 @@ async def get_space(
         chats_count=chats_count,
         notes_count=notes_count,
         tags_count=tags_count
+    )
+
+
+@router.get("/{space_id}/files", response_model=SpaceFilesListResponse)
+async def list_space_files(
+    space_id: int,
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    file_type: Optional[str] = Query(None, description="Фильтр по file_type (например: image, pdf, docx)"),
+    origin: Optional[str] = Query(None, description="Источник: user|assistant|all|unattached"),
+    q: Optional[str] = Query(None, description="Поиск по имени файла (filename)"),
+    chat_id: Optional[int] = Query(None, description="Фильтр по чату"),
+    attached_only: bool = Query(False, description="Только файлы, привязанные к сообщениям (message_id != null)"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Получить список всех файлов, загруженных в рамках пространства (из любых чатов пространства).
+    """
+    space = db.query(Space).filter(
+        Space.id == space_id,
+        Space.user_id == current_user.id
+    ).first()
+
+    if not space:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Пространство не найдено"
+        )
+
+    query = db.query(FileAttachment, Chat).outerjoin(Chat, Chat.id == FileAttachment.chat_id).filter(
+        FileAttachment.space_id == space_id,
+        FileAttachment.user_id == current_user.id,
+    )
+
+    if origin:
+        o = origin.strip().lower()
+        if o in ("all", "*"):
+            pass
+        elif o == "unattached":
+            query = query.filter(FileAttachment.message_id.is_(None))
+        elif o in ("user", "assistant"):
+            # Фильтруем по роли сообщения, к которому привязан файл
+            query = query.join(Message, Message.id == FileAttachment.message_id).filter(Message.role == o)
+        else:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Неверный origin. Используйте user|assistant|all|unattached")
+
+    if chat_id is not None:
+        query = query.filter(FileAttachment.chat_id == chat_id)
+
+    if attached_only:
+        query = query.filter(FileAttachment.message_id.isnot(None))
+
+    if file_type:
+        ft = file_type.strip().lower()
+        image_exts = ("png", "jpg", "jpeg", "gif", "webp", "bmp")
+
+        # Исторически FileAttachment.file_type у вас может быть:
+        # - "image" (если FileAnalysisService так проставил)
+        # - расширение ("png", "pdf", "docx", ...)
+        # - или даже что-то похожее на mime.
+        # Поэтому делаем "умный" фильтр.
+        if ft in ("image", "images"):
+            query = query.filter(
+                or_(
+                    FileAttachment.mime_type.ilike("image/%"),
+                    FileAttachment.file_type == "image",
+                    FileAttachment.file_type.in_(image_exts),
+                )
+            )
+        elif ft in ("document", "documents", "file", "files", "doc"):
+            query = query.filter(
+                or_(
+                    FileAttachment.mime_type.is_(None),
+                    ~FileAttachment.mime_type.ilike("image/%"),
+                )
+            ).filter(
+                FileAttachment.file_type != "image"
+            ).filter(
+                ~FileAttachment.file_type.in_(image_exts)
+            )
+        else:
+            # Точное совпадение, если явно указали тип (например: pdf, docx)
+            query = query.filter(FileAttachment.file_type == file_type)
+
+    if q:
+        query = query.filter(FileAttachment.filename.ilike(f"%{q}%"))
+
+    total = query.count()
+    rows = query.order_by(desc(FileAttachment.created_at)).offset(offset).limit(limit).all()
+
+    items: List[SpaceFileAttachmentItem] = []
+    for fa, ch in rows:
+        items.append(SpaceFileAttachmentItem(
+            id=fa.id,
+            space_id=fa.space_id,
+            chat_id=fa.chat_id,
+            chat_title=ch.title if ch else None,
+            message_id=fa.message_id,
+            user_id=fa.user_id,
+            filename=fa.filename,
+            file_path=fa.file_path,
+            file_type=fa.file_type,
+            file_size=int(fa.file_size),
+            mime_type=fa.mime_type,
+            created_at=fa.created_at.isoformat() if fa.created_at else datetime.utcnow().isoformat(),
+        ))
+
+    return SpaceFilesListResponse(files=items, total=total)
+
+
+@router.put("/{space_id}/files/{file_id}", response_model=SpaceFileAttachmentItem)
+async def rename_space_file(
+    space_id: int,
+    file_id: int,
+    payload: SpaceFileRenameRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Переименовать файл в рамках пространства.
+    Меняем только отображаемое имя (filename), file_path не трогаем.
+    """
+    # Проверяем доступ к пространству
+    space = db.query(Space).filter(
+        Space.id == space_id,
+        Space.user_id == current_user.id
+    ).first()
+    if not space:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Пространство не найдено")
+
+    new_name = (payload.filename or "").strip()
+    if not new_name:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Имя файла не может быть пустым")
+    if len(new_name) > 255:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Имя файла слишком длинное")
+
+    fa = db.query(FileAttachment).filter(
+        FileAttachment.id == file_id,
+        FileAttachment.space_id == space_id,
+        FileAttachment.user_id == current_user.id,
+    ).first()
+    if not fa:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Файл не найден")
+
+    fa.filename = new_name
+    db.commit()
+    db.refresh(fa)
+
+    chat_title = None
+    if fa.chat_id:
+        ch = db.query(Chat).filter(Chat.id == fa.chat_id).first()
+        chat_title = ch.title if ch else None
+
+    return SpaceFileAttachmentItem(
+        id=fa.id,
+        space_id=fa.space_id,
+        chat_id=fa.chat_id,
+        chat_title=chat_title,
+        message_id=fa.message_id,
+        user_id=fa.user_id,
+        filename=fa.filename,
+        file_path=fa.file_path,
+        file_type=fa.file_type,
+        file_size=int(fa.file_size),
+        mime_type=fa.mime_type,
+        created_at=fa.created_at.isoformat() if fa.created_at else datetime.utcnow().isoformat(),
     )
 
 

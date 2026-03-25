@@ -7,6 +7,7 @@ from sqlalchemy import desc
 from typing import List, Dict
 from pathlib import Path
 import uuid
+import re
 
 from backend.app.database.connection import get_db
 from backend.app.dependencies import get_current_user
@@ -178,6 +179,118 @@ def get_conversation_history(chat_id: int, db: Session, max_messages: int = 10) 
         })
 
     return formatted_history
+
+
+def _guess_file_meta_from_asset_path(asset_rel_path: str) -> Dict[str, str]:
+    """
+    asset_rel_path: "assets/xxx.ext"
+    """
+    name = Path(asset_rel_path).name
+    ext = Path(name).suffix.lower().lstrip(".")
+    image_exts = {"png", "jpg", "jpeg", "gif", "webp", "bmp"}
+
+    if ext in image_exts:
+        mime = "image/jpeg" if ext in {"jpg", "jpeg"} else f"image/{ext}"
+        return {"file_type": "image", "mime_type": mime, "filename": name}
+
+    # документы/прочее
+    mime_by_ext = {
+        "pdf": "application/pdf",
+        "doc": "application/msword",
+        "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "txt": "text/plain",
+        "csv": "text/csv",
+        "json": "application/json",
+    }
+    return {"file_type": ext or "file", "mime_type": mime_by_ext.get(ext, None), "filename": name}
+
+
+def _extract_asset_paths(text: str) -> List[str]:
+    if not text:
+        return []
+    # Ищем assets/... в src/href и просто в тексте. Не даём выбраться за assets/.
+    matches = re.findall(r'(?:src|href)=["\']/?(assets/[^"\']+)["\']', text)
+    matches += re.findall(r'(?<![\w/])(assets/[A-Za-z0-9_\-\.]+)', text)
+    # Нормализуем и убираем дубликаты, оставляем только "assets/<filename>"
+    out: List[str] = []
+    seen = set()
+    for m in matches:
+        rel = m.strip().lstrip("/")
+        if not rel.startswith("assets/"):
+            continue
+        # запрещаем вложенные пути типа assets/../../
+        if "/" in rel[len("assets/"):]:
+            # допускаем только assets/<name.ext>
+            rel = f"assets/{Path(rel).name}"
+        if rel not in seen:
+            seen.add(rel)
+            out.append(rel)
+    return out
+
+
+def _register_assistant_assets_as_attachments(
+    *,
+    db: Session,
+    current_user: User,
+    chat: Chat,
+    space: Space,
+    assistant_message: Message,
+    formatted_html: str | None = None,
+    extra_asset_paths: List[str] | None = None,
+):
+    """
+    Создаёт FileAttachment для любых assets/*, которые упомянуты в ответе ассистента.
+    Не ломает основной флоу, предназначено для витрины "Файлы пространства".
+    """
+    try:
+        asset_paths = []
+        asset_paths += _extract_asset_paths(formatted_html or "")
+        if assistant_message.image_url:
+            asset_paths += _extract_asset_paths(assistant_message.image_url)
+            if assistant_message.image_url.strip().lstrip("/").startswith("assets/"):
+                asset_paths.append(assistant_message.image_url.strip().lstrip("/"))
+        if extra_asset_paths:
+            asset_paths += [p.strip().lstrip("/") for p in extra_asset_paths if p and p.strip()]
+
+        # дедуп
+        asset_paths = [p for i, p in enumerate(asset_paths) if p.startswith("assets/") and p not in asset_paths[:i]]
+        if not asset_paths:
+            return
+
+        backend_dir = Path(__file__).parent.parent.parent  # backend/
+        assets_dir = backend_dir / "assets"
+
+        for asset_rel_path in asset_paths:
+            safe_rel = f"assets/{Path(asset_rel_path).name}"
+            abs_path = assets_dir / Path(safe_rel).name
+            file_size = abs_path.stat().st_size if abs_path.exists() else 0
+            meta = _guess_file_meta_from_asset_path(safe_rel)
+
+            existing = db.query(FileAttachment).filter(
+                FileAttachment.file_path == safe_rel,
+                FileAttachment.message_id == assistant_message.id
+            ).first()
+            if existing:
+                continue
+
+            fa = FileAttachment(
+                message_id=assistant_message.id,
+                chat_id=chat.id,
+                space_id=space.id,
+                user_id=current_user.id,
+                filename=meta["filename"],
+                file_path=safe_rel,
+                file_type=meta["file_type"],
+                file_size=file_size,
+                mime_type=meta.get("mime_type"),
+                extracted_text=None,
+                analysis_result=None,
+            )
+            db.add(fa)
+
+        db.commit()
+    except Exception as e:
+        print(f"⚠️ Не удалось зарегистрировать ассистентские assets в FileAttachment: {e}")
 
 
 async def process_graphic_request(user_query: str, current_user: User, db: Session, space_id: int) -> dict:
@@ -677,6 +790,16 @@ async def send_message(
                 db.commit()
                 db.refresh(assistant_msg)
 
+                _register_assistant_assets_as_attachments(
+                    db=db,
+                    current_user=current_user,
+                    chat=chat,
+                    space=space,
+                    assistant_message=assistant_msg,
+                    formatted_html=response_data.get("formatted_html") if isinstance(response_data, dict) else None,
+                    extra_asset_paths=[saved_image_path] if saved_image_path else None,
+                )
+
                 return ChatSendResponse(
                     success=True,
                     chat_id=chat.id,
@@ -709,6 +832,15 @@ async def send_message(
             db.add(assistant_msg)
             db.commit()
             db.refresh(assistant_msg)
+
+            _register_assistant_assets_as_attachments(
+                db=db,
+                current_user=current_user,
+                chat=chat,
+                space=space,
+                assistant_message=assistant_msg,
+                formatted_html=cached_response.get("formatted_html") if isinstance(cached_response, dict) else None,
+            )
 
             return ChatSendResponse(
                 success=True,
@@ -783,6 +915,15 @@ async def send_message(
 
         # Сохраняем в кэш
         cache_service.set(user_message, response_data)
+
+        _register_assistant_assets_as_attachments(
+            db=db,
+            current_user=current_user,
+            chat=chat,
+            space=space,
+            assistant_message=assistant_msg,
+            formatted_html=formatted_response,
+        )
 
         print(f"✅ Успешно обработан запрос. История: {len(conversation_history) + 1} сообщений")
 

@@ -85,6 +85,27 @@ export interface SpaceFile {
   thumbnail?: string;
 }
 
+// Файлы пространства из backend (FileAttachment)
+export interface SpaceAttachmentItem {
+  id: number;
+  space_id: number | null;
+  chat_id: number | null;
+  chat_title?: string | null;
+  message_id: number | null;
+  user_id: number;
+  filename: string;
+  file_path: string; // например: assets/file_xxx.pdf
+  file_type: string; // например: pdf, docx, image
+  file_size: number;
+  mime_type?: string | null;
+  created_at: string;
+}
+
+export interface SpaceFilesListResponse {
+  files: SpaceAttachmentItem[];
+  total: number;
+}
+
 export interface SpaceChat {
   id: string;
   title: string;
