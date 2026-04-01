@@ -39,12 +39,26 @@ const TypingAnimation: React.FC<{ text: string }> = ({ text }) => {
   );
 };
 
+/** Текст для правки (без блоков вложений/cards), суффикс возвращается как был — дописывается при сохранении. */
+function splitUserMessageForEdit(content: string): { prefix: string; suffix: string } {
+  const markers = ['<div class="message-file-card"', '<div class="uploaded-file'];
+  let cut = -1;
+  for (const m of markers) {
+    const i = content.indexOf(m);
+    if (i !== -1 && (cut === -1 || i < cut)) cut = i;
+  }
+  if (cut === -1) return { prefix: content, suffix: '' };
+  return { prefix: content.slice(0, cut).trimEnd(), suffix: content.slice(cut) };
+}
+
 interface ChatAreaProps {
   userName?: string;
   messages?: ChatMessage[];
   activeTool?: string;
   onToolSelect?: (tool: string) => void;
   onSendMessage?: (message: string) => void;
+  /** Редактирование пользовательского сообщения и перегенерация ответа бота (только saved id с сервера) */
+  onEditMessage?: (messageId: number, newContent: string) => void | Promise<void>;
   onMessageTagsChange?: (
     messageId: number,
     tags: Array<{ id: number; name: string; color?: string | null }>
@@ -59,6 +73,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   activeTool: externalActiveTool,
   onToolSelect,
   onSendMessage,
+  onEditMessage,
   onMessageTagsChange,
   chatId,
   spaceId,
@@ -73,6 +88,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   const [showTagSelector, setShowTagSelector] = useState<string | null>(null);
   const [showCreateTagBlock, setShowCreateTagBlock] = useState<string | null>(null);
   const [editingMessageTags, setEditingMessageTags] = useState<number[]>([]);
+  const [editingUserMessageId, setEditingUserMessageId] = useState<string | null>(null);
+  const [editUserDraft, setEditUserDraft] = useState('');
+  const [editUserSuffix, setEditUserSuffix] = useState('');
+  const [savingUserEdit, setSavingUserEdit] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const tagButtonRefs = useRef<Record<string, HTMLButtonElement>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -232,6 +251,34 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   const handleReport = (messageId: string) => {
     setShowReportMenu(null);
     setShowFeedbackModal(messageId);
+  };
+
+  const startEditUserMessage = (m: ChatMessage) => {
+    const { prefix, suffix } = splitUserMessageForEdit(m.content);
+    setEditingUserMessageId(m.id);
+    setEditUserDraft(prefix);
+    setEditUserSuffix(suffix);
+  };
+
+  const cancelUserMessageEdit = () => {
+    setEditingUserMessageId(null);
+    setEditUserDraft('');
+    setEditUserSuffix('');
+    setSavingUserEdit(false);
+  };
+
+  const saveUserMessageEdit = async () => {
+    if (!editingUserMessageId || !onEditMessage) return;
+    const full = editUserDraft.trimEnd() + editUserSuffix;
+    if (!full.trim()) return;
+    setSavingUserEdit(true);
+    try {
+      await onEditMessage(Number(editingUserMessageId), full);
+      cancelUserMessageEdit();
+    } catch (e: unknown) {
+      setSavingUserEdit(false);
+      alert(e instanceof Error ? e.message : 'Ошибка');
+    }
   };
 
   // Обработка отправки обратной связи
@@ -797,6 +844,46 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                       </ReactMarkdown>
                     )
                   ) : message.role === 'user' ? (
+                    editingUserMessageId === message.id ? (
+                      <div className="chat-message-user-edit">
+                        <textarea
+                          className="chat-message-user-edit-input"
+                          value={editUserDraft}
+                          onChange={(e) => setEditUserDraft(e.target.value)}
+                          rows={4}
+                          disabled={savingUserEdit}
+                          aria-label={getTranslation('editUserMessage', language)}
+                        />
+                        {editUserSuffix ? (
+                          <div className="chat-message-user-edit-hint">
+                            {getTranslation('editKeepAttachmentsHint', language)}
+                          </div>
+                        ) : null}
+                        <div className="chat-message-user-edit-actions">
+                          <button
+                            type="button"
+                            className="chat-message-user-edit-submit"
+                            onClick={() => void saveUserMessageEdit()}
+                            disabled={
+                              savingUserEdit ||
+                              !(editUserDraft.trimEnd() + editUserSuffix).trim()
+                            }
+                          >
+                            {savingUserEdit
+                              ? getTranslation('saving', language)
+                              : getTranslation('editRegenerateSubmit', language)}
+                          </button>
+                          <button
+                            type="button"
+                            className="chat-message-user-edit-cancel"
+                            onClick={cancelUserMessageEdit}
+                            disabled={savingUserEdit}
+                          >
+                            {getTranslation('cancel', language)}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
                     (() => {
                       // Извлекаем карточки файлов из HTML контента
                       const fileCards: Array<{ icon: string; filename: string }> = [];
@@ -844,6 +931,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                         </>
                       );
                     })()
+                    )
                   ) : (
                     // Обычный текст - фильтруем сообщения о прикреплении
                     message.content &&
@@ -892,6 +980,23 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                           minute: '2-digit'
                         })
                       }
+                    </div>
+                  )}
+                  {message.role === 'user' &&
+                    !message.isLoading &&
+                    onEditMessage &&
+                    /^\d+$/.test(message.id) &&
+                    editingUserMessageId !== message.id && (
+                    <div className="chat-message-user-actions">
+                      <button
+                        type="button"
+                        className="chat-message-action-btn"
+                        onClick={() => startEditUserMessage(message)}
+                        title={getTranslation('editUserMessage', language)}
+                        aria-label={getTranslation('editUserMessage', language)}
+                      >
+                        <Icon src={ICONS.edit} size="sm" />
+                      </button>
                     </div>
                   )}
                   {message.role === 'assistant' && !message.isLoading && (
@@ -965,7 +1070,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                   )}
                 </div>
                 {/* Карточки файлов рядом с сообщением пользователя */}
-                {message.role === 'user' && (() => {
+                {message.role === 'user' && editingUserMessageId !== message.id && (() => {
                   const fileCards: Array<{ icon: string; filename: string }> = [];
                   const fileCardRegex = /<div class="message-file-card"[^>]*>[\s\S]*?<div class="message-file-icon">([^<]+)<\/div>[\s\S]*?<div class="message-file-name">([^<]+)<\/div>[\s\S]*?<\/div>/g;
                   let match;

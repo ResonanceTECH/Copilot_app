@@ -747,6 +747,61 @@ export const AssistantPage: React.FC = () => {
     await handleSendMessageToThread(activeThreadId, content, false);
   }, [activeThreadId, handleSendMessageToThread, language]);
 
+  const handleEditMessage = useCallback(
+    async (messageId: number, newContent: string) => {
+      trackActivity();
+      if (!activeThreadId) {
+        throw new Error('Нет активного чата');
+      }
+      const threadData = threads.get(activeThreadId);
+      const chatId = threadData?.chatId;
+      if (!chatId) {
+        throw new Error('Сохраните чат перед редактированием');
+      }
+
+      const response = await chatAPI.editMessageAndRegenerate(messageId, {
+        message: newContent,
+      });
+
+      if (!response.success) {
+        throw new Error(response.error || 'Не удалось обновить сообщение');
+      }
+
+      const messagesData = await chatAPI.getMessages(chatId);
+      const chatMessages: ChatMessage[] = messagesData.messages.map((msg: MessageItem) => ({
+        id: msg.id.toString(),
+        content: msg.content,
+        role: msg.role as 'user' | 'assistant',
+        timestamp: new Date(msg.created_at),
+        image_url: msg.image_url,
+        tags: msg.tags,
+      }));
+
+      setMessages(chatMessages);
+
+      const lastPreview = chatMessages.length
+        ? chatMessages[chatMessages.length - 1].content.replace(/<[^>]+>/g, ' ').trim().slice(0, 120)
+        : '';
+
+      setThreads((prev) => {
+        const updated = new Map(prev);
+        const data = updated.get(activeThreadId);
+        if (data) {
+          updated.set(activeThreadId, {
+            ...data,
+            messages: chatMessages,
+            thread: {
+              ...data.thread,
+              lastMessage: lastPreview || data.thread.lastMessage,
+            },
+          });
+        }
+        return updated;
+      });
+    },
+    [activeThreadId, threads],
+  );
+
   const handleMessageTagsChange = useCallback(
     (
       messageId: number,
@@ -827,6 +882,7 @@ export const AssistantPage: React.FC = () => {
             userName={userName}
             messages={messages}
             onSendMessage={handleSendMessage}
+            onEditMessage={handleEditMessage}
             activeTool={activeTool}
             onToolSelect={setActiveTool}
             chatId={activeThreadId ? threads.get(activeThreadId)?.chatId : undefined}

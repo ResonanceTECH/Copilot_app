@@ -313,6 +313,17 @@ export const chatAPI = {
     });
   },
 
+  /** Редактирование сообщения пользователя и повторная генерация ответа ассистента */
+  editMessageAndRegenerate: async (
+    messageId: number,
+    data: { message: string }
+  ): Promise<ChatSendResponse> => {
+    return apiRequest<ChatSendResponse>(`/chat/messages/${messageId}/regenerate`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  },
+
   // Получение истории чатов
   getHistory: async (spaceId?: number): Promise<ChatHistoryResponse> => {
     const params = spaceId ? `?space_id=${spaceId}` : '';

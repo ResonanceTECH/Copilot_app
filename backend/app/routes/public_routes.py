@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from typing import Optional, List, Dict
 from sqlalchemy import desc, or_, and_
 from datetime import datetime, timezone
+import re
 
 from backend.app.database.connection import get_db
 from backend.app.models.space import Space
@@ -11,7 +12,9 @@ from backend.app.models.chat import Chat
 from backend.app.models.message import Message
 from backend.app.models.note import Note
 from backend.app.models.tag import Tag
+from backend.app.models.user import User
 from backend.app.models.file_attachment import FileAttachment
+from backend.app.routes.chat_routes import _assistant_reply_pipeline
 from backend.app.utils.message_display import format_message_content_for_display
 from backend.app.routes.spaces_routes import SpaceFileAttachmentItem, SpaceFilesListResponse
 from backend.ml.services.classifier_service import BusinessClassifierService
@@ -112,6 +115,11 @@ class PublicChatSendResponse(BaseModel):
     message_id: int
     response: Optional[dict] = None
     error: Optional[str] = None
+
+
+class PublicEditUserMessageRequest(BaseModel):
+    message: str
+
 
 class PublicNoteItem(BaseModel):
     id: int
@@ -439,6 +447,146 @@ async def send_public_message(
             message_id=0,
             error="Временная ошибка сервера. Пожалуйста, попробуйте ещё раз."
         )
+
+
+@router.patch(
+    "/spaces/{public_token}/chats/{chat_id}/messages/{message_id}/regenerate",
+    response_model=PublicChatSendResponse,
+)
+async def public_edit_user_message_and_regenerate(
+    public_token: str,
+    chat_id: int,
+    message_id: int,
+    request: PublicEditUserMessageRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Редактирование сообщения пользователя в публичном чате и перегенерация ответа ассистента.
+    Владельцем вложений считается владелец пространства.
+    """
+    user_message = request.message.strip()
+    if not user_message:
+        raise HTTPException(status_code=400, detail="Сообщение не может быть пустым")
+
+    space = get_public_space(public_token, db)
+
+    chat = db.query(Chat).filter(
+        Chat.id == chat_id,
+        Chat.space_id == space.id,
+    ).first()
+    if not chat:
+        raise HTTPException(status_code=404, detail="Чат не найден")
+
+    user_msg = (
+        db.query(Message)
+        .filter(
+            Message.id == message_id,
+            Message.chat_id == chat.id,
+            Message.role == "user",
+        )
+        .first()
+    )
+    if not user_msg:
+        raise HTTPException(status_code=404, detail="Сообщение не найдено")
+
+    owner = db.query(User).filter(User.id == space.user_id).first()
+    if not owner:
+        raise HTTPException(status_code=500, detail="Владелец пространства не найден")
+
+    later = (
+        db.query(Message)
+        .filter(Message.chat_id == chat.id, Message.id > user_msg.id)
+        .order_by(Message.id.asc())
+        .all()
+    )
+    for m in later:
+        db.delete(m)
+
+    image_url = None
+    file_urls: List[str] = []
+    if "<img" in user_message and "src=" in user_message:
+        img_matches = re.findall(r'src=["\']([^"\']*assets/[^"\']+)["\']', user_message)
+        if img_matches:
+            image_url = img_matches[0].lstrip("/")
+            file_urls = [url.lstrip("/") for url in img_matches]
+    if not file_urls and "<a href=" in user_message:
+        href_matches = re.findall(r'href=["\']([^"\']*assets/[^"\']+)["\']', user_message)
+        if href_matches:
+            file_urls = [url.lstrip("/") for url in href_matches]
+            if not image_url:
+                image_url = file_urls[0]
+    text_file_matches = re.findall(r"assets/[a-zA-Z0-9_\-\.]+", user_message)
+    for match in text_file_matches:
+        if match not in file_urls:
+            file_urls.append(match)
+
+    referenced = set(file_urls)
+    linked = db.query(FileAttachment).filter(FileAttachment.message_id == user_msg.id).all()
+    for fa in linked:
+        if fa.file_path not in referenced:
+            fa.message_id = None
+
+    file_attachments: List[FileAttachment] = []
+    for file_url in file_urls:
+        attachment = (
+            db.query(FileAttachment)
+            .filter(
+                FileAttachment.file_path == file_url,
+                FileAttachment.user_id == owner.id,
+            )
+            .order_by(FileAttachment.created_at.desc())
+            .first()
+        )
+        if attachment and attachment not in file_attachments:
+            file_attachments.append(attachment)
+
+    for file_attachment in file_attachments:
+        if not file_attachment.message_id:
+            file_attachment.message_id = user_msg.id
+
+    user_msg.content = user_message
+    user_msg.image_url = image_url
+
+    db.flush()
+    final_attachments = db.query(FileAttachment).filter(FileAttachment.message_id == user_msg.id).all()
+    file_content_context = ""
+    for file_attachment in final_attachments:
+        if file_attachment.extracted_text:
+            file_content_context += (
+                f"\n\n[Содержимое файла {file_attachment.filename}]:\n"
+                f"{file_attachment.extracted_text}"
+            )
+        elif file_attachment.analysis_result:
+            file_content_context += (
+                f"\n\n[Анализ изображения {file_attachment.filename}]:\n"
+                f"{file_attachment.analysis_result}"
+            )
+
+    if file_content_context:
+        user_message_with_file = user_message + file_content_context
+    else:
+        user_message_with_file = user_message
+
+    db.commit()
+    db.refresh(user_msg)
+
+    result = await _assistant_reply_pipeline(
+        db,
+        chat,
+        space,
+        owner,
+        user_message,
+        user_message_with_file,
+        file_content_context,
+    )
+
+    return PublicChatSendResponse(
+        success=result.success,
+        chat_id=result.chat_id,
+        message_id=result.message_id,
+        response=result.response,
+        error=result.error,
+    )
 
 
 @router.get("/spaces/{public_token}/notes", response_model=PublicNotesResponse)

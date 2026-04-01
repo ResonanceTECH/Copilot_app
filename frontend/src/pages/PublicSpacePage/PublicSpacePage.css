@@ -234,6 +234,102 @@
   color: var(--color-text-on-primary) !important;
 }
 
+.public-message-user-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
+
+.public-message-edit-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text-on-primary, #fff);
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.public-message-edit-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+.public-message-user-edit {
+  width: 100%;
+  min-width: 0;
+}
+
+.public-message-user-edit-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--color-text-on-primary);
+  font-size: 15px;
+  font-family: inherit;
+  line-height: 1.45;
+  resize: vertical;
+  min-height: 88px;
+}
+
+.public-message-user-edit-input:focus {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.65);
+}
+
+.public-message-user-edit-hint {
+  margin-top: 8px;
+  font-size: 12px;
+  opacity: 0.85;
+  color: var(--color-text-on-primary);
+}
+
+.public-message-user-edit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.public-message-user-edit-submit {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--color-primary);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.public-message-user-edit-submit:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.public-message-user-edit-cancel {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: transparent;
+  color: var(--color-text-on-primary);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.public-message-user-edit-cancel:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .public-file-sidebar-link {
   display: block;
   padding: 10px 12px;

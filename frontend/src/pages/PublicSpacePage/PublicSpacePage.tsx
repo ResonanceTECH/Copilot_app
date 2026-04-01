@@ -5,6 +5,8 @@ import { Header } from '../../components/common/Header';
 import { Icon } from '../../components/ui/Icon';
 import { ICONS } from '../../utils/icons';
 import type { SpaceAttachmentItem } from '../../types';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { getTranslation } from '../../utils/i18n';
 import './PublicSpacePage.css';
 
 // Анимация "печатается..." (в стиле обычных чатов)
@@ -68,6 +70,17 @@ const messageBodyUsesRichHtml = (role: string, content: string, isLoading?: bool
   return false;
 };
 
+function splitUserMessageForEdit(content: string): { prefix: string; suffix: string } {
+  const markers = ['<div class="message-file-card"', '<div class="uploaded-file'];
+  let cut = -1;
+  for (const m of markers) {
+    const i = content.indexOf(m);
+    if (i !== -1 && (cut === -1 || i < cut)) cut = i;
+  }
+  if (cut === -1) return { prefix: content, suffix: '' };
+  return { prefix: content.slice(0, cut).trimEnd(), suffix: content.slice(cut) };
+}
+
 interface PublicSpacePageProps {
   publicToken: string;
 }
@@ -116,6 +129,7 @@ interface PublicTag {
 }
 
 export const PublicSpacePage: React.FC<PublicSpacePageProps> = ({ publicToken }) => {
+  const { language } = useLanguage();
   const [space, setSpace] = useState<PublicSpace | null>(null);
   const [activeTab, setActiveTab] = useState<'chats' | 'notes' | 'tags' | 'files'>('chats');
   const [chats, setChats] = useState<PublicChat[]>([]);
@@ -128,6 +142,10 @@ export const PublicSpacePage: React.FC<PublicSpacePageProps> = ({ publicToken })
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
+  const [editDraft, setEditDraft] = useState('');
+  const [editSuffix, setEditSuffix] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -151,6 +169,13 @@ export const PublicSpacePage: React.FC<PublicSpacePageProps> = ({ publicToken })
       loadMessages(selectedChatId);
     }
   }, [selectedChatId, publicToken, activeTab]);
+
+  useEffect(() => {
+    setEditingMessageId(null);
+    setEditDraft('');
+    setEditSuffix('');
+    setSavingEdit(false);
+  }, [selectedChatId, publicToken]);
 
   const loadSpace = async () => {
     try {
@@ -233,6 +258,69 @@ export const PublicSpacePage: React.FC<PublicSpacePageProps> = ({ publicToken })
     } catch (err: any) {
       console.error('Ошибка загрузки файлов:', err);
       setSpaceFiles([]);
+    }
+  };
+
+  const cancelPublicEdit = () => {
+    setEditingMessageId(null);
+    setEditDraft('');
+    setEditSuffix('');
+    setSavingEdit(false);
+  };
+
+  const startPublicEdit = (msg: PublicMessage) => {
+    const { prefix, suffix } = splitUserMessageForEdit(msg.content);
+    setEditingMessageId(msg.id);
+    setEditDraft(prefix);
+    setEditSuffix(suffix);
+  };
+
+  const savePublicEdit = async () => {
+    if (!selectedChatId || editingMessageId == null) return;
+    const full = editDraft.trimEnd() + editSuffix;
+    if (!full.trim()) return;
+    setSavingEdit(true);
+    try {
+      const response = await fetch(
+        `/api/public/spaces/${publicToken}/chats/${selectedChatId}/messages/${editingMessageId}/regenerate`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: full }),
+        },
+      );
+      let data: Record<string, unknown> = {};
+      try {
+        data = (await response.json()) as Record<string, unknown>;
+      } catch {
+        /* empty */
+      }
+      if (!response.ok) {
+        const detail = data.detail;
+        const errMsg =
+          typeof detail === 'string'
+            ? detail
+            : Array.isArray(detail) && detail[0] && typeof (detail[0] as { msg?: string }).msg === 'string'
+              ? (detail[0] as { msg: string }).msg
+              : typeof data.error === 'string'
+                ? data.error
+                : 'Ошибка сохранения';
+        throw new Error(errMsg);
+      }
+      if (data.success === false) {
+        throw new Error(typeof data.error === 'string' ? data.error : 'Ошибка сохранения');
+      }
+      cancelPublicEdit();
+      await loadMessages(selectedChatId);
+      setTimeout(() => {
+        const messagesContainer = document.querySelector('.public-messages-container');
+        if (messagesContainer) {
+          messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+      }, 100);
+    } catch (e: unknown) {
+      setSavingEdit(false);
+      alert(e instanceof Error ? e.message : 'Ошибка');
     }
   };
 
@@ -521,11 +609,14 @@ export const PublicSpacePage: React.FC<PublicSpacePageProps> = ({ publicToken })
                 <div className="public-messages-container">
                   {messages.map((msg) => {
                     const rich = messageBodyUsesRichHtml(msg.role, msg.content, msg.isLoading);
+                    const isEditing = msg.role === 'user' && editingMessageId === msg.id;
                     return (
                       <div key={msg.id} className={`public-message ${msg.role}`}>
                         <div
                           className={
-                            rich ? 'public-message-content public-message-content--rich' : 'public-message-content'
+                            rich && !isEditing
+                              ? 'public-message-content public-message-content--rich'
+                              : 'public-message-content'
                           }
                         >
                           {msg.role === 'assistant' ? (
@@ -536,6 +627,44 @@ export const PublicSpacePage: React.FC<PublicSpacePageProps> = ({ publicToken })
                             ) : (
                               <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
                             )
+                          ) : isEditing ? (
+                            <div className="public-message-user-edit">
+                              <textarea
+                                className="public-message-user-edit-input"
+                                value={editDraft}
+                                onChange={(e) => setEditDraft(e.target.value)}
+                                rows={4}
+                                disabled={savingEdit}
+                                aria-label={getTranslation('editUserMessage', language)}
+                              />
+                              {editSuffix ? (
+                                <div className="public-message-user-edit-hint">
+                                  {getTranslation('editKeepAttachmentsHint', language)}
+                                </div>
+                              ) : null}
+                              <div className="public-message-user-edit-actions">
+                                <button
+                                  type="button"
+                                  className="public-message-user-edit-submit"
+                                  onClick={() => void savePublicEdit()}
+                                  disabled={
+                                    savingEdit || !(editDraft.trimEnd() + editSuffix).trim()
+                                  }
+                                >
+                                  {savingEdit
+                                    ? getTranslation('saving', language)
+                                    : getTranslation('editRegenerateSubmit', language)}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="public-message-user-edit-cancel"
+                                  onClick={cancelPublicEdit}
+                                  disabled={savingEdit}
+                                >
+                                  {getTranslation('cancel', language)}
+                                </button>
+                              </div>
+                            </div>
                           ) : (
                             (() => {
                               let cleanedContent = msg.content;
@@ -572,7 +701,7 @@ export const PublicSpacePage: React.FC<PublicSpacePageProps> = ({ publicToken })
                               );
                             })()
                           )}
-                          {msg.created_at && (
+                          {msg.created_at && !isEditing && (
                             <div className="public-message-timestamp">
                               {new Date(msg.created_at).toLocaleTimeString('ru-RU', {
                                 hour: '2-digit',
@@ -580,6 +709,22 @@ export const PublicSpacePage: React.FC<PublicSpacePageProps> = ({ publicToken })
                               })}
                             </div>
                           )}
+                          {msg.role === 'user' &&
+                            msg.id > 0 &&
+                            !msg.isLoading &&
+                            !isEditing && (
+                              <div className="public-message-user-actions">
+                                <button
+                                  type="button"
+                                  className="public-message-edit-btn"
+                                  onClick={() => startPublicEdit(msg)}
+                                  title={getTranslation('editUserMessage', language)}
+                                  aria-label={getTranslation('editUserMessage', language)}
+                                >
+                                  <Icon src={ICONS.edit} size="sm" />
+                                </button>
+                              </div>
+                            )}
                         </div>
                       </div>
                     );

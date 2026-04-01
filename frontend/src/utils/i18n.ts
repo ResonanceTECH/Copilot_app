@@ -60,6 +60,9 @@ export interface Translations {
   backToChat: string;
   notifications: string;
   support: string;
+  editUserMessage: string;
+  editRegenerateSubmit: string;
+  editKeepAttachmentsHint: string;
 }
 
 const translations: Record<Language, Translations> = {
@@ -110,6 +113,9 @@ const translations: Record<Language, Translations> = {
     backToChat: 'Вернуться к чату',
     notifications: 'Уведомления',
     support: 'Поддержка',
+    editUserMessage: 'Редактировать сообщение',
+    editRegenerateSubmit: 'Сохранить и новый ответ',
+    editKeepAttachmentsHint: 'Картинки и файлы из исходного сообщения сохранятся.',
   },
   en: {
     thread: 'Thread',
@@ -158,6 +164,9 @@ const translations: Record<Language, Translations> = {
     backToChat: 'Back to chat',
     notifications: 'Notifications',
     support: 'Support',
+    editUserMessage: 'Edit message',
+    editRegenerateSubmit: 'Save & regenerate reply',
+    editKeepAttachmentsHint: 'Images and files from the original message are kept.',
   },
 };
 

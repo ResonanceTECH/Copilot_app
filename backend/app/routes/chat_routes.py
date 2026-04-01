@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
-from sqlalchemy import desc, or_
+from sqlalchemy import desc, or_, and_
 from typing import List, Dict
 from pathlib import Path
 import uuid
@@ -62,6 +62,10 @@ class ChatSendResponse(BaseModel):
     message_id: int
     response: dict = None
     error: str = None
+
+
+class EditUserMessageRequest(BaseModel):
+    message: str
 
 
 class ChatHistoryItem(BaseModel):
@@ -530,6 +534,205 @@ async def create_chat(
     )
 
 
+async def _assistant_reply_pipeline(
+    db: Session,
+    chat: Chat,
+    space: Space,
+    current_user: User,
+    user_message: str,
+    user_message_with_file: str,
+    file_content_context: str,
+) -> ChatSendResponse:
+    """Общая генерация ответа ассистента после сохранения сообщения пользователя в БД."""
+    if not file_content_context:
+        quick_response = llm_service.get_quick_response(user_message)
+        if quick_response:
+            assistant_msg = Message(
+                chat_id=chat.id,
+                role="assistant",
+                content=quick_response
+            )
+            db.add(assistant_msg)
+            db.commit()
+            db.refresh(assistant_msg)
+
+            return ChatSendResponse(
+                success=True,
+                chat_id=chat.id,
+                message_id=assistant_msg.id,
+                response={
+                    'raw_text': quick_response,
+                    'formatted_html': f'<p class="response-text">{quick_response}</p>',
+                    'timestamp': datetime.now().isoformat(),
+                    'category': 'quick_response'
+                }
+            )
+
+    text_for_classification = user_message_with_file
+    text_for_classification = re.sub(r'<[^>]+>', ' ', text_for_classification)
+    text_for_classification = ' '.join(text_for_classification.split())
+
+    if not text_for_classification.strip() and file_content_context:
+        text_for_classification = file_content_context.replace('[Содержимое файла', '').replace(']:', ':').strip()
+        text_for_classification = text_for_classification[:500]
+
+    if not text_for_classification.strip():
+        text_for_classification = user_message
+
+    print(f"🔍 Текст для классификации ({len(text_for_classification)} символов): {text_for_classification[:200]}...")
+
+    enhanced_prompt, category, probabilities = get_enhanced_system_prompt(text_for_classification)
+
+    if category == 'graphic':
+        graphic_keywords = ['график', 'диаграмма', 'chart', 'plot', 'график по', 'построй', 'создай график', 'визуализ']
+        has_graphic_request = any(keyword in text_for_classification.lower() for keyword in graphic_keywords)
+
+        if has_graphic_request:
+            response_data = await process_graphic_request(user_message, current_user, db, space.id)
+
+            saved_image_path = response_data.get('graphic_data', {}).get('saved_image_path')
+            assistant_msg = Message(
+                chat_id=chat.id,
+                role="assistant",
+                content=response_data['raw_text'],
+                image_url=saved_image_path
+            )
+            db.add(assistant_msg)
+            chat.updated_at = datetime.now(timezone.utc)
+            db.commit()
+            db.refresh(assistant_msg)
+
+            _register_assistant_assets_as_attachments(
+                db=db,
+                current_user=current_user,
+                chat=chat,
+                space=space,
+                assistant_message=assistant_msg,
+                formatted_html=response_data.get("formatted_html") if isinstance(response_data, dict) else None,
+                extra_asset_paths=[saved_image_path] if saved_image_path else None,
+            )
+
+            return ChatSendResponse(
+                success=True,
+                chat_id=chat.id,
+                message_id=assistant_msg.id,
+                response=response_data
+            )
+        else:
+            print(f"⚠️ Категория 'graphic' определена, но нет явного запроса на график. Переопределяем на 'general'")
+            category = 'general'
+            base_prompt = "Ты — бизнес-консультант для малого бизнеса. Отвечай кратко и по делу. Используй списки по 2-4 пункта. Будь конкретен и практичен."
+            enhanced_prompt = f"{base_prompt}\n\n{CATEGORY_PROMPTS['general']}"
+            enhanced_prompt += f"\n\n[Категория вопроса: general]"
+            probabilities = {'general': 1.0}
+
+    cached_response = cache_service.get(user_message)
+    if cached_response:
+        print(f"✅ Используем кэшированный ответ для: {user_message[:50]}...")
+        assistant_content = cached_response.get('raw_text', '')
+
+        assistant_msg = Message(
+            chat_id=chat.id,
+            role="assistant",
+            content=assistant_content
+        )
+        db.add(assistant_msg)
+        db.commit()
+        db.refresh(assistant_msg)
+
+        _register_assistant_assets_as_attachments(
+            db=db,
+            current_user=current_user,
+            chat=chat,
+            space=space,
+            assistant_message=assistant_msg,
+            formatted_html=cached_response.get("formatted_html") if isinstance(cached_response, dict) else None,
+        )
+
+        return ChatSendResponse(
+            success=True,
+            chat_id=chat.id,
+            message_id=assistant_msg.id,
+            response=cached_response
+        )
+
+    print(f"📨 Отправляем запрос в LLM: {user_message[:200]}...")
+    if file_content_context:
+        print(f"📎 Включено содержимое файла в контекст")
+
+    conversation_history = get_conversation_history(chat.id, db, max_messages=15)
+
+    print(f"📚 Используем историю из {len(conversation_history)} сообщений для контекста")
+
+    try:
+        ai_response = llm_service.generate_response(
+            system_prompt=enhanced_prompt,
+            user_question=user_message_with_file,
+            conversation_history=conversation_history
+        )
+    except ValueError as e:
+        error_msg = str(e)
+        print(f"❌ Ошибка генерации ответа: {error_msg}")
+        return ChatSendResponse(
+            success=False,
+            chat_id=chat.id if chat else 0,
+            message_id=0,
+            error=error_msg
+        )
+    except Exception as e:
+        error_msg = f"Ошибка при генерации ответа: {str(e)}"
+        print(f"❌ Неожиданная ошибка LLM: {e}")
+        import traceback
+        traceback.print_exc()
+        return ChatSendResponse(
+            success=False,
+            chat_id=chat.id if chat else 0,
+            message_id=0,
+            error="Не удалось получить ответ от AI. Попробуйте ещё раз."
+        )
+
+    formatted_response = formatting_service.format_response(ai_response)
+
+    assistant_msg = Message(
+        chat_id=chat.id,
+        role="assistant",
+        content=ai_response
+    )
+    db.add(assistant_msg)
+    chat.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(assistant_msg)
+
+    response_data = {
+        'raw_text': ai_response,
+        'formatted_html': formatted_response,
+        'timestamp': datetime.now().isoformat(),
+        'category': category,
+        'probabilities': probabilities,
+        'history_count': len(conversation_history) + 1
+    }
+
+    cache_service.set(user_message, response_data)
+
+    _register_assistant_assets_as_attachments(
+        db=db,
+        current_user=current_user,
+        chat=chat,
+        space=space,
+        assistant_message=assistant_msg,
+        formatted_html=formatted_response,
+    )
+
+    print(f"✅ Успешно обработан запрос. История: {len(conversation_history) + 1} сообщений")
+
+    return ChatSendResponse(
+        success=True,
+        chat_id=chat.id,
+        message_id=assistant_msg.id,
+        response=response_data
+    )
+
+
 @router.post("/chat/send", response_model=ChatSendResponse)
 async def send_message(
         request: ChatSendRequest,
@@ -716,224 +919,9 @@ async def send_message(
         db.commit()
         db.refresh(user_msg)
 
-        # Проверяем быстрые ответы (только для простых сообщений без файлов)
-        if not file_content_context:
-            quick_response = llm_service.get_quick_response(user_message)
-            if quick_response:
-                assistant_msg = Message(
-                    chat_id=chat.id,
-                    role="assistant",
-                    content=quick_response
-                )
-                db.add(assistant_msg)
-                db.commit()
-                db.refresh(assistant_msg)
-
-                return ChatSendResponse(
-                    success=True,
-                    chat_id=chat.id,
-                    message_id=assistant_msg.id,
-                    response={
-                        'raw_text': quick_response,
-                        'formatted_html': f'<p class="response-text">{quick_response}</p>',
-                        'timestamp': datetime.now().isoformat(),
-                        'category': 'quick_response'
-                    }
-                )
-
-        # Извлекаем чистый текст из HTML для классификации
-        # Убираем HTML-теги и оставляем только текст для классификатора
-        import re
-        text_for_classification = user_message_with_file
-        
-        # Убираем HTML-теги, оставляем только текст
-        text_for_classification = re.sub(r'<[^>]+>', ' ', text_for_classification)
-        # Убираем лишние пробелы
-        text_for_classification = ' '.join(text_for_classification.split())
-        
-        # Если после удаления HTML остался только пробел или пусто, используем содержимое файла
-        if not text_for_classification.strip() and file_content_context:
-            # Используем только содержимое файла для классификации
-            text_for_classification = file_content_context.replace('[Содержимое файла', '').replace(']:', ':').strip()
-            # Берем первые 500 символов для классификации
-            text_for_classification = text_for_classification[:500]
-        
-        # Если все еще пусто, используем оригинальное сообщение
-        if not text_for_classification.strip():
-            text_for_classification = user_message
-        
-        print(f"🔍 Текст для классификации ({len(text_for_classification)} символов): {text_for_classification[:200]}...")
-        
-        # Получаем усиленный промпт и категорию (используем очищенный текст)
-        enhanced_prompt, category, probabilities = get_enhanced_system_prompt(text_for_classification)
-
-        # Если категория 'graphic', обрабатываем специальным образом
-        # НО только если в сообщении есть явный запрос на график (не просто файл)
-        if category == 'graphic':
-            # Проверяем, есть ли в сообщении явный запрос на график
-            graphic_keywords = ['график', 'диаграмма', 'chart', 'plot', 'график по', 'построй', 'создай график', 'визуализ']
-            has_graphic_request = any(keyword in text_for_classification.lower() for keyword in graphic_keywords)
-            
-            if has_graphic_request:
-                # Обрабатываем графический запрос
-                response_data = await process_graphic_request(user_message, current_user, db, space.id)
-
-                # Сохраняем ответ ассистента в базу
-                # Для графиков сохраняем также image_url
-                saved_image_path = response_data.get('graphic_data', {}).get('saved_image_path')
-                assistant_msg = Message(
-                    chat_id=chat.id,
-                    role="assistant",
-                    content=response_data['raw_text'],
-                    image_url=saved_image_path
-                )
-                db.add(assistant_msg)
-                chat.updated_at = datetime.now(timezone.utc)
-                db.commit()
-                db.refresh(assistant_msg)
-
-                _register_assistant_assets_as_attachments(
-                    db=db,
-                    current_user=current_user,
-                    chat=chat,
-                    space=space,
-                    assistant_message=assistant_msg,
-                    formatted_html=response_data.get("formatted_html") if isinstance(response_data, dict) else None,
-                    extra_asset_paths=[saved_image_path] if saved_image_path else None,
-                )
-
-                return ChatSendResponse(
-                    success=True,
-                    chat_id=chat.id,
-                    message_id=assistant_msg.id,
-                    response=response_data
-                )
-            else:
-                # Если категория определилась как graphic, но нет явного запроса,
-                # вероятно это ложное срабатывание из-за HTML или содержимого файла
-                # Переопределяем категорию на general и продолжаем обычную обработку
-                print(f"⚠️ Категория 'graphic' определена, но нет явного запроса на график. Переопределяем на 'general'")
-                category = 'general'
-                base_prompt = "Ты — бизнес-консультант для малого бизнеса. Отвечай кратко и по делу. Используй списки по 2-4 пункта. Будь конкретен и практичен."
-                enhanced_prompt = f"{base_prompt}\n\n{CATEGORY_PROMPTS['general']}"
-                enhanced_prompt += f"\n\n[Категория вопроса: general]"
-                probabilities = {'general': 1.0}
-                # Продолжаем обычную обработку ниже
-
-        # Для остальных категорий - проверяем кэш (используем оригинальное сообщение без файла для кэша)
-        cached_response = cache_service.get(user_message)
-        if cached_response:
-            print(f"✅ Используем кэшированный ответ для: {user_message[:50]}...")
-            assistant_content = cached_response.get('raw_text', '')
-
-            assistant_msg = Message(
-                chat_id=chat.id,
-                role="assistant",
-                content=assistant_content
-            )
-            db.add(assistant_msg)
-            db.commit()
-            db.refresh(assistant_msg)
-
-            _register_assistant_assets_as_attachments(
-                db=db,
-                current_user=current_user,
-                chat=chat,
-                space=space,
-                assistant_message=assistant_msg,
-                formatted_html=cached_response.get("formatted_html") if isinstance(cached_response, dict) else None,
-            )
-
-            return ChatSendResponse(
-                success=True,
-                chat_id=chat.id,
-                message_id=assistant_msg.id,
-                response=cached_response
-            )
-
-        print(f"📨 Отправляем запрос в LLM: {user_message[:200]}...")
-        if file_content_context:
-            print(f"📎 Включено содержимое файла в контекст")
-
-        # Получаем ВСЮ историю сообщений для контекста
-        conversation_history = get_conversation_history(chat.id, db, max_messages=15)
-
-        print(f"📚 Используем историю из {len(conversation_history)} сообщений для контекста")
-
-        # Генерируем ответ с учетом всей истории чата (используем сообщение с содержимым файла)
-        try:
-            ai_response = llm_service.generate_response(
-                system_prompt=enhanced_prompt,
-                user_question=user_message_with_file,
-                conversation_history=conversation_history
-            )
-        except ValueError as e:
-            # Ошибка валидации или конфигурации LLM
-            error_msg = str(e)
-            print(f"❌ Ошибка генерации ответа: {error_msg}")
-            return ChatSendResponse(
-                success=False,
-                chat_id=chat.id if chat else 0,
-                message_id=0,
-                error=error_msg
-            )
-        except Exception as e:
-            # Другие ошибки LLM
-            error_msg = f"Ошибка при генерации ответа: {str(e)}"
-            print(f"❌ Неожиданная ошибка LLM: {e}")
-            import traceback
-            traceback.print_exc()
-            return ChatSendResponse(
-                success=False,
-                chat_id=chat.id if chat else 0,
-                message_id=0,
-                error="Не удалось получить ответ от AI. Попробуйте ещё раз."
-            )
-
-        # Форматируем ответ
-        formatted_response = formatting_service.format_response(ai_response)
-
-        # Сохраняем ответ ассистента
-        assistant_msg = Message(
-            chat_id=chat.id,
-            role="assistant",
-            content=ai_response
-        )
-        db.add(assistant_msg)
-        # Обновляем updated_at чата явно, чтобы триггер сработал
-        chat.updated_at = datetime.now(timezone.utc)
-        db.commit()
-        db.refresh(assistant_msg)
-
-        # Подготавливаем данные для ответа
-        response_data = {
-            'raw_text': ai_response,
-            'formatted_html': formatted_response,
-            'timestamp': datetime.now().isoformat(),
-            'category': category,
-            'probabilities': probabilities,
-            'history_count': len(conversation_history) + 1  # +1 для текущего сообщения
-        }
-
-        # Сохраняем в кэш
-        cache_service.set(user_message, response_data)
-
-        _register_assistant_assets_as_attachments(
-            db=db,
-            current_user=current_user,
-            chat=chat,
-            space=space,
-            assistant_message=assistant_msg,
-            formatted_html=formatted_response,
-        )
-
-        print(f"✅ Успешно обработан запрос. История: {len(conversation_history) + 1} сообщений")
-
-        return ChatSendResponse(
-            success=True,
-            chat_id=chat.id,
-            message_id=assistant_msg.id,
-            response=response_data
+        return await _assistant_reply_pipeline(
+            db, chat, space, current_user,
+            user_message, user_message_with_file, file_content_context,
         )
 
     except HTTPException:
@@ -948,6 +936,152 @@ async def send_message(
             message_id=0,
             error="Временная ошибка сервера. Пожалуйста, попробуйте ещё раз."
         )
+
+
+@router.patch("/chat/messages/{message_id}/regenerate", response_model=ChatSendResponse)
+async def edit_user_message_and_regenerate(
+    message_id: int,
+    request: EditUserMessageRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Изменить текст сообщения пользователя, удалить все последующие сообщения в чате
+    и заново сгенерировать ответ ассистента.
+    """
+    user_message = request.message.strip()
+    if not user_message:
+        raise HTTPException(status_code=400, detail="Сообщение не может быть пустым")
+
+    user_msg = (
+        db.query(Message)
+        .join(Chat, Chat.id == Message.chat_id)
+        .filter(
+            and_(
+                Message.id == message_id,
+                Chat.user_id == current_user.id,
+                Message.role == "user",
+            ),
+        )
+        .first()
+    )
+    if not user_msg:
+        raise HTTPException(status_code=404, detail="Сообщение не найдено")
+
+    chat = db.query(Chat).filter(Chat.id == user_msg.chat_id).first()
+    if not chat:
+        raise HTTPException(status_code=404, detail="Чат не найден")
+
+    space = chat.space
+    if not space:
+        raise HTTPException(status_code=404, detail="Пространство не найдено")
+
+    later = (
+        db.query(Message)
+        .filter(Message.chat_id == chat.id, Message.id > user_msg.id)
+        .order_by(Message.id.asc())
+        .all()
+    )
+    for m in later:
+        db.delete(m)
+
+    image_url = None
+    file_urls: List[str] = []
+    if "<img" in user_message and "src=" in user_message:
+        img_matches = re.findall(r'src=["\']([^"\']*assets/[^"\']+)["\']', user_message)
+        if img_matches:
+            image_url = img_matches[0].lstrip("/")
+            file_urls = [url.lstrip("/") for url in img_matches]
+    if not file_urls and "<a href=" in user_message:
+        href_matches = re.findall(r'href=["\']([^"\']*assets/[^"\']+)["\']', user_message)
+        if href_matches:
+            file_urls = [url.lstrip("/") for url in href_matches]
+            if not image_url:
+                image_url = file_urls[0]
+    text_file_matches = re.findall(r"assets/[a-zA-Z0-9_\-\.]+", user_message)
+    for match in text_file_matches:
+        if match not in file_urls:
+            file_urls.append(match)
+
+    referenced = set(file_urls)
+    linked = (
+        db.query(FileAttachment).filter(FileAttachment.message_id == user_msg.id).all()
+    )
+    for fa in linked:
+        if fa.file_path not in referenced:
+            fa.message_id = None
+
+    file_attachments: List[FileAttachment] = []
+    for file_url in file_urls:
+        attachment = (
+            db.query(FileAttachment)
+            .filter(
+                FileAttachment.file_path == file_url,
+                FileAttachment.user_id == current_user.id,
+            )
+            .order_by(FileAttachment.created_at.desc())
+            .first()
+        )
+        if attachment and attachment not in file_attachments:
+            file_attachments.append(attachment)
+
+    for file_attachment in file_attachments:
+        if not file_attachment.message_id:
+            file_attachment.message_id = user_msg.id
+
+    user_msg.content = user_message
+    user_msg.image_url = image_url
+
+    db.flush()
+    final_attachments = (
+        db.query(FileAttachment).filter(FileAttachment.message_id == user_msg.id).all()
+    )
+    file_content_context = ""
+    for file_attachment in final_attachments:
+        if file_attachment.extracted_text:
+            file_content_context += (
+                f"\n\n[Содержимое файла {file_attachment.filename}]:\n"
+                f"{file_attachment.extracted_text}"
+            )
+        elif file_attachment.analysis_result:
+            file_content_context += (
+                f"\n\n[Анализ изображения {file_attachment.filename}]:\n"
+                f"{file_attachment.analysis_result}"
+            )
+
+    if file_content_context:
+        user_message_with_file = user_message + file_content_context
+    else:
+        user_message_with_file = user_message
+
+    today = datetime.now(timezone.utc).date()
+    activity = db.query(UserActivity).filter(
+        UserActivity.user_id == current_user.id,
+        UserActivity.activity_date == today,
+    ).first()
+    if activity:
+        activity.message_count += 1
+        activity.updated_at = datetime.now(timezone.utc)
+    else:
+        activity = UserActivity(
+            user_id=current_user.id,
+            activity_date=today,
+            message_count=1,
+        )
+        db.add(activity)
+
+    db.commit()
+    db.refresh(user_msg)
+
+    return await _assistant_reply_pipeline(
+        db,
+        chat,
+        space,
+        current_user,
+        user_message,
+        user_message_with_file,
+        file_content_context,
+    )
 
 
 @router.get("/test-graph")
