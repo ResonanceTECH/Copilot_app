@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
-from sqlalchemy import desc
+from sqlalchemy import desc, or_
 from typing import List, Dict
 from pathlib import Path
 import uuid
@@ -24,6 +24,7 @@ from backend.app.services.llm_service import LLMService
 from backend.app.services.cache_service import CacheService
 from backend.app.services.formatting_service import FormattingService
 from backend.ml.services.graphic_service import GraphicService
+from backend.app.routes.spaces_routes import SpaceFileAttachmentItem, SpaceFilesListResponse
 
 router = APIRouter()
 
@@ -1195,6 +1196,96 @@ async def get_chat_context(
             for msg in conversation_history
         ]
     }
+
+
+@router.get("/chat/{chat_id}/files", response_model=SpaceFilesListResponse)
+async def list_chat_files(
+        chat_id: int,
+        limit: int = Query(50, ge=1, le=200),
+        offset: int = Query(0, ge=0),
+        file_type: Optional[str] = Query(None, description="image / documents / расширение"),
+        origin: Optional[str] = Query(None, description="user|assistant|all|unattached"),
+        q: Optional[str] = Query(None, description="Поиск по имени"),
+        attached_only: bool = Query(False),
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db),
+):
+    """Все файлы и изображения, привязанные к чату (по диалогу)."""
+    chat = db.query(Chat).filter(
+        Chat.id == chat_id,
+        Chat.user_id == current_user.id,
+    ).first()
+    if not chat:
+        raise HTTPException(status_code=404, detail="Чат не найден")
+
+    query = db.query(FileAttachment).filter(
+        FileAttachment.chat_id == chat_id,
+        FileAttachment.user_id == current_user.id,
+    )
+
+    if origin:
+        o = origin.strip().lower()
+        if o in ("all", "*"):
+            pass
+        elif o == "unattached":
+            query = query.filter(FileAttachment.message_id.is_(None))
+        elif o in ("user", "assistant"):
+            query = query.join(Message, Message.id == FileAttachment.message_id).filter(Message.role == o)
+        else:
+            raise HTTPException(status_code=400, detail="Неверный origin")
+
+    if attached_only:
+        query = query.filter(FileAttachment.message_id.isnot(None))
+
+    if file_type:
+        ft = file_type.strip().lower()
+        image_exts = ("png", "jpg", "jpeg", "gif", "webp", "bmp")
+        if ft in ("image", "images"):
+            query = query.filter(
+                or_(
+                    FileAttachment.mime_type.ilike("image/%"),
+                    FileAttachment.file_type == "image",
+                    FileAttachment.file_type.in_(image_exts),
+                )
+            )
+        elif ft in ("document", "documents", "file", "files", "doc"):
+            query = query.filter(
+                or_(
+                    FileAttachment.mime_type.is_(None),
+                    ~FileAttachment.mime_type.ilike("image/%"),
+                )
+            ).filter(
+                FileAttachment.file_type != "image"
+            ).filter(
+                ~FileAttachment.file_type.in_(image_exts)
+            )
+        else:
+            query = query.filter(FileAttachment.file_type == file_type)
+
+    if q:
+        query = query.filter(FileAttachment.filename.ilike(f"%{q}%"))
+
+    total = query.count()
+    rows = query.order_by(desc(FileAttachment.created_at)).offset(offset).limit(limit).all()
+
+    items: List[SpaceFileAttachmentItem] = []
+    for fa in rows:
+        items.append(SpaceFileAttachmentItem(
+            id=fa.id,
+            space_id=chat.space_id,
+            chat_id=fa.chat_id,
+            chat_title=chat.title,
+            message_id=fa.message_id,
+            user_id=fa.user_id,
+            filename=fa.filename,
+            file_path=fa.file_path,
+            file_type=fa.file_type,
+            file_size=int(fa.file_size),
+            mime_type=fa.mime_type,
+            created_at=fa.created_at.isoformat() if fa.created_at else datetime.now(timezone.utc).isoformat(),
+        ))
+
+    return SpaceFilesListResponse(files=items, total=total)
 
 
 @router.put("/chat/{chat_id}", response_model=ChatHistoryItem)

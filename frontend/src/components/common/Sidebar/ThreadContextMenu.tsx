@@ -15,6 +15,9 @@ interface ThreadContextMenuProps {
   onRename: (threadId: string) => void;
   onPin?: (threadId: string) => void;
   isPinned?: boolean;
+  /** Файлы чата (только для чатов, уже сохранённых на сервере) */
+  onFiles?: (threadId: string) => void;
+  showFiles?: boolean;
 }
 
 export const ThreadContextMenu: React.FC<ThreadContextMenuProps> = ({
@@ -25,6 +28,8 @@ export const ThreadContextMenu: React.FC<ThreadContextMenuProps> = ({
   onRename,
   onPin,
   isPinned = false,
+  onFiles,
+  showFiles = false,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
   const { language } = useLanguage();
@@ -63,6 +68,12 @@ export const ThreadContextMenu: React.FC<ThreadContextMenuProps> = ({
     onClose();
   };
 
+  const handleFiles = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onFiles) onFiles(threadId);
+    onClose();
+  };
+
   const handlePin = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (onPin) {
@@ -91,6 +102,12 @@ export const ThreadContextMenu: React.FC<ThreadContextMenuProps> = ({
         <Icon src={ICONS.edit} size="sm" />
         <span>{getTranslation('rename', language)}</span>
       </button>
+      {showFiles && onFiles && (
+        <button className="thread-context-menu-item" onClick={handleFiles}>
+          <Icon src={ICONS.paperclip} size="sm" />
+          <span>{getTranslation('threadFiles', language)}</span>
+        </button>
+      )}
       <button className="thread-context-menu-item" onClick={handleDelete}>
         <Icon src={ICONS.trash} size="sm" />
         <span>{getTranslation('deleteThread', language)}</span>

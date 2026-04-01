@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Sidebar } from '../../components/common/Sidebar';
+import { ChatFilesModal } from '../../components/common/ChatFilesModal/ChatFilesModal';
 import { Header } from '../../components/common/Header';
 import { ChatArea } from '../../components/common/ChatArea';
 import { SupportPanel } from '../../components/common/SupportPanel';
@@ -32,6 +33,11 @@ export const AssistantPage: React.FC = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [showSupportPanel, setShowSupportPanel] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [chatFilesModal, setChatFilesModal] = useState<{
+    chatId: number;
+    title: string;
+    spaceId: number | null;
+  } | null>(null);
 
   const typingIntervalRef = useRef<number | null>(null);
   const typingRunIdRef = useRef(0);
@@ -405,6 +411,16 @@ export const AssistantPage: React.FC = () => {
   }, [language, threads]);
 
   // Закрепить/открепить чат
+  const handleThreadShowFiles = useCallback((threadId: string) => {
+    const data = threads.get(threadId);
+    if (!data?.chatId) return;
+    setChatFilesModal({
+      chatId: data.chatId,
+      title: data.thread.title,
+      spaceId: data.spaceId ?? null,
+    });
+  }, [threads]);
+
   const handleThreadPin = useCallback((threadId: string) => {
     const pinnedThreads = loadPinnedThreads();
     if (pinnedThreads.has(threadId)) {
@@ -787,6 +803,7 @@ export const AssistantPage: React.FC = () => {
           onThreadDelete={handleThreadDelete}
           onThreadRename={handleThreadRename}
           onThreadPin={handleThreadPin}
+          onThreadShowFiles={handleThreadShowFiles}
           onSettingsClick={() => setShowSupportPanel(true)}
             isMobileMenuOpen={isMobileMenuOpen}
             onMobileMenuClose={() => setIsMobileMenuOpen(false)}
@@ -836,6 +853,15 @@ export const AssistantPage: React.FC = () => {
           localStorage.setItem('panelTogglePosition', JSON.stringify(pos));
         }}
       />
+      {chatFilesModal && (
+        <ChatFilesModal
+          open={!!chatFilesModal}
+          onClose={() => setChatFilesModal(null)}
+          chatId={chatFilesModal.chatId}
+          chatTitle={chatFilesModal.title}
+          spaceIdForRename={chatFilesModal.spaceId}
+        />
+      )}
     </div>
   );
 };

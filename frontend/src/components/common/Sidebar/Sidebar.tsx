@@ -23,6 +23,7 @@ interface SidebarProps {
   onThreadDelete?: (threadId: string) => void;
   onThreadRename?: (threadId: string, newTitle: string) => void;
   onThreadPin?: (threadId: string) => void;
+  onThreadShowFiles?: (threadId: string) => void;
   onSettingsClick?: () => void;
   isMobileMenuOpen?: boolean;
   onMobileMenuClose?: () => void;
@@ -38,6 +39,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onThreadDelete,
   onThreadRename,
   onThreadPin,
+  onThreadShowFiles,
   onSettingsClick,
   isMobileMenuOpen = false,
   onMobileMenuClose,
@@ -601,6 +603,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onRename={handleRename}
                 onPin={onThreadPin}
                 isPinned={threads.find(t => t.id === contextMenu.threadId)?.is_pinned || false}
+                onFiles={onThreadShowFiles}
+                showFiles={/^chat-\d+$/.test(contextMenu.threadId)}
               />
             </div>
           )}

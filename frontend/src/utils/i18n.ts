@@ -26,6 +26,7 @@ export interface Translations {
   newChat: string;
   deleteThread: string;
   rename: string;
+  threadFiles: string;
   pinThread: string;
   unpinThread: string;
 
@@ -81,6 +82,7 @@ const translations: Record<Language, Translations> = {
     newChat: 'Новый чат',
     deleteThread: 'Удалить чат',
     rename: 'Переименовать',
+    threadFiles: 'Файлы',
     pinThread: 'Закрепить',
     unpinThread: 'Открепить',
     createNewChat: 'Создать новый чат',
@@ -128,6 +130,7 @@ const translations: Record<Language, Translations> = {
     newChat: 'New Chat',
     deleteThread: 'Delete Thread',
     rename: 'Rename',
+    threadFiles: 'Files',
     pinThread: 'Pin',
     unpinThread: 'Unpin',
     createNewChat: 'Create New Chat',

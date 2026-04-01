@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { spacesAPI, chatAPI, notesAPI, type ChatHistoryItem, ApiErrorWithStatus } from '../../utils/api';
 import type { Space, NotePreview, SpaceTag, SpaceAttachmentItem } from '../../types';
@@ -6,8 +6,23 @@ import { Header } from '../../components/common/Header';
 import { Icon } from '../../components/ui/Icon';
 import { ICONS } from '../../utils/icons';
 import { NotFoundPage } from '../NotFoundPage';
+import { ThreadContextMenu } from '../../components/common/Sidebar/ThreadContextMenu';
+import { ChatFilesModal } from '../../components/common/ChatFilesModal/ChatFilesModal';
 import copyIcon from '../../assets/icons/copy.svg';
 import './SpaceDetailPage.css';
+
+const loadPinnedThreadsSet = (): Set<string> => {
+  try {
+    const raw = localStorage.getItem('pinnedThreads');
+    return raw ? new Set(JSON.parse(raw) as string[]) : new Set();
+  } catch {
+    return new Set();
+  }
+};
+
+const savePinnedThreadsSet = (s: Set<string>) => {
+  localStorage.setItem('pinnedThreads', JSON.stringify(Array.from(s)));
+};
 
 interface SpaceDetailPageProps {
   spaceId: number;
@@ -60,6 +75,16 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
   // Состояние для модального окна экспорта
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportUrl, setExportUrl] = useState<string>('');
+  const [spaceChatContextMenu, setSpaceChatContextMenu] = useState<{
+    chat: ChatHistoryItem;
+    position: { x: number; y: number };
+  } | null>(null);
+  const [spaceChatFilesModal, setSpaceChatFilesModal] = useState<{
+    chatId: number;
+    title: string;
+  } | null>(null);
+  const [spaceChatPinRev, setSpaceChatPinRev] = useState(0);
+  const spaceChatMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -326,25 +351,6 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
     }
   };
 
-  const handleDeleteChat = async (chatId: number, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!confirm('Вы уверены, что хотите удалить этот чат из пространства?')) return;
-
-    try {
-      await chatAPI.deleteChat(chatId);
-      loadData(); // Перезагружаем список чатов
-    } catch (error: any) {
-      console.error('Ошибка удаления чата:', error);
-      alert(error.message || 'Ошибка при удалении чата. Попробуйте позже.');
-    }
-  };
-
-  const handleStartEditChat = (chat: ChatHistoryItem, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setEditingChatId(chat.id);
-    setEditChatTitle(chat.title || '');
-  };
-
   const handleCancelEditChat = () => {
     setEditingChatId(null);
     setEditChatTitle('');
@@ -548,6 +554,30 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
     setTagType('');
   };
 
+  const sortedChats = useMemo(() => {
+    const pinned = loadPinnedThreadsSet();
+    return [...chats].sort((a, b) => {
+      const pa = pinned.has(`chat-${a.id}`);
+      const pb = pinned.has(`chat-${b.id}`);
+      if (pa && !pb) return -1;
+      if (!pa && pb) return 1;
+      const ta = new Date(a.last_message_at || a.updated_at || a.created_at).getTime();
+      const tb = new Date(b.last_message_at || b.updated_at || b.created_at).getTime();
+      return tb - ta;
+    });
+  }, [chats, spaceChatPinRev]);
+
+  useEffect(() => {
+    const close = (e: MouseEvent) => {
+      if (spaceChatMenuRef.current && !spaceChatMenuRef.current.contains(e.target as Node)) {
+        setSpaceChatContextMenu(null);
+      }
+    };
+    if (spaceChatContextMenu) {
+      document.addEventListener('mousedown', close);
+      return () => document.removeEventListener('mousedown', close);
+    }
+  }, [spaceChatContextMenu]);
 
   if (!isAuthenticated) {
     return <div>Пожалуйста, войдите в систему</div>;
@@ -693,7 +723,7 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
                 <div className="space-detail-empty">Нет чатов в этом пространстве</div>
               ) : (
                 <div className="space-detail-chats-list">
-                  {chats.map(chat => (
+                  {sortedChats.map(chat => (
                     <div
                       key={chat.id}
                       className="space-detail-chat-item"
@@ -756,22 +786,20 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
                             </button>
                           </>
                         ) : (
-                          <>
-                            <button
-                              className="space-detail-chat-action-btn"
-                              onClick={(e) => handleStartEditChat(chat, e)}
-                              title="Переименовать чат"
-                            >
-                              <Icon src={ICONS.edit} size="sm" />
-                            </button>
-                            <button
-                              className="space-detail-chat-action-btn danger"
-                              onClick={(e) => handleDeleteChat(chat.id, e)}
-                              title="Удалить чат"
-                            >
-                              <Icon src={ICONS.trash} size="sm" />
-                            </button>
-                          </>
+                          <button
+                            className="space-detail-chat-action-btn"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                              setSpaceChatContextMenu({
+                                chat,
+                                position: { x: rect.right - 180, y: rect.bottom + 4 },
+                              });
+                            }}
+                            title="Меню"
+                          >
+                            <Icon src={ICONS.more} size="sm" />
+                          </button>
                         )}
                       </div>
                     </div>
@@ -1408,6 +1436,62 @@ export const SpaceDetailPage: React.FC<SpaceDetailPageProps> = ({ spaceId }) => 
             </div>
           </div>
         </div>
+      )}
+
+      {spaceChatContextMenu && (
+        <div ref={spaceChatMenuRef}>
+          <ThreadContextMenu
+            threadId={`chat-${spaceChatContextMenu.chat.id}`}
+            position={spaceChatContextMenu.position}
+            onClose={() => setSpaceChatContextMenu(null)}
+            onDelete={async (tid) => {
+              const id = parseInt(tid.replace('chat-', ''), 10);
+              if (!confirm('Вы уверены, что хотите удалить этот чат из пространства?')) return;
+              try {
+                await chatAPI.deleteChat(id);
+                setSpaceChatContextMenu(null);
+                loadData();
+              } catch (error: any) {
+                console.error('Ошибка удаления чата:', error);
+                alert(error.message || 'Ошибка при удалении чата. Попробуйте позже.');
+              }
+            }}
+            onRename={(tid) => {
+              const id = parseInt(tid.replace('chat-', ''), 10);
+              const c = chats.find((x) => x.id === id);
+              setSpaceChatContextMenu(null);
+              if (c) {
+                setEditingChatId(c.id);
+                setEditChatTitle(c.title || '');
+              }
+            }}
+            onPin={(tid) => {
+              const pinned = loadPinnedThreadsSet();
+              if (pinned.has(tid)) pinned.delete(tid);
+              else pinned.add(tid);
+              savePinnedThreadsSet(pinned);
+              setSpaceChatPinRev((r) => r + 1);
+            }}
+            isPinned={loadPinnedThreadsSet().has(`chat-${spaceChatContextMenu.chat.id}`)}
+            onFiles={(tid) => {
+              const id = parseInt(tid.replace('chat-', ''), 10);
+              const c = chats.find((x) => x.id === id);
+              setSpaceChatContextMenu(null);
+              setSpaceChatFilesModal({ chatId: id, title: c?.title || '' });
+            }}
+            showFiles
+          />
+        </div>
+      )}
+
+      {spaceChatFilesModal && (
+        <ChatFilesModal
+          open
+          onClose={() => setSpaceChatFilesModal(null)}
+          chatId={spaceChatFilesModal.chatId}
+          chatTitle={spaceChatFilesModal.title}
+          spaceIdForRename={spaceId}
+        />
       )}
     </div>
   );

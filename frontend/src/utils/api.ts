@@ -1,4 +1,5 @@
 // API клиент для работы с бэкендом
+import type { SpaceFilesListResponse } from '../types';
 
 // Базовый URL API (в dev режиме используется прокси из vite.config.ts)
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
@@ -342,6 +343,31 @@ export const chatAPI = {
     });
   },
 
+  /** Файлы и изображения в рамках одного чата */
+  getChatFiles: async (
+    chatId: number,
+    params?: {
+      limit?: number;
+      offset?: number;
+      file_type?: string;
+      origin?: 'all' | 'user' | 'assistant' | 'unattached';
+      q?: string;
+      attached_only?: boolean;
+    }
+  ): Promise<SpaceFilesListResponse> => {
+    const queryParams = new URLSearchParams();
+    if (params?.limit !== undefined) queryParams.append('limit', params.limit.toString());
+    if (params?.offset !== undefined) queryParams.append('offset', params.offset.toString());
+    if (params?.file_type) queryParams.append('file_type', params.file_type);
+    if (params?.origin && params.origin !== 'all') queryParams.append('origin', params.origin);
+    if (params?.q) queryParams.append('q', params.q);
+    if (params?.attached_only) queryParams.append('attached_only', 'true');
+    const qs = queryParams.toString();
+    return apiRequest<SpaceFilesListResponse>(`/chat/${chatId}/files${qs ? `?${qs}` : ''}`, {
+      method: 'GET',
+    });
+  },
+
   // Получение данных эффективности
   getEfficiencyData: async (period: 'day' | 'week' | 'month' | 'year' = 'year'): Promise<{
     activities: Array<{ date: string; count: number }>;
@@ -483,7 +509,7 @@ export const chatAPI = {
 };
 
 // API методы для пространств (mock версия)
-import type { Space, SpaceCreateRequest, SpaceUpdateRequest, Note, NotePreview, NoteCreateRequest, NoteUpdateRequest, SpaceTag, SpaceTagCreateRequest, SpaceTagUpdateRequest, SupportFeedback, SupportFeedbackRequest, SupportArticle, SupportArticlesResponse, SearchResults, SearchRequest, NotificationSettingsResponse, NotificationSettingsRequest, Notification, NotificationListResponse, UserProfile, UserProfileUpdate, SpaceFilesListResponse } from '../types';
+import type { Space, SpaceCreateRequest, SpaceUpdateRequest, Note, NotePreview, NoteCreateRequest, NoteUpdateRequest, SpaceTag, SpaceTagCreateRequest, SpaceTagUpdateRequest, SupportFeedback, SupportFeedbackRequest, SupportArticle, SupportArticlesResponse, SearchResults, SearchRequest, NotificationSettingsResponse, NotificationSettingsRequest, Notification, NotificationListResponse, UserProfile, UserProfileUpdate } from '../types';
 
 // Имитация задержки сети для mock методов
 export const spacesAPI = {
