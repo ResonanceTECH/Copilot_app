@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from typing import Optional, List, Dict
-from sqlalchemy import desc
+from sqlalchemy import desc, or_, and_
 from datetime import datetime, timezone
 
 from backend.app.database.connection import get_db
@@ -11,6 +11,9 @@ from backend.app.models.chat import Chat
 from backend.app.models.message import Message
 from backend.app.models.note import Note
 from backend.app.models.tag import Tag
+from backend.app.models.file_attachment import FileAttachment
+from backend.app.utils.message_display import format_message_content_for_display
+from backend.app.routes.spaces_routes import SpaceFileAttachmentItem, SpaceFilesListResponse
 from backend.ml.services.classifier_service import BusinessClassifierService
 from backend.app.services.llm_service import LLMService
 from backend.app.services.cache_service import CacheService
@@ -74,6 +77,7 @@ class PublicSpaceResponse(BaseModel):
     description: Optional[str]
     chats_count: int
     notes_count: int
+    files_count: int = 0
 
 class PublicChatItem(BaseModel):
     id: int
@@ -161,13 +165,30 @@ async def get_public_space_info(
     
     chats_count = db.query(Chat).filter(Chat.space_id == space.id).count()
     notes_count = db.query(Note).filter(Note.space_id == space.id).count()
-    
+    files_count = db.query(FileAttachment).outerjoin(
+        Chat,
+        Chat.id == FileAttachment.chat_id,
+    ).filter(
+        FileAttachment.user_id == space.user_id,
+        or_(
+            and_(
+                FileAttachment.chat_id.isnot(None),
+                Chat.space_id == space.id,
+            ),
+            and_(
+                FileAttachment.chat_id.is_(None),
+                FileAttachment.space_id == space.id,
+            ),
+        ),
+    ).count()
+
     return PublicSpaceResponse(
         id=space.id,
         name=space.name,
         description=space.description,
         chats_count=chats_count,
-        notes_count=notes_count
+        notes_count=notes_count,
+        files_count=files_count,
     )
 
 
@@ -226,13 +247,13 @@ async def get_public_chat_messages(
     total = query.count()
     
     messages = query.order_by(Message.created_at).offset(offset).limit(limit).all()
-    
+
     message_items = [
         PublicMessageItem(
             id=msg.id,
             role=msg.role,
-            content=msg.content,
-            created_at=msg.created_at.isoformat()
+            content=format_message_content_for_display(msg, db),
+            created_at=msg.created_at.isoformat(),
         )
         for msg in messages
     ]
@@ -471,4 +492,108 @@ async def get_public_space_tags(
     ]
     
     return PublicTagsResponse(tags=tag_items, total=len(tag_items))
+
+
+def _public_space_files_query(db: Session, space: Space):
+    return db.query(FileAttachment, Chat).outerjoin(
+        Chat,
+        Chat.id == FileAttachment.chat_id,
+    ).filter(
+        FileAttachment.user_id == space.user_id,
+        or_(
+            and_(
+                FileAttachment.chat_id.isnot(None),
+                Chat.space_id == space.id,
+            ),
+            and_(
+                FileAttachment.chat_id.is_(None),
+                FileAttachment.space_id == space.id,
+            ),
+        ),
+    )
+
+
+@router.get("/spaces/{public_token}/files", response_model=SpaceFilesListResponse)
+async def get_public_space_files(
+    public_token: str,
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    file_type: Optional[str] = Query(None),
+    origin: Optional[str] = Query(None),
+    q: Optional[str] = Query(None),
+    chat_id: Optional[int] = Query(None),
+    attached_only: bool = Query(False),
+    db: Session = Depends(get_db),
+):
+    """Файлы пространства для гостей (без авторизации), только если пространство публичное."""
+    space = get_public_space(public_token, db)
+    space_id = space.id
+    query = _public_space_files_query(db, space)
+
+    if origin:
+        o = origin.strip().lower()
+        if o in ("all", "*"):
+            pass
+        elif o == "unattached":
+            query = query.filter(FileAttachment.message_id.is_(None))
+        elif o in ("user", "assistant"):
+            query = query.join(Message, Message.id == FileAttachment.message_id).filter(Message.role == o)
+        else:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Неверный origin")
+
+    if chat_id is not None:
+        query = query.filter(FileAttachment.chat_id == chat_id)
+
+    if attached_only:
+        query = query.filter(FileAttachment.message_id.isnot(None))
+
+    if file_type:
+        ft = file_type.strip().lower()
+        image_exts = ("png", "jpg", "jpeg", "gif", "webp", "bmp")
+        if ft in ("image", "images"):
+            query = query.filter(
+                or_(
+                    FileAttachment.mime_type.ilike("image/%"),
+                    FileAttachment.file_type == "image",
+                    FileAttachment.file_type.in_(image_exts),
+                )
+            )
+        elif ft in ("document", "documents", "file", "files", "doc"):
+            query = query.filter(
+                or_(
+                    FileAttachment.mime_type.is_(None),
+                    ~FileAttachment.mime_type.ilike("image/%"),
+                )
+            ).filter(
+                FileAttachment.file_type != "image"
+            ).filter(
+                ~FileAttachment.file_type.in_(image_exts)
+            )
+        else:
+            query = query.filter(FileAttachment.file_type == file_type)
+
+    if q:
+        query = query.filter(FileAttachment.filename.ilike(f"%{q}%"))
+
+    total = query.count()
+    rows = query.order_by(desc(FileAttachment.created_at)).offset(offset).limit(limit).all()
+
+    items: List[SpaceFileAttachmentItem] = []
+    for fa, ch in rows:
+        items.append(SpaceFileAttachmentItem(
+            id=fa.id,
+            space_id=ch.space_id if ch else fa.space_id,
+            chat_id=fa.chat_id,
+            chat_title=ch.title if ch else None,
+            message_id=fa.message_id,
+            user_id=fa.user_id,
+            filename=fa.filename,
+            file_path=fa.file_path,
+            file_type=fa.file_type,
+            file_size=int(fa.file_size),
+            mime_type=fa.mime_type,
+            created_at=fa.created_at.isoformat() if fa.created_at else datetime.now(timezone.utc).isoformat(),
+        ))
+
+    return SpaceFilesListResponse(files=items, total=total)
 

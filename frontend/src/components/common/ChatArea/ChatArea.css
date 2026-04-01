@@ -835,6 +835,28 @@
   color: rgba(255, 255, 255, 0.9);
 }
 
+/* Вложения в зелёном пузыре: без accent-цвета ссылок (иначе имя файла сливается с фоном) */
+.chat-message--user .chat-message-content .uploaded-file-container,
+.chat-message--user .chat-message-content .uploaded-file-header {
+  color: var(--color-text-on-primary);
+}
+
+.chat-message--user .chat-message-content .uploaded-file-container a,
+.chat-message--user .chat-message-content .uploaded-file-header a {
+  color: var(--color-text-on-primary) !important;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.chat-message--user .chat-message-content .uploaded-file-analysis summary {
+  color: var(--color-text-on-primary) !important;
+}
+
+.chat-message--user .message-files-container .message-file-name {
+  color: #fff;
+}
+
 /* Стили для изображений в сообщениях */
 .uploaded-file-image {
   margin-top: 8px;

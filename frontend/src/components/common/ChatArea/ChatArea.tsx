@@ -130,7 +130,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             </div>
             ${file.analysis_result ? `
               <details class="uploaded-file-analysis" style="margin-top: 12px;">
-                <summary style="cursor: pointer; color: var(--color-primary); font-weight: 500; user-select: none;">🔍 Показать анализ изображения</summary>
+                <summary style="cursor: pointer; color: inherit; font-weight: 500; user-select: none;">🔍 Показать анализ изображения</summary>
                 <div style="margin-top: 8px; padding: 12px; background: var(--color-hover); border-radius: 8px; font-size: 14px; line-height: 1.6;">
                   ${file.analysis_result}
                 </div>

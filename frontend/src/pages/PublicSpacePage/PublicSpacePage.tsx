@@ -4,6 +4,7 @@ import remarkGfm from 'remark-gfm';
 import { Header } from '../../components/common/Header';
 import { Icon } from '../../components/ui/Icon';
 import { ICONS } from '../../utils/icons';
+import type { SpaceAttachmentItem } from '../../types';
 import './PublicSpacePage.css';
 
 // Анимация "печатается..." (в стиле обычных чатов)
@@ -26,6 +27,47 @@ const TypingAnimation: React.FC<{ text: string }> = ({ text }) => {
   return <span>{text}{dots}</span>;
 };
 
+const formatBytes = (bytes: number): string => {
+  if (!Number.isFinite(bytes)) return '';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let v = bytes;
+  let i = 0;
+  while (v >= 1024 && i < units.length - 1) {
+    v /= 1024;
+    i += 1;
+  }
+  const precision = i === 0 ? 0 : i === 1 ? 0 : 1;
+  return `${v.toFixed(precision)} ${units[i]}`;
+};
+
+const isImageAttachment = (f: SpaceAttachmentItem): boolean => {
+  if (f.mime_type?.startsWith('image/')) return true;
+  if (f.file_type === 'image') return true;
+  const name = (f.filename || '').toLowerCase();
+  return ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp'].some((ext) => name.endsWith(ext));
+};
+
+const messageBodyUsesRichHtml = (role: string, content: string, isLoading?: boolean): boolean => {
+  if (role === 'assistant' && !isLoading) {
+    return (
+      content.includes('<div') ||
+      content.includes('<img') ||
+      content.includes('<p') ||
+      content.includes('<a ') ||
+      content.includes('<table') ||
+      content.includes('<figure')
+    );
+  }
+  if (role === 'user') {
+    return (
+      content.includes('<img') ||
+      content.includes('<div class="uploaded-file') ||
+      (content.includes('<div') && content.includes('</div>'))
+    );
+  }
+  return false;
+};
+
 interface PublicSpacePageProps {
   publicToken: string;
 }
@@ -36,6 +78,7 @@ interface PublicSpace {
   description: string | null;
   chats_count: number;
   notes_count: number;
+  files_count: number;
 }
 
 interface PublicChat {
@@ -74,10 +117,11 @@ interface PublicTag {
 
 export const PublicSpacePage: React.FC<PublicSpacePageProps> = ({ publicToken }) => {
   const [space, setSpace] = useState<PublicSpace | null>(null);
-  const [activeTab, setActiveTab] = useState<'chats' | 'notes' | 'tags'>('chats');
+  const [activeTab, setActiveTab] = useState<'chats' | 'notes' | 'tags' | 'files'>('chats');
   const [chats, setChats] = useState<PublicChat[]>([]);
   const [notes, setNotes] = useState<PublicNote[]>([]);
   const [tags, setTags] = useState<PublicTag[]>([]);
+  const [spaceFiles, setSpaceFiles] = useState<SpaceAttachmentItem[]>([]);
   const [selectedChatId, setSelectedChatId] = useState<number | null>(null);
   const [messages, setMessages] = useState<PublicMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -97,6 +141,8 @@ export const PublicSpacePage: React.FC<PublicSpacePageProps> = ({ publicToken })
       loadNotes();
     } else if (activeTab === 'tags') {
       loadTags();
+    } else if (activeTab === 'files') {
+      loadSpaceFiles();
     }
   }, [activeTab, publicToken]);
 
@@ -113,7 +159,10 @@ export const PublicSpacePage: React.FC<PublicSpacePageProps> = ({ publicToken })
         throw new Error('Пространство не найдено');
       }
       const data = await response.json();
-      setSpace(data);
+      setSpace({
+        ...data,
+        files_count: typeof data.files_count === 'number' ? data.files_count : 0,
+      });
     } catch (err: any) {
       setError(err.message || 'Ошибка загрузки пространства');
     } finally {
@@ -170,6 +219,20 @@ export const PublicSpacePage: React.FC<PublicSpacePageProps> = ({ publicToken })
       setTags(data.tags || []);
     } catch (err: any) {
       console.error('Ошибка загрузки тегов:', err);
+    }
+  };
+
+  const loadSpaceFiles = async () => {
+    try {
+      const response = await fetch(`/api/public/spaces/${publicToken}/files?limit=200&offset=0`);
+      if (!response.ok) {
+        throw new Error('Ошибка загрузки файлов');
+      }
+      const data = await response.json();
+      setSpaceFiles(data.files || []);
+    } catch (err: any) {
+      console.error('Ошибка загрузки файлов:', err);
+      setSpaceFiles([]);
     }
   };
 
@@ -303,6 +366,10 @@ export const PublicSpacePage: React.FC<PublicSpacePageProps> = ({ publicToken })
                 <span className="public-space-stat-number">{space.notes_count}</span>
                 <span className="public-space-stat-label">заметок</span>
               </div>
+              <div className="public-space-stat-item">
+                <span className="public-space-stat-number">{space.files_count ?? 0}</span>
+                <span className="public-space-stat-label">файлов</span>
+              </div>
             </div>
           </div>
 
@@ -324,6 +391,12 @@ export const PublicSpacePage: React.FC<PublicSpacePageProps> = ({ publicToken })
               onClick={() => setActiveTab('tags')}
             >
               Теги
+            </button>
+            <button
+              className={activeTab === 'files' ? 'active' : ''}
+              onClick={() => setActiveTab('files')}
+            >
+              Файлы
             </button>
           </div>
 
@@ -413,6 +486,32 @@ export const PublicSpacePage: React.FC<PublicSpacePageProps> = ({ publicToken })
               )}
             </div>
           )}
+
+          {activeTab === 'files' && (
+            <div className="public-files-list">
+              <h4>Файлы</h4>
+              {spaceFiles.length === 0 ? (
+                <p className="no-items">Пока нет файлов</p>
+              ) : (
+                <ul>
+                  {spaceFiles.map((f) => {
+                    const url = `/${f.file_path}`;
+                    return (
+                      <li key={f.id}>
+                        <a href={url} target="_blank" rel="noreferrer" className="public-file-sidebar-link">
+                          <div className="public-file-sidebar-name">{f.filename}</div>
+                          <div className="public-file-sidebar-meta">
+                            {formatBytes(f.file_size)}
+                            {f.chat_title ? ` · ${f.chat_title}` : ''}
+                          </div>
+                        </a>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="public-space-main">
@@ -420,31 +519,71 @@ export const PublicSpacePage: React.FC<PublicSpacePageProps> = ({ publicToken })
             selectedChatId ? (
               <>
                 <div className="public-messages-container">
-                  {messages.map((msg) => (
-                    <div key={msg.id} className={`public-message ${msg.role}`}>
-                      <div className="public-message-content">
-                        {msg.role === 'assistant' ? (
-                          msg.isLoading ? (
-                            <TypingAnimation text={msg.content} />
+                  {messages.map((msg) => {
+                    const rich = messageBodyUsesRichHtml(msg.role, msg.content, msg.isLoading);
+                    return (
+                      <div key={msg.id} className={`public-message ${msg.role}`}>
+                        <div
+                          className={
+                            rich ? 'public-message-content public-message-content--rich' : 'public-message-content'
+                          }
+                        >
+                          {msg.role === 'assistant' ? (
+                            msg.isLoading ? (
+                              <TypingAnimation text={msg.content} />
+                            ) : rich ? (
+                              <div dangerouslySetInnerHTML={{ __html: msg.content }} />
+                            ) : (
+                              <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+                            )
                           ) : (
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                              {msg.content}
-                            </ReactMarkdown>
-                          )
-                        ) : (
-                          <div>{msg.content}</div>
-                        )}
-                        {msg.created_at && (
-                          <div className="public-message-timestamp">
-                            {new Date(msg.created_at).toLocaleTimeString('ru-RU', {
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
-                          </div>
-                        )}
+                            (() => {
+                              let cleanedContent = msg.content;
+                              const fileCardRegex =
+                                /<div class="message-file-card"[^>]*>[\s\S]*?<div class="message-file-icon">([^<]+)<\/div>[\s\S]*?<div class="message-file-name">([^<]+)<\/div>[\s\S]*?<\/div>/g;
+                              const matches: string[] = [];
+                              let match: RegExpExecArray | null;
+                              while ((match = fileCardRegex.exec(msg.content)) !== null) {
+                                matches.push(match[0]);
+                              }
+                              matches.forEach((cardHtml) => {
+                                cleanedContent = cleanedContent.replace(cardHtml, '');
+                              });
+                              cleanedContent = cleanedContent.trim();
+                              const hideAttachmentLine =
+                                cleanedContent.toLowerCase().includes('прикреплен') ||
+                                !!cleanedContent.match(/[📎🖼️📄📝]\s+.*прикреплен/i);
+                              const hasHtml =
+                                cleanedContent.includes('<img') ||
+                                cleanedContent.includes('<div class="uploaded-file') ||
+                                cleanedContent.includes('<div');
+                              return (
+                                <>
+                                  {cleanedContent && !hideAttachmentLine && (
+                                    <div>
+                                      {hasHtml ? (
+                                        <div dangerouslySetInnerHTML={{ __html: cleanedContent }} />
+                                      ) : (
+                                        cleanedContent
+                                      )}
+                                    </div>
+                                  )}
+                                </>
+                              );
+                            })()
+                          )}
+                          {msg.created_at && (
+                            <div className="public-message-timestamp">
+                              {new Date(msg.created_at).toLocaleTimeString('ru-RU', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 <div className="chat-input-section">
@@ -558,6 +697,51 @@ export const PublicSpacePage: React.FC<PublicSpacePageProps> = ({ publicToken })
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'files' && (
+            <div className="public-files-view">
+              {spaceFiles.length === 0 ? (
+                <div className="public-empty-state">
+                  <h3>Нет файлов</h3>
+                  <p>В этом пространстве пока нет прикреплённых файлов</p>
+                </div>
+              ) : (
+                <div className="public-files-container">
+                  {spaceFiles.map((f) => {
+                    const url = `/${f.file_path}`;
+                    const img = isImageAttachment(f);
+                    return (
+                      <div key={f.id} className="public-file-card">
+                        <div className="public-file-card-preview">
+                          {img ? (
+                            <a href={url} target="_blank" rel="noreferrer">
+                              <img src={url} alt="" />
+                            </a>
+                          ) : (
+                            <a href={url} target="_blank" rel="noreferrer" className="public-file-doc-link">
+                              <Icon src={ICONS.paperclip} size="md" />
+                              <span>Открыть</span>
+                            </a>
+                          )}
+                        </div>
+                        <div className="public-file-card-meta">
+                          <a href={url} target="_blank" rel="noreferrer" className="public-file-card-name">
+                            {f.filename}
+                          </a>
+                          <div className="public-file-card-sub">
+                            {formatBytes(f.file_size)}
+                            {f.chat_title ? ` · ${f.chat_title}` : ''}
+                            {' · '}
+                            {new Date(f.created_at).toLocaleString('ru-RU')}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
