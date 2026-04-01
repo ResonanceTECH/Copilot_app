@@ -269,7 +269,7 @@ export const AssistantPage: React.FC = () => {
     }
   }, [threads]);
 
-  // Restore last selected chat on first load after refresh
+  // Restore last selected chat on first load after refresh (?chat= has priority, e.g. из профиля / пространства)
   useEffect(() => {
     if (!isAuthenticated) return;
     if (activeThreadId) return;
@@ -277,6 +277,25 @@ export const AssistantPage: React.FC = () => {
     if (didRestoreActiveThreadRef.current) return;
 
     try {
+      const params = new URLSearchParams(window.location.search);
+      const chatParam = params.get('chat');
+      if (chatParam) {
+        const chatId = parseInt(chatParam, 10);
+        if (Number.isFinite(chatId)) {
+          const threadId = `chat-${chatId}`;
+          if (threads.has(threadId)) {
+            didRestoreActiveThreadRef.current = true;
+            void handleThreadSelect(threadId);
+            try {
+              window.history.replaceState({}, '', window.location.pathname || '/assistant');
+            } catch {
+              // ignore
+            }
+            return;
+          }
+        }
+      }
+
       const saved = localStorage.getItem(ACTIVE_THREAD_STORAGE_KEY);
       if (saved && threads.has(saved)) {
         didRestoreActiveThreadRef.current = true;

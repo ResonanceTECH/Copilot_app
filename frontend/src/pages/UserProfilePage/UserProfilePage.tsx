@@ -8,6 +8,7 @@ import { useLanguage } from '../../contexts/LanguageContext';
 import { getTranslation } from '../../utils/i18n';
 import { applyTheme, getTheme, watchSystemTheme, type Theme } from '../../utils/theme';
 import { EfficiencyAnalytics } from './EfficiencyAnalytics';
+import { AppStructureTree } from './AppStructureTree';
 import './UserProfilePage.css';
 
 type ProfileSection =
@@ -18,6 +19,7 @@ type ProfileSection =
   | 'tasks'
   | 'notifications'
   | 'connectors'
+  | 'structure'
   | 'api'
   | 'corporation';
 
@@ -271,6 +273,7 @@ export const UserProfilePage: React.FC = () => {
         { id: 'tasks' as ProfileSection, label: 'Задачи', icon: ICONS.note },
         { id: 'notifications' as ProfileSection, label: 'Уведомления', icon: ICONS.bell },
         { id: 'connectors' as ProfileSection, label: 'Реферальная ссылка', icon: ICONS.link },
+        { id: 'structure' as ProfileSection, label: 'Структура', icon: ICONS.menu },
       ],
     },
     {
@@ -675,6 +678,16 @@ export const UserProfilePage: React.FC = () => {
                     </label>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {activeSection === 'structure' && (
+              <div className="user-profile-section">
+                <h2 className="user-profile-section-title">Структура</h2>
+                <p className="user-profile-structure-intro">
+                  Иерархия пространств, чатов и вложений. Нажмите на элемент, чтобы перейти.
+                </p>
+                <AppStructureTree userName={profile.name} />
               </div>
             )}
 
