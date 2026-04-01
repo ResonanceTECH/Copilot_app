@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from typing import Optional, List, Dict, Any
-from sqlalchemy import desc, or_
+from sqlalchemy import desc, or_, and_
 import json
 import zipfile
 import io
@@ -260,9 +260,23 @@ async def list_space_files(
             detail="Пространство не найдено"
         )
 
-    query = db.query(FileAttachment, Chat).outerjoin(Chat, Chat.id == FileAttachment.chat_id).filter(
-        FileAttachment.space_id == space_id,
+    # Файл относится к пространству, если чат сейчас в этом space (а не по устаревшему FileAttachment.space_id
+    # после переноса чата). Без chat_id — только явная привязка space_id на вложении.
+    query = db.query(FileAttachment, Chat).outerjoin(
+        Chat,
+        and_(Chat.id == FileAttachment.chat_id, Chat.user_id == current_user.id),
+    ).filter(
         FileAttachment.user_id == current_user.id,
+        or_(
+            and_(
+                FileAttachment.chat_id.isnot(None),
+                Chat.space_id == space_id,
+            ),
+            and_(
+                FileAttachment.chat_id.is_(None),
+                FileAttachment.space_id == space_id,
+            ),
+        ),
     )
 
     if origin:
@@ -325,7 +339,7 @@ async def list_space_files(
     for fa, ch in rows:
         items.append(SpaceFileAttachmentItem(
             id=fa.id,
-            space_id=fa.space_id,
+            space_id=ch.space_id if ch else fa.space_id,
             chat_id=fa.chat_id,
             chat_title=ch.title if ch else None,
             message_id=fa.message_id,
@@ -367,10 +381,16 @@ async def rename_space_file(
     if len(new_name) > 255:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Имя файла слишком длинное")
 
-    fa = db.query(FileAttachment).filter(
+    fa = db.query(FileAttachment).outerjoin(
+        Chat,
+        and_(Chat.id == FileAttachment.chat_id, Chat.user_id == current_user.id),
+    ).filter(
         FileAttachment.id == file_id,
-        FileAttachment.space_id == space_id,
         FileAttachment.user_id == current_user.id,
+        or_(
+            and_(FileAttachment.chat_id.isnot(None), Chat.space_id == space_id),
+            and_(FileAttachment.chat_id.is_(None), FileAttachment.space_id == space_id),
+        ),
     ).first()
     if not fa:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Файл не найден")
@@ -379,6 +399,7 @@ async def rename_space_file(
     db.commit()
     db.refresh(fa)
 
+    ch = None
     chat_title = None
     if fa.chat_id:
         ch = db.query(Chat).filter(Chat.id == fa.chat_id).first()
@@ -386,7 +407,7 @@ async def rename_space_file(
 
     return SpaceFileAttachmentItem(
         id=fa.id,
-        space_id=fa.space_id,
+        space_id=ch.space_id if ch else fa.space_id,
         chat_id=fa.chat_id,
         chat_title=chat_title,
         message_id=fa.message_id,

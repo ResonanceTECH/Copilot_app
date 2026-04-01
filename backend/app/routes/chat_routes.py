@@ -1245,6 +1245,12 @@ async def update_chat(
     if update_data:
         update_data["updated_at"] = datetime.now(timezone.utc)
         db.query(Chat).filter(Chat.id == chat_id).update(update_data)
+        if "space_id" in update_data:
+            new_sid = update_data["space_id"]
+            db.query(FileAttachment).filter(FileAttachment.chat_id == chat_id).update(
+                {"space_id": new_sid},
+                synchronize_session=False,
+            )
         db.commit()
         db.refresh(chat)
 
