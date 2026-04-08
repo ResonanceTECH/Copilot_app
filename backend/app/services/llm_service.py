@@ -313,7 +313,8 @@ class LLMService:
             system_prompt: str,
             user_question: str,
             conversation_history: List[Dict] = None,
-            max_history_tokens: int = 3000
+            max_history_tokens: int = 3000,
+            space_context: Optional[str] = None,
     ) -> str:
         """
         Генерация ответа через LLM с учетом истории сообщений
@@ -323,14 +324,19 @@ class LLMService:
             user_question: Вопрос пользователя
             conversation_history: История сообщений (из БД)
             max_history_tokens: Максимальное количество токенов для истории
+            space_context: Доп. блок (контекст пространства), добавляется к system prompt
 
         Returns:
             Ответ от LLM или None в случае ошибки
         """
         try:
+            full_system = system_prompt
+            if space_context and space_context.strip():
+                full_system = f"{system_prompt.rstrip()}\n\n{space_context.strip()}"
+
             # Подготавливаем сообщения с учетом ограничений по токенам
             messages = self.prepare_conversation_messages(
-                system_prompt,
+                full_system,
                 user_question,
                 conversation_history,
                 max_history_tokens

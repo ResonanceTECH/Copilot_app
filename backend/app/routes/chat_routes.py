@@ -23,6 +23,7 @@ from backend.app.models.user_activity import UserActivity
 from backend.app.services.llm_service import LLMService
 from backend.app.services.cache_service import CacheService
 from backend.app.services.formatting_service import FormattingService
+from backend.app.services.space_context_service import build_space_context_prompt_block
 from backend.ml.services.graphic_service import GraphicService
 from backend.app.routes.spaces_routes import SpaceFileAttachmentItem, SpaceFilesListResponse
 from backend.app.utils.message_display import format_message_content_for_display
@@ -156,14 +157,14 @@ def get_enhanced_system_prompt(user_question: str):
 
 
 def get_conversation_history(chat_id: int, db: Session, max_messages: int = 10) -> List[Dict[str, str]]:
-    """Получить историю сообщений для контекста LLM, включая содержимое файлов"""
+    """Получить последние max_messages сообщений чата для контекста LLM, включая содержимое файлов."""
     messages = db.query(Message).filter(
         Message.chat_id == chat_id
-    ).order_by(Message.created_at.asc()).limit(max_messages).all()  # Уже в хронологическом порядке
+    ).order_by(Message.created_at.desc()).limit(max_messages).all()
 
-    # Преобразуем в список словарей
+    # Преобразуем в список словарей (хронологически от старых к новым)
     formatted_history = []
-    for msg in messages:
+    for msg in reversed(messages):
         content = msg.content
         
         # Если у сообщения есть связанные файлы, добавляем их содержимое
@@ -662,13 +663,18 @@ async def _assistant_reply_pipeline(
 
     conversation_history = get_conversation_history(chat.id, db, max_messages=15)
 
+    space_context_block = build_space_context_prompt_block(db, space.id, limit=30)
+
     print(f"📚 Используем историю из {len(conversation_history)} сообщений для контекста")
+    if space_context_block:
+        print(f"🗂️ Добавлен контекст пространства (последние сообщения по всем чатам space)")
 
     try:
         ai_response = llm_service.generate_response(
             system_prompt=enhanced_prompt,
             user_question=user_message_with_file,
-            conversation_history=conversation_history
+            conversation_history=conversation_history,
+            space_context=space_context_block,
         )
     except ValueError as e:
         error_msg = str(e)
@@ -1220,20 +1226,23 @@ async def get_chat_context(
 
     # Получаем историю для контекста
     conversation_history = get_conversation_history(chat_id, db, max_messages=15)
+    space_context_preview = build_space_context_prompt_block(db, chat.space_id, limit=30)
 
     return {
         "chat_id": chat_id,
         "chat_title": chat.title,
+        "space_id": chat.space_id,
         "total_messages": len(conversation_history),
+        "space_context_included": bool(space_context_preview),
         "context_messages": [
             {
-                "id": msg.id,
-                "role": msg.role,
-                "content_preview": msg.content[:100] + "..." if len(msg.content) > 100 else msg.content,
-                "created_at": msg.created_at.isoformat()
+                "role": m["role"],
+                "content_preview": (m["content"][:100] + "...")
+                if len(m.get("content", "")) > 100
+                else m.get("content", ""),
             }
-            for msg in conversation_history
-        ]
+            for m in conversation_history
+        ],
     }
 
 

@@ -21,6 +21,7 @@ from backend.ml.services.classifier_service import BusinessClassifierService
 from backend.app.services.llm_service import LLMService
 from backend.app.services.cache_service import CacheService
 from backend.app.services.formatting_service import FormattingService
+from backend.app.services.space_context_service import build_space_context_prompt_block
 
 router = APIRouter()
 
@@ -365,18 +366,20 @@ async def send_public_message(
         
         # Получаем ВСЮ историю сообщений для контекста
         conversation_history = get_conversation_history(chat.id, db, max_messages=15)
-        
+        space_context_block = build_space_context_prompt_block(db, space.id, limit=30)
+
         print(f"📚 Используем историю из {len(conversation_history)} сообщений для контекста")
-        
+
         # Получаем усиленный промпт
         enhanced_prompt, category, probabilities = get_enhanced_system_prompt(user_message)
-        
-        # Генерируем ответ с учетом всей истории чата
+
+        # Генерируем ответ с учетом всей истории чата и контекста пространства
         try:
             ai_response = llm_service.generate_response(
                 system_prompt=enhanced_prompt,
                 user_question=user_message,
-                conversation_history=conversation_history
+                conversation_history=conversation_history,
+                space_context=space_context_block,
             )
         except ValueError as e:
             error_msg = str(e)
