@@ -1476,9 +1476,9 @@
 }
 
 .app-structure-tree {
-  font-family: ui-monospace, 'Cascadia Code', 'Consolas', monospace;
+  --app-structure-tree-line: var(--color-accent, #4a9eff);
   font-size: 13px;
-  line-height: 1.65;
+  line-height: 1.55;
   padding: 16px;
   background: var(--color-input-bg);
   border: 1px solid var(--color-border);
@@ -1486,26 +1486,174 @@
   overflow-x: auto;
 }
 
+.app-structure-tree-inner {
+  min-width: min-content;
+}
+
+.app-structure-tree-node {
+  margin: 0;
+}
+
 .app-structure-tree-line {
   display: flex;
   flex-wrap: nowrap;
-  align-items: baseline;
-  white-space: pre;
+  align-items: stretch;
+  min-height: 26px;
 }
 
 .app-structure-tree-line--root {
-  margin-bottom: 4px;
+  align-items: center;
+  margin-bottom: 2px;
   font-weight: 600;
-  white-space: normal;
 }
 
-.app-structure-tree-prefix {
+.app-structure-tree-label-cell--root .app-structure-tree-text {
+  color: var(--color-text);
+}
+
+/* Колонки продолжения вертикали для предков */
+.app-structure-tree-guide {
+  width: 18px;
   flex-shrink: 0;
-  color: var(--color-text-secondary);
-  user-select: none;
+  position: relative;
+  align-self: stretch;
+}
+
+.app-structure-tree-guide--pass::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--app-structure-tree-line);
+}
+
+.app-structure-tree-guide--skip {
+  /* предок последний среди братьев — линия не идёт вниз */
+}
+
+/* Угол / тройник перед меткой */
+.app-structure-tree-branch {
+  width: 18px;
+  flex-shrink: 0;
+  position: relative;
+  align-self: stretch;
+}
+
+.app-structure-tree-branch--tee::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--app-structure-tree-line);
+}
+
+.app-structure-tree-branch--tee::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  right: 0;
+  height: 1px;
+  margin-top: -0.5px;
+  background: var(--app-structure-tree-line);
+}
+
+.app-structure-tree-branch--corner::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  top: 0;
+  bottom: 50%;
+  width: 1px;
+  background: var(--app-structure-tree-line);
+}
+
+.app-structure-tree-branch--corner::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  right: 0;
+  height: 1px;
+  margin-top: -0.5px;
+  background: var(--app-structure-tree-line);
+}
+
+.app-structure-tree-toggle {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  min-height: 22px;
+  margin: 0 4px 0 0;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--app-structure-tree-line);
+  cursor: pointer;
+  vertical-align: middle;
+}
+
+.app-structure-tree-toggle:hover {
+  background: rgba(74, 158, 255, 0.14);
+}
+
+.app-structure-tree-toggle:focus-visible {
+  outline: 2px solid var(--app-structure-tree-line);
+  outline-offset: 1px;
+}
+
+.app-structure-tree-toggle-spacer {
+  flex-shrink: 0;
+  width: 22px;
+  margin-right: 4px;
+}
+
+.app-structure-tree-chevron {
+  display: block;
+  width: 6px;
+  height: 6px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 0.15s ease;
+}
+
+.app-structure-tree-chevron--open {
+  transform: rotate(45deg);
+}
+
+.app-structure-tree-children {
+  margin: 0;
+  padding: 0;
+}
+
+.app-structure-tree-children--root {
+  margin-top: 2px;
+}
+
+/* Занимает оставшуюся ширину строки; кликабельны только инлайновые ссылки внутри. */
+.app-structure-tree-label-cell {
+  flex: 1;
+  min-width: 0;
+  align-self: center;
+}
+
+.app-structure-tree-label-cell--root {
+  flex: 0 1 auto;
 }
 
 .app-structure-tree-link {
+  display: inline;
   color: var(--color-accent, #4a9eff);
   text-decoration: none;
   white-space: normal;
@@ -1517,6 +1665,7 @@
 }
 
 .app-structure-tree-text {
+  display: inline;
   color: var(--color-text);
   white-space: normal;
   word-break: break-word;

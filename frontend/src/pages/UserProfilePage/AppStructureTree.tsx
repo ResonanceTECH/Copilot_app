@@ -113,65 +113,150 @@ function buildTreeData(
   return { label: rootLabel, children: spaceNodes.length ? spaceNodes : undefined };
 }
 
-/** Рекурсивно дорисовываем вложенные уровни (чаты и файлы) после первого уровня пространств */
-function renderNestedSubtree(node: TreeChild, prefix: string, baseKey: string): React.ReactNode[] {
-  const children = node.children;
-  if (!children?.length) return [];
-
-  const out: React.ReactNode[] = [];
-  children.forEach((child, i) => {
-    const isLast = i === children.length - 1;
-    const branch = isLast ? '└── ' : '├── ';
-    const lineKey = `${baseKey}-c${i}`;
-    const lineLabel = treeLineText(child.label, '…');
-    out.push(
-      <div key={lineKey} className="app-structure-tree-line">
-        <span className="app-structure-tree-prefix">{prefix + branch}</span>
-        {child.href ? (
-          <a href={child.href} className="app-structure-tree-link">
-            {lineLabel}
-          </a>
-        ) : (
-          <span className="app-structure-tree-text">{lineLabel}</span>
-        )}
-      </div>
-    );
-    const childPrefix = prefix + (isLast ? '    ' : '│   ');
-    out.push(...renderNestedSubtree(child, childPrefix, lineKey));
-  });
-  return out;
+interface TreeNodeProps {
+  node: TreeChild;
+  nodeKey: string;
+  depth: number;
+  /** Для каждого уровня предков: true, если предок был последним среди братьев — вертикаль в этой колонке не продолжается. */
+  ancestorIsLast: boolean[];
+  isLastSibling: boolean;
+  collapsed: Set<string>;
+  toggleNode: (id: string) => void;
 }
 
-function renderFullTree(root: TreeChild): React.ReactElement {
-  const rootText = treeLineText(root.label, 'Пользователь');
-  const rows: React.ReactNode[] = [
-    <div key="root" className="app-structure-tree-line app-structure-tree-line--root">
-      <span className="app-structure-tree-text">{rootText}</span>
-    </div>,
-  ];
-  const spaces = root.children;
-  if (spaces?.length) {
-    spaces.forEach((space, si) => {
-      const isLastSpace = si === spaces.length - 1;
-      const branch = isLastSpace ? '└── ' : '├── ';
-      const spaceLabel = treeLineText(space.label, `Пространство ${si}`);
-      rows.push(
-        <div key={`s-${si}`} className="app-structure-tree-line">
-          <span className="app-structure-tree-prefix">{branch}</span>
-          {space.href ? (
-            <a href={space.href} className="app-structure-tree-link">
-              {spaceLabel}
+function TreeNode({
+  node,
+  nodeKey,
+  depth,
+  ancestorIsLast,
+  isLastSibling,
+  collapsed,
+  toggleNode,
+}: TreeNodeProps): React.ReactElement {
+  const children = node.children;
+  const hasChildren = Boolean(children?.length);
+  const expanded = !collapsed.has(nodeKey);
+  const lineLabel = treeLineText(node.label, '…');
+
+  const guides = ancestorIsLast.map((isLast, i) => (
+    <span
+      key={i}
+      className={
+        isLast
+          ? 'app-structure-tree-guide app-structure-tree-guide--skip'
+          : 'app-structure-tree-guide app-structure-tree-guide--pass'
+      }
+      aria-hidden
+    />
+  ));
+
+  const branchClass =
+    'app-structure-tree-branch ' +
+    (isLastSibling ? 'app-structure-tree-branch--corner' : 'app-structure-tree-branch--tee');
+
+  return (
+    <div className="app-structure-tree-node">
+      <div className="app-structure-tree-line">
+        {guides}
+        <span className={branchClass} aria-hidden />
+        {hasChildren ? (
+          <button
+            type="button"
+            className="app-structure-tree-toggle"
+            onClick={() => toggleNode(nodeKey)}
+            aria-expanded={expanded}
+            aria-label={expanded ? 'Свернуть' : 'Развернуть'}
+          >
+            <span className={expanded ? 'app-structure-tree-chevron app-structure-tree-chevron--open' : 'app-structure-tree-chevron'} />
+          </button>
+        ) : (
+          <span className="app-structure-tree-toggle-spacer" aria-hidden />
+        )}
+        <span className="app-structure-tree-label-cell">
+          {node.href ? (
+            <a href={node.href} className="app-structure-tree-link">
+              {lineLabel}
             </a>
           ) : (
-            <span className="app-structure-tree-text">{spaceLabel}</span>
+            <span className="app-structure-tree-text">{lineLabel}</span>
           )}
+        </span>
+      </div>
+      {hasChildren && expanded && (
+        <div className="app-structure-tree-children">
+          {children!.map((child, i) => {
+            const childKey = `${nodeKey}/${i}`;
+            return (
+              <TreeNode
+                key={childKey}
+                node={child}
+                nodeKey={childKey}
+                depth={depth + 1}
+                ancestorIsLast={[...ancestorIsLast, isLastSibling]}
+                isLastSibling={i === children!.length - 1}
+                collapsed={collapsed}
+                toggleNode={toggleNode}
+              />
+            );
+          })}
         </div>
-      );
-      const sp = isLastSpace ? '    ' : '│   ';
-      rows.push(...renderNestedSubtree(space, sp, `s-${si}`));
-    });
-  }
-  return <>{rows}</>;
+      )}
+    </div>
+  );
+}
+
+interface TreeRootProps {
+  root: TreeChild;
+  collapsed: Set<string>;
+  toggleNode: (id: string) => void;
+}
+
+function TreeRoot({ root, collapsed, toggleNode }: TreeRootProps): React.ReactElement {
+  const rootText = treeLineText(root.label, 'Пользователь');
+  const spaces = root.children;
+  const hasSpaces = Boolean(spaces?.length);
+  const rootExpanded = !collapsed.has('root');
+
+  return (
+    <div className="app-structure-tree-inner">
+      <div className="app-structure-tree-line app-structure-tree-line--root">
+        {hasSpaces ? (
+          <button
+            type="button"
+            className="app-structure-tree-toggle"
+            onClick={() => toggleNode('root')}
+            aria-expanded={rootExpanded}
+            aria-label={rootExpanded ? 'Свернуть пространства' : 'Развернуть пространства'}
+          >
+            <span
+              className={rootExpanded ? 'app-structure-tree-chevron app-structure-tree-chevron--open' : 'app-structure-tree-chevron'}
+            />
+          </button>
+        ) : (
+          <span className="app-structure-tree-toggle-spacer" aria-hidden />
+        )}
+        <span className="app-structure-tree-label-cell app-structure-tree-label-cell--root">
+          <span className="app-structure-tree-text">{rootText}</span>
+        </span>
+      </div>
+      {hasSpaces && rootExpanded && (
+        <div className="app-structure-tree-children app-structure-tree-children--root">
+          {spaces!.map((space, si) => (
+            <TreeNode
+              key={`s-${si}`}
+              node={space}
+              nodeKey={`s-${si}`}
+              depth={0}
+              ancestorIsLast={[]}
+              isLastSibling={si === spaces!.length - 1}
+              collapsed={collapsed}
+              toggleNode={toggleNode}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export interface AppStructureTreeProps {
@@ -183,6 +268,16 @@ export const AppStructureTree: React.FC<AppStructureTreeProps> = ({ userName }) 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [root, setRoot] = useState<TreeChild | null>(null);
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+
+  const toggleNode = useCallback((id: string) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -244,7 +339,7 @@ export const AppStructureTree: React.FC<AppStructureTreeProps> = ({ userName }) 
   const hasSpaces = root.children && root.children.length > 0;
   return (
     <div className="app-structure-tree">
-      {renderFullTree(root)}
+      <TreeRoot root={root} collapsed={collapsed} toggleNode={toggleNode} />
       {!hasSpaces && (
         <div className="app-structure-tree-hint">Пока нет пространств — создайте пространство в приложении.</div>
       )}
